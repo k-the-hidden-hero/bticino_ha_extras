@@ -1,0 +1,167 @@
+blueprint:
+  name: BTicino Intercom Notification
+  description: >
+    Sends an urgent push notification when the BTicino doorbell rings.
+    Updates the notification with a live snapshot when available.
+    Provides three actions: Answer (open live video), Open Door, and Reject.
+  domain: automation
+  author: k-the-hidden-hero
+  source_url: https://github.com/k-the-hidden-hero/bticino_ha_extras/blob/main/blueprints/automation/bticino_intercom/intercom_notification.yaml
+  input:
+    notify_service:
+      name: Notification service
+      description: The mobile app notification service to use (e.g. notify.mobile_app_iphone_andrea)
+      selector:
+        text:
+    lock_entity:
+      name: Door lock
+      description: The lock entity to unlock when "Open Door" is tapped
+      selector:
+        entity:
+          domain: lock
+          integration: bticino_intercom
+    camera_entity:
+      name: Live video camera (optional)
+      description: The WebRTC camera entity to open when "Answer" is tapped
+      default: ""
+      selector:
+        entity:
+          domain: camera
+          integration: bticino_intercom
+
+mode: single
+max_exceeded: silent
+
+trigger:
+  - platform: event
+    event_type: bticino_intercom_incoming_call
+    id: call_event
+
+  - platform: state
+    entity_id: !input lock_entity
+    to: "locked"
+    id: call_ended
+
+  # Listen for notification actions
+  - platform: event
+    event_type: mobile_app_notification_action
+    event_data:
+      action: BTICINO_ANSWER
+    id: action_answer
+
+  - platform: event
+    event_type: mobile_app_notification_action
+    event_data:
+      action: BTICINO_OPEN_DOOR
+    id: action_open_door
+
+  - platform: event
+    event_type: mobile_app_notification_action
+    event_data:
+      action: BTICINO_REJECT
+    id: action_reject
+
+action:
+  - choose:
+      # --- Incoming call: send urgent notification ---
+      - conditions:
+          - condition: trigger
+            id: call_event
+        sequence:
+          - service: !input notify_service
+            data:
+              title: "Citofono"
+              message: >
+                {{ trigger.event.data.name | default('Qualcuno al citofono') }}
+              data:
+                tag: bticino_call_active
+                push:
+                  interruption-level: critical
+                  sound:
+                    name: default
+                    critical: 1
+                    volume: 1.0
+                channel: alarm_stream
+                importance: high
+                actions:
+                  - action: BTICINO_ANSWER
+                    title: "Rispondi"
+                  - action: BTICINO_OPEN_DOOR
+                    title: "Apri porta"
+                  - action: BTICINO_REJECT
+                    title: "Rifiuta"
+                    destructive: true
+
+          # Wait briefly for snapshot to arrive, then update notification
+          - delay:
+              seconds: 3
+
+          # Check if snapshot is available and update notification
+          - variables:
+              snapshot_url: >
+                {{ state_attr('camera.bticino_intercom_casella_last_event_snapshot', 'image_url') | default('') }}
+
+          - condition: template
+            value_template: "{{ snapshot_url != '' }}"
+
+          - service: !input notify_service
+            data:
+              title: "Citofono"
+              message: >
+                {{ trigger.event.data.name | default('Qualcuno al citofono') }}
+              data:
+                tag: bticino_call_active
+                image: "{{ snapshot_url }}"
+                push:
+                  interruption-level: critical
+                  sound:
+                    name: default
+                    critical: 1
+                    volume: 0.0
+                channel: alarm_stream
+                importance: high
+                actions:
+                  - action: BTICINO_ANSWER
+                    title: "Rispondi"
+                  - action: BTICINO_OPEN_DOOR
+                    title: "Apri porta"
+                  - action: BTICINO_REJECT
+                    title: "Rifiuta"
+                    destructive: true
+
+      # --- Answer: open camera ---
+      - conditions:
+          - condition: trigger
+            id: action_answer
+        sequence:
+          - service: !input notify_service
+            data:
+              message: clear_notification
+              data:
+                tag: bticino_call_active
+
+      # --- Open door ---
+      - conditions:
+          - condition: trigger
+            id: action_open_door
+        sequence:
+          - service: lock.unlock
+            target:
+              entity_id: !input lock_entity
+
+          - service: !input notify_service
+            data:
+              message: clear_notification
+              data:
+                tag: bticino_call_active
+
+      # --- Reject: dismiss ---
+      - conditions:
+          - condition: trigger
+            id: action_reject
+        sequence:
+          - service: !input notify_service
+            data:
+              message: clear_notification
+              data:
+                tag: bticino_call_active
