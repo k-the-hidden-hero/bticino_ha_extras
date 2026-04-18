@@ -1,5 +1,5 @@
 /**
- * BTicino Intercom Card v2.0
+ * BTicino Intercom Card
  *
  * Custom Lovelace card for BTicino Classe 100X/300X video intercom systems.
  * Provides live video WITH audio, configurable door/light action buttons,
@@ -9,6 +9,15 @@
  * into the WebRTC offer, which tricks the BTicino device into activating its
  * microphone. HA's built-in camera player uses recvonly (no track), so the
  * device sends silence. This card generates sendrecv + a real SSRC in the SDP.
+ *
+ * Browser compatibility:
+ *   Chrome/Chromium: Full support (video + audio + two-way audio).
+ *   Firefox: NOT SUPPORTED. The BTicino device firmware uses hardcoded
+ *   Chrome-compatible RTP payload types (PT=111 for Opus, PT=109 for H264)
+ *   regardless of SDP negotiation. Firefox assigns different PTs and drops
+ *   packets with unrecognized types. ICE, DTLS, and SRTP all work correctly
+ *   in Firefox — the issue is exclusively at the RTP payload type layer in
+ *   the device firmware. See bticino_intercom docs/firefox-webrtc-investigation.md.
  *
  * Config:
  *   type: custom:bticino-intercom-card
@@ -22,11 +31,10 @@
  *       service: lock.unlock
  *   max_actions: 4
  *
- * @version 2.0.0
  * @license MIT
  */
 
-const CARD_VERSION = '2.10.0';
+const CARD_VERSION = '2.14.0';
 
 const STATE = {
   IDLE: 'idle',
@@ -1051,9 +1059,19 @@ class BticinoIntercomCard extends HTMLElement {
         console.warn('[bticino-card] Failed to fetch ICE servers, using fallback STUN:', err);
       }
 
-      // 2. Create RTCPeerConnection with proper ICE servers
+      // 2. Generate RSA certificate (Firefox defaults to ECDSA which some
+      // embedded devices don't support) and create RTCPeerConnection
+      const cert = await RTCPeerConnection.generateCertificate({
+        name: 'RSASSA-PKCS1-v1_5',
+        hash: 'SHA-256',
+        modulusLength: 2048,
+        publicExponent: new Uint8Array([1, 0, 1]),
+      });
+      console.log(`[bticino-card] Generated RSA certificate`);
+
       this._pc = new RTCPeerConnection({
         iceServers,
+        certificates: [cert],
         bundlePolicy: 'max-compat',
         rtcpMuxPolicy: 'require',
       });
@@ -1121,13 +1139,34 @@ class BticinoIntercomCard extends HTMLElement {
         }
       };
 
-      // 3. Create offer
+      // 3. Create offer and remap PTs to match Chrome's defaults.
+      // The BTicino device firmware is hardcoded to Chrome's PT mapping:
+      // PT=111 for Opus (Firefox uses 109), PT=109 for H264 (Firefox uses 126).
+      // Without remapping, the device sends/receives on PTs Firefox doesn't recognize.
       const offer = await this._pc.createOffer();
-      await this._pc.setLocalDescription(offer);
-      console.log('[bticino-card] Offer SDP:\n' + this._pc.localDescription.sdp);
+      let sdp = offer.sdp;
+
+      // Remap audio: Firefox PT=109 (Opus) → Chrome PT=111
+      // Use temporary placeholder to avoid collision
+      sdp = sdp.replace(/( |^)109( |\r)/gm, '$1__OPUS__$2');
+      sdp = sdp.replace(/a=rtpmap:109 /g, 'a=rtpmap:__OPUS__ ');
+      sdp = sdp.replace(/a=fmtp:109 /g, 'a=fmtp:__OPUS__ ');
+      sdp = sdp.replace(/__OPUS__/g, '111');
+
+      // Remap video: Firefox PT=126 (H264 42e01f pm=1) → Chrome PT=109
+      sdp = sdp.replace(/( |^)126( |\r)/gm, '$1__H264__$2');
+      sdp = sdp.replace(/a=rtpmap:126 /g, 'a=rtpmap:__H264__ ');
+      sdp = sdp.replace(/a=fmtp:126 /g, 'a=fmtp:__H264__ ');
+      sdp = sdp.replace(/a=rtcp-fb:126 /g, 'a=rtcp-fb:__H264__ ');
+      // Also remap PT=127 (rtx for 126)
+      sdp = sdp.replace(/a=fmtp:127 apt=126/g, 'a=fmtp:127 apt=__H264__');
+      sdp = sdp.replace(/__H264__/g, '109');
+
+      await this._pc.setLocalDescription({ type: 'offer', sdp });
+      console.log('[bticino-card] Offer SDP (PT remapped):\n' + sdp);
 
       // 4. Send via HA WebSocket
-      await this._signalViaWebSocket(this._pc.localDescription.sdp);
+      await this._signalViaWebSocket(sdp);
 
     } catch (err) {
       console.error('[bticino-card] Connection failed:', err);
