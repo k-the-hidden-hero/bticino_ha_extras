@@ -13,11 +13,8 @@
  * Browser compatibility:
  *   Chrome/Chromium: Full support (video + audio + two-way audio).
  *   Firefox: NOT SUPPORTED. The BTicino device firmware uses hardcoded
- *   Chrome-compatible RTP payload types (PT=111 for Opus, PT=109 for H264)
- *   regardless of SDP negotiation. Firefox assigns different PTs and drops
- *   packets with unrecognized types. ICE, DTLS, and SRTP all work correctly
- *   in Firefox — the issue is exclusively at the RTP payload type layer in
- *   the device firmware. See bticino_intercom docs/firefox-webrtc-investigation.md.
+ *   Chrome-compatible RTP payload types regardless of SDP negotiation.
+ *   See bticino_intercom docs/firefox-webrtc-investigation.md.
  *
  * Config:
  *   type: custom:bticino-intercom-card
@@ -34,7 +31,7 @@
  * @license MIT
  */
 
-const CARD_VERSION = '2.14.0';
+const CARD_VERSION = '3.0.0';
 
 const STATE = {
   IDLE: 'idle',
@@ -53,10 +50,8 @@ const ERROR_MESSAGES = {
   'No auth token available': 'Authentication token not available. Try reloading the page.',
 };
 
-// MDI icon SVG paths (viewBox 0 0 24 24)
 const ICONS = {
   play: 'M8,5.14V19.14L19,12.14L8,5.14Z',
-  pause: 'M14,19H18V5H14M6,19H10V5H6V19Z',
   stop: 'M18,18H6V6H18V18Z',
   volumeHigh: 'M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.84 14,18.7V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.76 16.5,12M3,9V15H7L12,20V4L7,9H3Z',
   volumeOff: 'M12,4L9.91,6.09L12,8.18M4.27,3L3,4.27L7.73,9H3V15H7L12,20V13.27L16.25,17.53C15.58,18.04 14.83,18.46 14,18.7V20.77C15.38,20.45 16.63,19.82 17.68,18.96L19.73,21L21,19.73L12,10.73M19,12C19,12.94 18.8,13.82 18.46,14.64L19.97,16.15C20.62,14.91 21,13.5 21,12C21,7.72 18,4.14 14,3.23V5.29C16.89,6.15 19,8.83 19,12M16.5,12C16.5,10.23 15.5,8.71 14,7.97V10.18L16.45,12.63C16.5,12.43 16.5,12.21 16.5,12Z',
@@ -64,7 +59,6 @@ const ICONS = {
   micOff: 'M19,11C19,14.53 16.39,17.44 13,17.93V21H11V17.93C9.12,17.64 7.47,16.66 6.32,15.25L7.77,13.8C8.61,14.82 9.83,15.5 11.2,15.5H12.8C14.96,15.14 16.5,13.27 16.5,11H18.5M12,2A3,3 0 0,1 15,5V11C15,11.35 14.94,11.69 14.84,12L3.65,0.81L2.39,2.07L21.61,21.29L22.87,20.03L14.97,12.13V12.13C15,12.09 15,12.04 15,12V5A3,3 0 0,0 12,2M9,5V10.18L14,15.18V11A5,5 0 0,0 9,5Z',
   fullscreen: 'M5,5H10V7H7V10H5V5M14,5H19V10H17V7H14V5M17,14H19V19H14V17H17V14M10,17V19H5V14H7V17H10Z',
   dots: 'M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z',
-  close: 'M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z',
 };
 
 function icon(name) {
@@ -97,7 +91,6 @@ const CARD_STYLES = `
     position: relative;
   }
 
-  /* ---- Title bar ---- */
   .title-bar {
     display: flex;
     align-items: center;
@@ -126,25 +119,12 @@ const CARD_STYLES = `
     line-height: 1.4;
     user-select: none;
   }
-  .status-pill.ready {
-    background: rgba(76, 175, 80, 0.2);
-    color: #66bb6a;
-  }
+  .status-pill.ready { background: rgba(76,175,80,0.2); color: #66bb6a; }
   .status-pill.connecting,
-  .status-pill.reconnecting {
-    background: rgba(255, 152, 0, 0.2);
-    color: #ffa726;
-  }
-  .status-pill.live {
-    background: rgba(244, 67, 54, 0.25);
-    color: #ef5350;
-  }
-  .status-pill.error {
-    background: rgba(244, 67, 54, 0.2);
-    color: #ef5350;
-  }
+  .status-pill.reconnecting { background: rgba(255,152,0,0.2); color: #ffa726; }
+  .status-pill.live { background: rgba(244,67,54,0.25); color: #ef5350; }
+  .status-pill.error { background: rgba(244,67,54,0.2); color: #ef5350; }
 
-  /* ---- Video area ---- */
   .video-area {
     position: relative;
     width: 100%;
@@ -152,7 +132,6 @@ const CARD_STYLES = `
     background: #000;
     overflow: hidden;
     border-radius: 8px;
-    margin: 0 0 0 0;
   }
   video {
     position: absolute;
@@ -164,281 +143,121 @@ const CARD_STYLES = `
     background: #000;
   }
 
-  /* Poster */
   .poster {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #000;
-    z-index: 2;
-    transition: opacity 0.3s ease;
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: #000; z-index: 2; transition: opacity 0.3s ease;
   }
   .poster.hidden { opacity: 0; pointer-events: none; }
-  .poster img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
+  .poster img { width: 100%; height: 100%; object-fit: contain; }
 
-  /* Error overlay */
   .error-overlay {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    background: rgba(0,0,0,0.85);
-    z-index: 5;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
-    padding: 20px;
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 8px; background: rgba(0,0,0,0.85); z-index: 5;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s ease; padding: 20px;
   }
-  .error-overlay.visible {
-    opacity: 1;
-    pointer-events: auto;
-  }
-  .error-overlay .error-icon {
-    width: 40px;
-    height: 40px;
-    fill: #ef5350;
-  }
+  .error-overlay.visible { opacity: 1; pointer-events: auto; }
+  .error-overlay .error-icon { width: 40px; height: 40px; fill: #ef5350; }
   .error-overlay .error-msg {
-    color: #ef5350;
-    font-size: 13px;
-    font-weight: 500;
-    text-align: center;
-    line-height: 1.4;
-    max-width: 280px;
+    color: #ef5350; font-size: 13px; font-weight: 500;
+    text-align: center; line-height: 1.4; max-width: 280px;
   }
   .error-overlay .error-dismiss {
-    margin-top: 4px;
-    padding: 6px 16px;
-    border: 1px solid rgba(255,255,255,0.2);
-    border-radius: 6px;
-    background: none;
-    color: var(--bti-text-secondary);
-    font-size: 12px;
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s;
+    margin-top: 4px; padding: 6px 16px;
+    border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;
+    background: none; color: var(--bti-text-secondary); font-size: 12px;
+    cursor: pointer; transition: background 0.15s, color 0.15s;
   }
-  .error-overlay .error-dismiss:hover {
-    background: rgba(255,255,255,0.1);
-    color: var(--bti-text);
-  }
+  .error-overlay .error-dismiss:hover { background: rgba(255,255,255,0.1); color: var(--bti-text); }
 
-  /* Play button overlay (IDLE) */
   .play-overlay {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 3;
-    cursor: pointer;
-    background: rgba(0,0,0,0.35);
-    transition: background 0.2s ease, opacity 0.3s ease;
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 3; cursor: pointer;
+    background: rgba(0,0,0,0.35); transition: background 0.2s ease, opacity 0.3s ease;
   }
   .play-overlay:hover { background: rgba(0,0,0,0.2); }
   .play-overlay.hidden { opacity: 0; pointer-events: none; }
   .play-btn {
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
+    width: 64px; height: 64px; border-radius: 50%;
     background: rgba(255,255,255,0.95);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex; align-items: center; justify-content: center;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
     box-shadow: 0 4px 20px rgba(0,0,0,0.4);
   }
-  .play-overlay:hover .play-btn {
-    transform: scale(1.08);
-    box-shadow: 0 6px 28px rgba(0,0,0,0.5);
-  }
-  .play-btn svg {
-    width: 28px;
-    height: 28px;
-    fill: #1c1c1e;
-    margin-left: 3px; /* optical center for play triangle */
-  }
+  .play-overlay:hover .play-btn { transform: scale(1.08); box-shadow: 0 6px 28px rgba(0,0,0,0.5); }
+  .play-btn svg { width: 28px; height: 28px; fill: #1c1c1e; margin-left: 3px; }
 
-  /* ---- Video overlay controls (LIVE) ---- */
   .video-controls {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 10px;
-    background: linear-gradient(transparent, rgba(0,0,0,0.7));
-    z-index: 4;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-    pointer-events: none;
+    position: absolute; bottom: 0; left: 0; right: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 10px; background: linear-gradient(transparent, rgba(0,0,0,0.7));
+    z-index: 4; opacity: 0; transition: opacity 0.2s ease; pointer-events: none;
   }
-  .video-controls.visible {
-    opacity: 1;
-    pointer-events: auto;
-  }
-  .video-controls .ctrl-group {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
+  .video-controls.visible { opacity: 1; pointer-events: auto; }
+  .video-controls .ctrl-group { display: flex; align-items: center; gap: 4px; }
   .vc-btn {
-    width: 36px;
-    height: 36px;
-    border: none;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.12);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    transition: background 0.15s, color 0.15s, transform 0.1s;
-    padding: 0;
+    width: 36px; height: 36px; border: none; border-radius: 50%;
+    background: rgba(255,255,255,0.12); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; transition: background 0.15s, color 0.15s, transform 0.1s; padding: 0;
   }
   .vc-btn:hover { background: rgba(255,255,255,0.25); }
   .vc-btn:active { transform: scale(0.92); }
-  .vc-btn svg {
-    width: 20px;
-    height: 20px;
-    fill: currentColor;
-  }
-  .vc-btn.mic-active {
-    background: rgba(76, 175, 80, 0.35);
-    color: #66bb6a;
-  }
+  .vc-btn svg { width: 20px; height: 20px; fill: currentColor; }
+  .vc-btn.mic-active { background: rgba(76,175,80,0.35); color: #66bb6a; }
 
-  /* ---- Action bar ---- */
   .action-bar {
-    display: flex;
-    align-items: stretch;
-    justify-content: center;
-    gap: 2px;
-    padding: 10px 12px 12px;
-    position: relative;
+    display: flex; align-items: stretch; justify-content: center;
+    gap: 2px; padding: 10px 12px 12px; position: relative;
   }
   .action-btn {
-    flex: 1;
-    max-width: 100px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    padding: 10px 6px 8px;
-    border: none;
-    border-radius: 10px;
-    background: rgba(255,255,255,0.06);
-    cursor: pointer;
+    flex: 1; max-width: 100px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px; padding: 10px 6px 8px; border: none; border-radius: 10px;
+    background: rgba(255,255,255,0.06); cursor: pointer;
     color: var(--bti-text-secondary);
     transition: background 0.15s, color 0.15s, transform 0.1s;
-    position: relative;
-    overflow: hidden;
+    position: relative; overflow: hidden;
   }
-  .action-btn:hover {
-    background: rgba(255,255,255,0.12);
-    color: var(--bti-text);
-  }
+  .action-btn:hover { background: rgba(255,255,255,0.12); color: var(--bti-text); }
   .action-btn:active { transform: scale(0.95); }
-  .action-btn svg {
-    width: 22px;
-    height: 22px;
-    fill: currentColor;
-    flex-shrink: 0;
-  }
+  .action-btn svg { width: 22px; height: 22px; fill: currentColor; flex-shrink: 0; }
   .action-btn .action-label {
-    font-size: 10px;
-    font-weight: 500;
-    line-height: 1.2;
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
+    font-size: 10px; font-weight: 500; line-height: 1.2; text-align: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
   }
 
-  /* Active state highlights */
-  .action-btn.active-lock {
-    background: rgba(76, 175, 80, 0.18);
-    color: #66bb6a;
-  }
-  .action-btn.active-light {
-    background: rgba(255, 235, 59, 0.15);
-    color: #ffee58;
-  }
-  .action-btn.active-default {
-    background: rgba(3, 169, 244, 0.18);
-    color: #29b6f6;
-  }
+  .action-btn.active-lock { background: rgba(76,175,80,0.18); color: #66bb6a; }
+  .action-btn.active-light { background: rgba(255,235,59,0.15); color: #ffee58; }
+  .action-btn.active-default { background: rgba(3,169,244,0.18); color: #29b6f6; }
 
-  /* Pulse animation on click */
   @keyframes action-pulse {
     0% { box-shadow: 0 0 0 0 rgba(255,255,255,0.3); }
     100% { box-shadow: 0 0 0 12px rgba(255,255,255,0); }
   }
-  .action-btn.pulse {
-    animation: action-pulse 0.35s ease-out;
-  }
+  .action-btn.pulse { animation: action-pulse 0.35s ease-out; }
 
-  /* Overflow menu */
   .overflow-popup {
-    position: absolute;
-    bottom: calc(100% + 4px);
-    right: 12px;
-    background: var(--bti-bg);
-    border: 1px solid var(--bti-divider);
-    border-radius: 10px;
-    padding: 4px;
-    min-width: 150px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-    z-index: 10;
-    display: none;
+    position: absolute; bottom: calc(100% + 4px); right: 12px;
+    background: var(--bti-bg); border: 1px solid var(--bti-divider);
+    border-radius: 10px; padding: 4px; min-width: 150px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 10; display: none;
   }
   .overflow-popup.open { display: block; }
   .overflow-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
-    border: none;
-    border-radius: 8px;
-    background: none;
-    cursor: pointer;
-    color: var(--bti-text-secondary);
-    font-size: 13px;
-    font-family: inherit;
-    width: 100%;
-    text-align: left;
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; border: none; border-radius: 8px;
+    background: none; cursor: pointer; color: var(--bti-text-secondary);
+    font-size: 13px; font-family: inherit; width: 100%; text-align: left;
     transition: background 0.12s, color 0.12s;
   }
-  .overflow-item:hover {
-    background: rgba(255,255,255,0.08);
-    color: var(--bti-text);
-  }
-  .overflow-item svg {
-    width: 20px;
-    height: 20px;
-    fill: currentColor;
-    flex-shrink: 0;
-  }
+  .overflow-item:hover { background: rgba(255,255,255,0.08); color: var(--bti-text); }
+  .overflow-item svg { width: 20px; height: 20px; fill: currentColor; flex-shrink: 0; }
 
-  /* Responsive: narrow cards hide labels */
-  @container (max-width: 350px) {
-    .action-btn .action-label { display: none; }
-  }
-  @media (max-width: 350px) {
-    .action-btn .action-label { display: none; }
-  }
+  @container (max-width: 350px) { .action-btn .action-label { display: none; } }
+  @media (max-width: 350px) { .action-btn .action-label { display: none; } }
 `;
 
 // ---------------------------------------------------------------------------
@@ -447,15 +266,11 @@ const CARD_STYLES = `
 
 class BticinoIntercomCard extends HTMLElement {
 
-  // ========== Lifecycle ==========
-
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
     this._hass = null;
     this._config = null;
-
-    // WebRTC state
     this._pc = null;
     this._ws = null;
     this._sessionId = null;
@@ -465,13 +280,9 @@ class BticinoIntercomCard extends HTMLElement {
     this._silenceTrack = null;
     this._silenceStream = null;
     this._remoteStream = null;
-
-    // Mic state
     this._micActive = false;
     this._micStream = null;
     this._micSender = null;
-
-    // UI state
     this._state = STATE.IDLE;
     this._playing = false;
     this._muted = false;
@@ -482,29 +293,20 @@ class BticinoIntercomCard extends HTMLElement {
     this._controlsTimer = null;
     this._controlsVisible = false;
     this._overflowOpen = false;
-
-    // Local ICE candidate buffer (flushed when session_id arrives)
     this._pendingLocalCandidates = [];
-
-    // Bound handlers for cleanup
     this._boundDocClick = this._onDocumentClick.bind(this);
   }
 
   set hass(hass) {
     const prev = this._hass;
     this._hass = hass;
-    if (!prev && hass && this._config) {
-      this._render();
-    }
-    // Update dynamic parts without re-rendering
+    if (!prev && hass && this._config) this._render();
     this._updatePoster();
     this._updateActionStates();
   }
 
   setConfig(config) {
-    if (!config.camera) {
-      throw new Error('Required: camera entity');
-    }
+    if (!config.camera) throw new Error('Required: camera entity');
     this._config = {
       camera: config.camera,
       poster: config.poster || null,
@@ -512,27 +314,17 @@ class BticinoIntercomCard extends HTMLElement {
       actions: config.actions || [],
       max_actions: config.max_actions ?? 4,
     };
-    if (this._hass) {
-      this._render();
-    }
+    if (this._hass) this._render();
   }
 
-  getCardSize() {
-    return 5;
-  }
+  getCardSize() { return 5; }
 
   static getStubConfig() {
-    return {
-      camera: 'camera.bticino_intercom',
-      title: 'Intercom',
-      actions: [],
-    };
+    return { camera: 'camera.bticino_intercom', title: 'Intercom', actions: [] };
   }
 
   connectedCallback() {
-    if (this._config && this._hass) {
-      this._render();
-    }
+    if (this._config && this._hass) this._render();
   }
 
   disconnectedCallback() {
@@ -557,24 +349,15 @@ class BticinoIntercomCard extends HTMLElement {
           <div class="title">${this._esc(title)}</div>
           <div class="status-pill ready" id="status-pill">Ready</div>
         </div>
-
         <div class="video-area" id="video-area">
           <video id="video" autoplay playsinline muted></video>
-
-          <div class="poster" id="poster">
-            <img id="poster-img" alt="" />
-          </div>
-
-          <div class="play-overlay" id="play-overlay">
-            <div class="play-btn">${icon('play')}</div>
-          </div>
-
+          <div class="poster" id="poster"><img id="poster-img" alt="" /></div>
+          <div class="play-overlay" id="play-overlay"><div class="play-btn">${icon('play')}</div></div>
           <div class="error-overlay" id="error-overlay">
             <svg class="error-icon" viewBox="0 0 24 24"><path d="M13,13H11V7H13M13,17H11V15H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg>
             <div class="error-msg" id="error-msg"></div>
             <button class="error-dismiss" id="error-dismiss">Dismiss</button>
           </div>
-
           <div class="video-controls" id="video-controls">
             <div class="ctrl-group">
               <button class="vc-btn" id="vc-playpause" title="Stop">${icon('stop')}</button>
@@ -586,24 +369,13 @@ class BticinoIntercomCard extends HTMLElement {
             </div>
           </div>
         </div>
-
         <div class="action-bar" id="action-bar">
           ${visibleActions.map((a, i) => this._renderActionBtn(a, i)).join('')}
-          ${hasOverflow ? `
-            <button class="action-btn" id="overflow-btn" title="More actions">
-              ${icon('dots')}
-              <span class="action-label">...</span>
-            </button>
-          ` : ''}
-          ${hasOverflow ? `
-            <div class="overflow-popup" id="overflow-popup">
-              ${overflowActions.map((a, i) => this._renderOverflowItem(a, maxActions + i)).join('')}
-            </div>
-          ` : ''}
+          ${hasOverflow ? `<button class="action-btn" id="overflow-btn" title="More">${icon('dots')}<span class="action-label">...</span></button>` : ''}
+          ${hasOverflow ? `<div class="overflow-popup" id="overflow-popup">${overflowActions.map((a, i) => this._renderOverflowItem(a, maxActions + i)).join('')}</div>` : ''}
         </div>
       </ha-card>
     `;
-
     this._bindEvents();
     this._updatePoster();
     this._updateActionStates();
@@ -611,26 +383,21 @@ class BticinoIntercomCard extends HTMLElement {
 
   _renderActionBtn(action, index) {
     const iconPath = this._resolveIconPath(action.icon);
-    return `
-      <button class="action-btn" data-action-idx="${index}" title="${this._esc(action.label || '')}">
-        <svg viewBox="0 0 24 24"><path d="${iconPath}"/></svg>
-        ${action.label ? `<span class="action-label">${this._esc(action.label)}</span>` : ''}
-      </button>
-    `;
+    return `<button class="action-btn" data-action-idx="${index}" title="${this._esc(action.label || '')}">
+      <svg viewBox="0 0 24 24"><path d="${iconPath}"/></svg>
+      ${action.label ? `<span class="action-label">${this._esc(action.label)}</span>` : ''}
+    </button>`;
   }
 
   _renderOverflowItem(action, index) {
     const iconPath = this._resolveIconPath(action.icon);
-    return `
-      <button class="overflow-item" data-action-idx="${index}">
-        <svg viewBox="0 0 24 24"><path d="${iconPath}"/></svg>
-        <span>${this._esc(action.label || action.entity)}</span>
-      </button>
-    `;
+    return `<button class="overflow-item" data-action-idx="${index}">
+      <svg viewBox="0 0 24 24"><path d="${iconPath}"/></svg>
+      <span>${this._esc(action.label || action.entity)}</span>
+    </button>`;
   }
 
   _resolveIconPath(mdiIcon) {
-    // Map common mdi:xxx names to our SVG paths; fallback to a generic circle
     if (!mdiIcon) return ICONS.dots;
     const name = mdiIcon.replace('mdi:', '');
     const map = {
@@ -649,107 +416,70 @@ class BticinoIntercomCard extends HTMLElement {
 
   _bindEvents() {
     const $ = (id) => this.shadowRoot.getElementById(id);
-
-    // Play overlay
     $('play-overlay')?.addEventListener('click', () => this._startPlay());
-
-    // Error dismiss
     $('error-dismiss')?.addEventListener('click', (e) => { e.stopPropagation(); this._dismissError(); });
 
-    // Video area — hover/tap for controls
     const videoArea = $('video-area');
     videoArea?.addEventListener('mouseenter', () => this._showControls());
     videoArea?.addEventListener('mouseleave', () => this._hideControlsDelayed());
     videoArea?.addEventListener('touchstart', (e) => {
-      // Only react to touches on the video area itself, not on control buttons
-      if (e.target === videoArea || e.target.tagName === 'VIDEO') {
-        this._toggleControlsVisibility();
-      }
+      if (e.target === videoArea || e.target.tagName === 'VIDEO') this._toggleControlsVisibility();
     }, { passive: true });
 
-    // Video overlay controls
     $('vc-playpause')?.addEventListener('click', (e) => { e.stopPropagation(); this._stopPlay(); });
     $('vc-volume')?.addEventListener('click', (e) => { e.stopPropagation(); this._toggleMute(); });
     $('vc-mic')?.addEventListener('click', (e) => { e.stopPropagation(); this._toggleMic(); });
     $('vc-fullscreen')?.addEventListener('click', (e) => { e.stopPropagation(); this._toggleFullscreen(); });
 
-    // Action buttons
     this.shadowRoot.querySelectorAll('.action-btn[data-action-idx]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const idx = parseInt(btn.dataset.actionIdx, 10);
-        this._executeAction(idx, btn);
+        this._executeAction(parseInt(btn.dataset.actionIdx, 10), btn);
       });
     });
 
-    // Overflow button
-    $('overflow-btn')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this._toggleOverflow();
-    });
-
-    // Overflow items
+    $('overflow-btn')?.addEventListener('click', (e) => { e.stopPropagation(); this._toggleOverflow(); });
     this.shadowRoot.querySelectorAll('.overflow-item').forEach(item => {
       item.addEventListener('click', (e) => {
         e.stopPropagation();
-        const idx = parseInt(item.dataset.actionIdx, 10);
-        this._executeAction(idx, item);
+        this._executeAction(parseInt(item.dataset.actionIdx, 10), item);
         this._closeOverflow();
       });
     });
 
-    // Close overflow on outside click
     document.removeEventListener('click', this._boundDocClick);
     document.addEventListener('click', this._boundDocClick);
   }
 
-  _onDocumentClick() {
-    if (this._overflowOpen) {
-      this._closeOverflow();
-    }
-  }
+  _onDocumentClick() { if (this._overflowOpen) this._closeOverflow(); }
 
-  // ========== Status & UI updates ==========
+  // ========== Status & UI ==========
 
   _setState(state, label) {
     this._state = state;
     const pill = this.shadowRoot?.getElementById('status-pill');
     if (!pill) return;
-
     const labels = {
-      [STATE.IDLE]: 'Ready',
-      [STATE.CONNECTING]: 'Connecting...',
-      [STATE.LIVE]: 'LIVE',
-      [STATE.RECONNECTING]: 'Reconnecting...',
-      [STATE.ERROR]: 'Error',
+      [STATE.IDLE]: 'Ready', [STATE.CONNECTING]: 'Connecting...',
+      [STATE.LIVE]: 'LIVE', [STATE.RECONNECTING]: 'Reconnecting...', [STATE.ERROR]: 'Error',
     };
-
     pill.textContent = label || labels[state] || state;
-    pill.className = 'status-pill';
-    switch (state) {
-      case STATE.IDLE: pill.classList.add('ready'); break;
-      case STATE.CONNECTING: pill.classList.add('connecting'); break;
-      case STATE.LIVE: pill.classList.add('live'); break;
-      case STATE.RECONNECTING: pill.classList.add('reconnecting'); break;
-      case STATE.ERROR: pill.classList.add('error'); break;
-    }
+    pill.className = `status-pill ${state === STATE.IDLE ? 'ready' : state}`;
   }
 
   _showError(message) {
     const friendly = Object.entries(ERROR_MESSAGES).find(([key]) => message.includes(key));
-    const displayMsg = friendly ? friendly[1] : message;
     const overlay = this.shadowRoot?.getElementById('error-overlay');
     const msgEl = this.shadowRoot?.getElementById('error-msg');
     if (overlay && msgEl) {
-      msgEl.textContent = displayMsg;
+      msgEl.textContent = friendly ? friendly[1] : message;
       overlay.classList.add('visible');
     }
     this._setState(STATE.ERROR);
   }
 
   _dismissError() {
-    const overlay = this.shadowRoot?.getElementById('error-overlay');
-    if (overlay) overlay.classList.remove('visible');
+    this.shadowRoot?.getElementById('error-overlay')?.classList.remove('visible');
     this._stopPlay();
   }
 
@@ -757,15 +487,8 @@ class BticinoIntercomCard extends HTMLElement {
     const posterEl = this.shadowRoot?.getElementById('poster');
     const imgEl = this.shadowRoot?.getElementById('poster-img');
     if (!posterEl || !imgEl || !this._hass) return;
-
-    if (this._playing) {
-      posterEl.classList.add('hidden');
-      return;
-    }
-
-    // Try poster entity first, then camera entity
-    const candidates = [this._config?.poster, this._config?.camera].filter(Boolean);
-    for (const entityId of candidates) {
+    if (this._playing) { posterEl.classList.add('hidden'); return; }
+    for (const entityId of [this._config?.poster, this._config?.camera].filter(Boolean)) {
       const entity = this._hass.states[entityId];
       if (entity?.attributes?.entity_picture) {
         imgEl.src = entity.attributes.entity_picture;
@@ -773,52 +496,29 @@ class BticinoIntercomCard extends HTMLElement {
         return;
       }
     }
-    // No poster available — still show black
     posterEl.classList.add('hidden');
   }
 
   _updateActionStates() {
     if (!this._hass || !this._config) return;
-    const actions = this._config.actions;
-
-    // Update visible action buttons
     this.shadowRoot?.querySelectorAll('.action-btn[data-action-idx]').forEach(btn => {
-      const idx = parseInt(btn.dataset.actionIdx, 10);
-      const action = actions[idx];
+      const action = this._config.actions[parseInt(btn.dataset.actionIdx, 10)];
       if (!action) return;
-      this._applyActiveClass(btn, action);
-    });
-
-    // Update overflow items too
-    this.shadowRoot?.querySelectorAll('.overflow-item[data-action-idx]').forEach(item => {
-      const idx = parseInt(item.dataset.actionIdx, 10);
-      const action = actions[idx];
-      if (!action) return;
-      // For overflow items, we just change color, no class
+      btn.classList.remove('active-lock', 'active-light', 'active-default');
+      const entity = this._hass.states[action.entity];
+      if (!entity) return;
+      const domain = action.entity.split('.')[0];
+      if (['on', 'unlocked', 'open'].includes(entity.state)) {
+        btn.classList.add(domain === 'lock' ? 'active-lock' : domain === 'light' ? 'active-light' : 'active-default');
+      }
     });
   }
 
-  _applyActiveClass(btn, action) {
-    btn.classList.remove('active-lock', 'active-light', 'active-default');
-    const entity = this._hass?.states[action.entity];
-    if (!entity) return;
-
-    const domain = action.entity.split('.')[0];
-    const isActive = ['on', 'unlocked', 'open'].includes(entity.state);
-
-    if (isActive) {
-      if (domain === 'lock') btn.classList.add('active-lock');
-      else if (domain === 'light') btn.classList.add('active-light');
-      else btn.classList.add('active-default');
-    }
-  }
-
-  // ========== Video controls visibility ==========
+  // ========== Controls visibility ==========
 
   _showControls() {
     if (!this._playing) return;
-    const ctrl = this.shadowRoot?.getElementById('video-controls');
-    if (ctrl) ctrl.classList.add('visible');
+    this.shadowRoot?.getElementById('video-controls')?.classList.add('visible');
     this._controlsVisible = true;
     this._resetControlsTimer();
   }
@@ -829,44 +529,29 @@ class BticinoIntercomCard extends HTMLElement {
   }
 
   _hideControls() {
-    const ctrl = this.shadowRoot?.getElementById('video-controls');
-    if (ctrl) ctrl.classList.remove('visible');
+    this.shadowRoot?.getElementById('video-controls')?.classList.remove('visible');
     this._controlsVisible = false;
   }
 
   _resetControlsTimer() {
-    if (this._controlsTimer) {
-      clearTimeout(this._controlsTimer);
-      this._controlsTimer = null;
-    }
+    if (this._controlsTimer) { clearTimeout(this._controlsTimer); this._controlsTimer = null; }
   }
 
   _toggleControlsVisibility() {
     if (!this._playing) return;
-    if (this._controlsVisible) {
-      this._hideControls();
-    } else {
-      this._showControls();
-      this._hideControlsDelayed();
-    }
+    this._controlsVisible ? this._hideControls() : (this._showControls(), this._hideControlsDelayed());
   }
 
-  // ========== Action buttons ==========
+  // ========== Actions ==========
 
   _executeAction(index, btnEl) {
     const action = this._config.actions[index];
     if (!action || !this._hass) return;
-
-    // Parse service: "lock.unlock" -> domain="lock", service="unlock"
     const [domain, service] = action.service.split('.');
     if (!domain || !service) return;
-
     this._hass.callService(domain, service, action.service_data || {}, { entity_id: action.entity });
-
-    // Pulse feedback
     if (btnEl) {
       btnEl.classList.remove('pulse');
-      // Force reflow
       void btnEl.offsetWidth;
       btnEl.classList.add('pulse');
       setTimeout(() => btnEl.classList.remove('pulse'), 400);
@@ -881,36 +566,24 @@ class BticinoIntercomCard extends HTMLElement {
   }
 
   _closeOverflow() {
-    const popup = this.shadowRoot?.getElementById('overflow-popup');
-    if (popup) popup.classList.remove('open');
+    this.shadowRoot?.getElementById('overflow-popup')?.classList.remove('open');
     this._overflowOpen = false;
   }
 
   // ========== Play / Stop ==========
 
-  async _startPlay() {
+  _startPlay() {
     if (this._playing) return;
     this._wantPlay = true;
     this._playing = true;
     this._reconnectCount = 0;
 
-    // Create AudioContext NOW — must be synchronous with user click
-    // Firefox suspends AudioContext if not created during a user gesture
-    // Create AudioContext but keep it SUSPENDED — just for the SDP sendrecv track.
-    // Firefox sends DTX (3-byte) Opus packets when running, which confuses the device.
-    // With suspended context, no audio RTP is sent, and video works.
-    // The mic button will resume() when the user actually wants two-way audio.
     if (!this._audioCtx || this._audioCtx.state === 'closed') {
       this._audioCtx = new AudioContext();
-      console.log(`[bticino-card] AudioContext state: ${this._audioCtx.state}`);
     }
 
-    // Hide poster and play overlay
-    const poster = this.shadowRoot?.getElementById('poster');
-    const overlay = this.shadowRoot?.getElementById('play-overlay');
-    if (poster) poster.classList.add('hidden');
-    if (overlay) overlay.classList.add('hidden');
-
+    this.shadowRoot?.getElementById('poster')?.classList.add('hidden');
+    this.shadowRoot?.getElementById('play-overlay')?.classList.add('hidden');
     this._setState(STATE.CONNECTING);
     this._connect();
   }
@@ -920,83 +593,51 @@ class BticinoIntercomCard extends HTMLElement {
     this._playing = false;
     this._hideControls();
     this._cleanup();
-
-    // Clear video
     const video = this.shadowRoot?.getElementById('video');
     if (video) video.srcObject = null;
-
-    // Hide error overlay, show poster and play overlay again
-    const errorOverlay = this.shadowRoot?.getElementById('error-overlay');
-    if (errorOverlay) errorOverlay.classList.remove('visible');
-    const poster = this.shadowRoot?.getElementById('poster');
-    const overlay = this.shadowRoot?.getElementById('play-overlay');
-    if (poster) poster.classList.remove('hidden');
-    if (overlay) overlay.classList.remove('hidden');
-
+    this.shadowRoot?.getElementById('error-overlay')?.classList.remove('visible');
+    this.shadowRoot?.getElementById('poster')?.classList.remove('hidden');
+    this.shadowRoot?.getElementById('play-overlay')?.classList.remove('hidden');
     this._updatePoster();
     this._setState(STATE.IDLE);
   }
 
-  // ========== Mute ==========
+  // ========== Mute / Mic / Fullscreen ==========
 
   _toggleMute() {
     if (!this._playing) return;
     this._muted = !this._muted;
     const video = this.shadowRoot?.getElementById('video');
     if (video) video.muted = this._muted;
-
     const btn = this.shadowRoot?.getElementById('vc-volume');
     if (btn) btn.innerHTML = icon(this._muted ? 'volumeOff' : 'volumeHigh');
   }
 
-  // ========== Microphone ==========
-
   async _toggleMic() {
     if (!this._playing || this._state !== STATE.LIVE) return;
-
-    if (this._micActive) {
-      this._stopMic();
-    } else {
-      await this._startMic();
-    }
+    this._micActive ? this._stopMic() : await this._startMic();
   }
 
   async _startMic() {
     try {
-      // Resume AudioContext on mic activation (user gesture)
-      if (this._audioCtx?.state === 'suspended') {
-        await this._audioCtx.resume();
-      }
+      if (this._audioCtx?.state === 'suspended') await this._audioCtx.resume();
       this._micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const micTrack = this._micStream.getAudioTracks()[0];
-
-      // Find the audio sender and replace silence track with mic track
-      const senders = this._pc?.getSenders();
-      const audioSender = senders?.find(s => s.track && s.track.kind === 'audio');
+      const audioSender = this._pc?.getSenders()?.find(s => s.track?.kind === 'audio');
       if (audioSender) {
         await audioSender.replaceTrack(micTrack);
         this._micSender = audioSender;
       }
-
       this._micActive = true;
       this._updateMicUI();
     } catch (err) {
-      console.warn('[bticino-card] Mic access denied or failed:', err);
+      console.warn('[bticino-card] Mic access denied:', err);
     }
   }
 
   _stopMic() {
-    // Replace mic track back with silence track
-    if (this._micSender && this._silenceTrack) {
-      this._micSender.replaceTrack(this._silenceTrack);
-    }
-
-    // Stop mic stream
-    if (this._micStream) {
-      this._micStream.getTracks().forEach(t => t.stop());
-      this._micStream = null;
-    }
-
+    if (this._micSender && this._silenceTrack) this._micSender.replaceTrack(this._silenceTrack);
+    if (this._micStream) { this._micStream.getTracks().forEach(t => t.stop()); this._micStream = null; }
     this._micActive = false;
     this._micSender = null;
     this._updateMicUI();
@@ -1009,27 +650,18 @@ class BticinoIntercomCard extends HTMLElement {
     btn.classList.toggle('mic-active', this._micActive);
   }
 
-  // ========== Fullscreen ==========
-
   _toggleFullscreen() {
     const area = this.shadowRoot?.getElementById('video-area');
     if (!area) return;
-
-    if (document.fullscreenElement) {
-      document.exitFullscreen().catch(() => {});
-    } else {
-      area.requestFullscreen().catch(() => {});
-    }
+    document.fullscreenElement ? document.exitFullscreen().catch(() => {}) : area.requestFullscreen().catch(() => {});
   }
 
   // ========== WebRTC Connection ==========
 
   async _connect() {
-    // Tear down peer connection but keep AudioContext alive for reconnects
     this._closeConnection();
 
     try {
-      // Create fresh oscillator + silence track each connection (reuse AudioContext)
       const osc = this._audioCtx.createOscillator();
       osc.frequency.value = 0;
       const dest = this._audioCtx.createMediaStreamDestination();
@@ -1038,8 +670,7 @@ class BticinoIntercomCard extends HTMLElement {
       this._oscillator = osc;
       this._silenceStream = dest.stream;
       this._silenceTrack = this._silenceStream.getAudioTracks()[0];
-      console.log(`[bticino-card] Audio track: enabled=${this._silenceTrack.enabled} readyState=${this._silenceTrack.readyState}`);
-      // 1. Fetch ICE servers (TURN/STUN) from HA
+
       let iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
       try {
         const config = await this._hass.callWS({
@@ -1050,124 +681,40 @@ class BticinoIntercomCard extends HTMLElement {
           iceServers = config.configuration.iceServers.map(server => {
             const urls = (Array.isArray(server.urls) ? server.urls : [server.urls])
               .filter(u => !u.includes('transport=tcp') && !u.startsWith('turns:'));
-            if (!urls.length) return null;
-            return { ...server, urls };
+            return urls.length ? { ...server, urls } : null;
           }).filter(Boolean);
-          console.log(`[bticino-card] Loaded ${iceServers.length} ICE servers (TCP/TLS filtered)`);
         }
-      } catch (err) {
-        console.warn('[bticino-card] Failed to fetch ICE servers, using fallback STUN:', err);
-      }
+      } catch (_) {}
 
-      // 2. Generate RSA certificate (Firefox defaults to ECDSA which some
-      // embedded devices don't support) and create RTCPeerConnection
-      const cert = await RTCPeerConnection.generateCertificate({
-        name: 'RSASSA-PKCS1-v1_5',
-        hash: 'SHA-256',
-        modulusLength: 2048,
-        publicExponent: new Uint8Array([1, 0, 1]),
-      });
-      console.log(`[bticino-card] Generated RSA certificate`);
-
-      this._pc = new RTCPeerConnection({
-        iceServers,
-        certificates: [cert],
-        bundlePolicy: 'max-compat',
-        rtcpMuxPolicy: 'require',
-      });
-
-      // Add silence audio track with explicit transceiver direction
+      this._pc = new RTCPeerConnection({ iceServers, rtcpMuxPolicy: 'require' });
       this._pc.addTransceiver(this._silenceTrack, { direction: 'sendrecv', streams: [this._silenceStream] });
-
-      // Add video transceiver (recvonly)
       this._pc.addTransceiver('video', { direction: 'recvonly' });
 
-      // Remote stream -> video element
       this._remoteStream = new MediaStream();
       const video = this.shadowRoot?.getElementById('video');
       if (video) {
         video.srcObject = this._remoteStream;
+        video.addEventListener('playing', () => { video.muted = this._muted; }, { once: true });
       }
 
-      this._pc.ontrack = (e) => {
-        console.log(`[bticino-card] Got ${e.track.kind} track`);
-        this._remoteStream.addTrack(e.track);
-      };
-
-      if (video) {
-        video.addEventListener('playing', () => {
-          console.log('[bticino-card] Video playing');
-          video.muted = this._muted;
-        }, { once: true });
-        video.addEventListener('error', () => {
-          const e = video.error;
-          console.error(`[bticino-card] Video element error: ${e?.code} ${e?.message}`);
-        });
-        video.addEventListener('stalled', () => console.warn('[bticino-card] Video stalled'));
-        video.addEventListener('suspend', () => console.log('[bticino-card] Video suspend'));
-      }
+      this._pc.ontrack = (e) => { this._remoteStream.addTrack(e.track); };
 
       this._pc.onconnectionstatechange = () => {
         const state = this._pc?.connectionState;
-        console.log(`[bticino-card] Connection state: ${state}`);
-        if (state === 'connected') {
-          this._reconnectCount = 0;
-          this._setState(STATE.LIVE);
-          this._logMediaDiagnostics();
-        } else if (state === 'disconnected' || state === 'failed' || state === 'closed') {
-          if (this._wantPlay) {
-            this._scheduleReconnect();
-          }
-        }
-      };
-
-      this._pc.oniceconnectionstatechange = () => {
-        console.log(`[bticino-card] ICE state: ${this._pc?.iceConnectionState}`);
+        if (state === 'connected') { this._reconnectCount = 0; this._setState(STATE.LIVE); }
+        else if (['disconnected', 'failed', 'closed'].includes(state) && this._wantPlay) this._scheduleReconnect();
       };
 
       this._pc.onicecandidate = (e) => {
         if (!e.candidate) return;
-        const candidateMsg = {
-          candidate: e.candidate.candidate,
-          sdpMLineIndex: e.candidate.sdpMLineIndex,
-          sdpMid: e.candidate.sdpMid,
-        };
-        if (this._ws?.readyState === WebSocket.OPEN && this._sessionId) {
-          this._sendCandidate(candidateMsg);
-        } else {
-          this._pendingLocalCandidates.push(candidateMsg);
-        }
+        const msg = { candidate: e.candidate.candidate, sdpMLineIndex: e.candidate.sdpMLineIndex, sdpMid: e.candidate.sdpMid };
+        if (this._ws?.readyState === WebSocket.OPEN && this._sessionId) this._sendCandidate(msg);
+        else this._pendingLocalCandidates.push(msg);
       };
 
-      // 3. Create offer and remap PTs to match Chrome's defaults.
-      // The BTicino device firmware is hardcoded to Chrome's PT mapping:
-      // PT=111 for Opus (Firefox uses 109), PT=109 for H264 (Firefox uses 126).
-      // Without remapping, the device sends/receives on PTs Firefox doesn't recognize.
       const offer = await this._pc.createOffer();
-      let sdp = offer.sdp;
-
-      // Remap audio: Firefox PT=109 (Opus) → Chrome PT=111
-      // Use temporary placeholder to avoid collision
-      sdp = sdp.replace(/( |^)109( |\r)/gm, '$1__OPUS__$2');
-      sdp = sdp.replace(/a=rtpmap:109 /g, 'a=rtpmap:__OPUS__ ');
-      sdp = sdp.replace(/a=fmtp:109 /g, 'a=fmtp:__OPUS__ ');
-      sdp = sdp.replace(/__OPUS__/g, '111');
-
-      // Remap video: Firefox PT=126 (H264 42e01f pm=1) → Chrome PT=109
-      sdp = sdp.replace(/( |^)126( |\r)/gm, '$1__H264__$2');
-      sdp = sdp.replace(/a=rtpmap:126 /g, 'a=rtpmap:__H264__ ');
-      sdp = sdp.replace(/a=fmtp:126 /g, 'a=fmtp:__H264__ ');
-      sdp = sdp.replace(/a=rtcp-fb:126 /g, 'a=rtcp-fb:__H264__ ');
-      // Also remap PT=127 (rtx for 126)
-      sdp = sdp.replace(/a=fmtp:127 apt=126/g, 'a=fmtp:127 apt=__H264__');
-      sdp = sdp.replace(/__H264__/g, '109');
-
-      await this._pc.setLocalDescription({ type: 'offer', sdp });
-      console.log('[bticino-card] Offer SDP (PT remapped):\n' + sdp);
-
-      // 4. Send via HA WebSocket
-      await this._signalViaWebSocket(sdp);
-
+      await this._pc.setLocalDescription(offer);
+      await this._signalViaWebSocket(this._pc.localDescription.sdp);
     } catch (err) {
       console.error('[bticino-card] Connection failed:', err);
       this._showError(err.message || 'Connection failed');
@@ -1176,244 +723,79 @@ class BticinoIntercomCard extends HTMLElement {
 
   async _signalViaWebSocket(offerSdp) {
     return new Promise((resolve, reject) => {
-      if (!this._hass) {
-        reject(new Error('No hass object'));
-        return;
-      }
-
+      if (!this._hass) { reject(new Error('No hass object')); return; }
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${proto}//${location.host}/api/websocket`;
+      this._ws = new WebSocket(`${proto}//${location.host}/api/websocket`);
+      let msgId = 1, settled = false;
 
-      this._ws = new WebSocket(wsUrl);
-      let msgId = 1;
-      let settled = false;
+      const timeout = setTimeout(() => { if (!settled) { settled = true; reject(new Error('Signaling timeout')); } }, 15000);
 
-      const timeout = setTimeout(() => {
-        if (!settled) {
-          settled = true;
-          reject(new Error('Signaling timeout'));
-        }
-      }, 15000);
-
-      this._ws.onerror = (e) => {
-        console.error('[bticino-card] WS error:', e);
-        if (!settled) {
-          settled = true;
-          clearTimeout(timeout);
-          reject(new Error('WebSocket error'));
-        }
-      };
-
-      this._ws.onclose = () => {
-        console.log('[bticino-card] Signaling WS closed');
-      };
+      this._ws.onerror = () => { if (!settled) { settled = true; clearTimeout(timeout); reject(new Error('WebSocket error')); } };
 
       this._ws.onmessage = async (event) => {
         const msg = JSON.parse(event.data);
 
         if (msg.type === 'auth_required') {
-          const token = this._hass.auth?.data?.access_token
-            || this._hass.connection?.options?.auth?.data?.access_token;
-          if (!token) {
-            clearTimeout(timeout);
-            settled = true;
-            reject(new Error('No auth token available'));
-            return;
-          }
+          const token = this._hass.auth?.data?.access_token || this._hass.connection?.options?.auth?.data?.access_token;
+          if (!token) { clearTimeout(timeout); settled = true; reject(new Error('No auth token available')); return; }
           this._ws.send(JSON.stringify({ type: 'auth', access_token: token }));
-
         } else if (msg.type === 'auth_ok') {
-          // Send WebRTC offer
-          this._ws.send(JSON.stringify({
-            id: msgId,
-            type: 'camera/webrtc/offer',
-            entity_id: this._config.camera,
-            offer: offerSdp,
-          }));
-
+          this._ws.send(JSON.stringify({ id: msgId, type: 'camera/webrtc/offer', entity_id: this._config.camera, offer: offerSdp }));
         } else if (msg.type === 'auth_invalid') {
-          clearTimeout(timeout);
-          settled = true;
-          reject(new Error('Authentication failed'));
-
-        } else if (msg.type === 'result') {
-          if (!msg.success) {
-            console.error('[bticino-card] Offer rejected:', msg.error);
-            clearTimeout(timeout);
-            settled = true;
-            reject(new Error(msg.error?.message || 'Offer rejected'));
-          }
-          // success: wait for answer/candidate events
-
+          clearTimeout(timeout); settled = true; reject(new Error('Authentication failed'));
+        } else if (msg.type === 'result' && !msg.success) {
+          clearTimeout(timeout); settled = true; reject(new Error(msg.error?.message || 'Offer rejected'));
         } else if (msg.type === 'event') {
           const evt = msg.event;
-
           if (evt.type === 'session') {
             this._sessionId = evt.session_id;
-            console.log(`[bticino-card] Session ID: ${this._sessionId}`);
             this._flushLocalCandidates();
-
           } else if (evt.type === 'answer') {
             try {
-              console.log('[bticino-card] Answer SDP:\n' + evt.answer);
               await this._pc.setRemoteDescription({ type: 'answer', sdp: evt.answer });
-              console.log('[bticino-card] Remote description set');
               clearTimeout(timeout);
-              if (!settled) {
-                settled = true;
-                resolve();
-              }
-            } catch (err) {
-              clearTimeout(timeout);
-              if (!settled) {
-                settled = true;
-                reject(err);
-              }
-            }
-
-          } else if (evt.type === 'candidate') {
-            if (evt.candidate) {
-              try {
-                await this._pc.addIceCandidate({
-                  candidate: evt.candidate.candidate,
-                  sdpMLineIndex: evt.candidate.sdp_m_line_index
-                    ?? evt.candidate.sdpMLineIndex
-                    ?? 0,
-                });
-              } catch (err) {
-                console.warn('[bticino-card] ICE candidate error:', err);
-              }
-            }
-
+              if (!settled) { settled = true; resolve(); }
+            } catch (err) { clearTimeout(timeout); if (!settled) { settled = true; reject(err); } }
+          } else if (evt.type === 'candidate' && evt.candidate) {
+            try { await this._pc.addIceCandidate({ candidate: evt.candidate.candidate, sdpMLineIndex: evt.candidate.sdp_m_line_index ?? evt.candidate.sdpMLineIndex ?? 0 }); } catch (_) {}
           } else if (evt.type === 'error') {
-            console.error('[bticino-card] Signaling error:', evt);
-            clearTimeout(timeout);
-            if (!settled) {
-              settled = true;
-              reject(new Error(evt.message || 'Signaling error'));
-            }
+            clearTimeout(timeout); if (!settled) { settled = true; reject(new Error(evt.message || 'Signaling error')); }
           }
         }
       };
     });
   }
 
-  // ========== Diagnostics ==========
+  // ========== ICE helpers ==========
 
-  async _logMediaDiagnostics() {
-    if (!this._pc) return;
-    setTimeout(async () => {
-      if (!this._pc) return;
-      try {
-        const stats = await this._pc.getStats();
-        // Dump ALL stats types to find DTLS
-        const byType = {};
-        stats.forEach(report => {
-          if (!byType[report.type]) byType[report.type] = [];
-          byType[report.type].push(report);
-        });
-        console.log(`[bticino-card] Stats types: ${Object.keys(byType).join(', ')}`);
-        // Dump each type
-        stats.forEach(report => {
-          if (report.type === 'transport') {
-            console.log(`[bticino-card] Transport: dtls=${report.dtlsState} ice=${report.iceState} bytesRx=${report.bytesReceived} bytesTx=${report.bytesSent} selectedPair=${report.selectedCandidatePairId}`);
-          } else if (report.type === 'candidate-pair' && report.selected) {
-            console.log(`[bticino-card] Selected pair: state=${report.state} bytesRx=${report.bytesReceived} bytesTx=${report.bytesSent} rtt=${report.currentRoundTripTime}`);
-          } else if (report.type === 'inbound-rtp') {
-            console.log(`[bticino-card] Inbound ${report.kind}: packets=${report.packetsReceived} bytes=${report.bytesReceived} lost=${report.packetsLost} frames=${report.framesDecoded} codec=${report.codecId} jitter=${report.jitter} nackCount=${report.nackCount} pliCount=${report.pliCount}`);
-          } else if (report.type === 'outbound-rtp') {
-            console.log(`[bticino-card] Outbound ${report.kind}: packets=${report.packetsSent} bytes=${report.bytesSent} codec=${report.codecId} nackCount=${report.nackCount}`);
-          } else if (report.type === 'codec') {
-            console.log(`[bticino-card] Codec: ${report.mimeType} pt=${report.payloadType}`);
-          } else if (report.type === 'remote-inbound-rtp') {
-            console.log(`[bticino-card] RemoteInbound ${report.kind}: packetsLost=${report.packetsLost} jitter=${report.jitter} rtt=${report.roundTripTime}`);
-          }
-        });
-        const transceivers = this._pc.getTransceivers();
-        transceivers.forEach((t, i) => {
-          const recvTrack = t.receiver?.track;
-          console.log(`[bticino-card] Transceiver[${i}]: mid=${t.mid} dir=${t.direction} currentDir=${t.currentDirection} recvTrack=${recvTrack?.kind}/${recvTrack?.readyState}/${recvTrack?.muted}`);
-        });
-        const video = this.shadowRoot?.getElementById('video');
-        if (video) {
-          console.log(`[bticino-card] Video: readyState=${video.readyState} paused=${video.paused} videoWidth=${video.videoWidth} networkState=${video.networkState} srcObject=${!!video.srcObject} tracks=${video.srcObject?.getTracks().length}`);
-        }
-      } catch (err) {
-        console.warn('[bticino-card] Stats error:', err);
-      }
-    }, 3000);
-  }
-
-  // ========== ICE candidate helpers ==========
-
-  _sendCandidate(candidateMsg) {
-    this._candidateMsgId = (this._candidateMsgId || 100) + 1;
-    this._ws.send(JSON.stringify({
-      id: this._candidateMsgId,
-      type: 'camera/webrtc/candidate',
-      entity_id: this._config.camera,
-      session_id: this._sessionId,
-      candidate: candidateMsg,
-    }));
+  _sendCandidate(msg) {
+    this._candidateMsgId++;
+    this._ws.send(JSON.stringify({ id: this._candidateMsgId, type: 'camera/webrtc/candidate', entity_id: this._config.camera, session_id: this._sessionId, candidate: msg }));
   }
 
   _flushLocalCandidates() {
     if (!this._pendingLocalCandidates.length) return;
-    console.log(`[bticino-card] Flushing ${this._pendingLocalCandidates.length} buffered local ICE candidates`);
-    for (const candidate of this._pendingLocalCandidates) {
-      this._sendCandidate(candidate);
-    }
+    for (const c of this._pendingLocalCandidates) this._sendCandidate(c);
     this._pendingLocalCandidates = [];
   }
 
   // ========== Reconnect ==========
 
   _scheduleReconnect() {
-    if (!this._wantPlay) return;
-    if (this._reconnectTimer) return;
-
+    if (!this._wantPlay || this._reconnectTimer) return;
     this._reconnectCount++;
-    if (this._reconnectCount > this._maxRetries) {
-      this._showError('Connection lost after multiple retries');
-      return;
-    }
-
+    if (this._reconnectCount > this._maxRetries) { this._showError('Connection lost after multiple retries'); return; }
     this._setState(STATE.RECONNECTING, `Reconnecting... (${this._reconnectCount}/${this._maxRetries})`);
-
-    this._reconnectTimer = setTimeout(async () => {
-      this._reconnectTimer = null;
-      if (!this._wantPlay) return;
-      this._connect();
-    }, 2000);
+    this._reconnectTimer = setTimeout(() => { this._reconnectTimer = null; if (this._wantPlay) this._connect(); }, 2000);
   }
 
   // ========== Cleanup ==========
 
   _closeConnection() {
     this._stopMic();
-
-    if (this._pc) {
-      this._pc.ontrack = null;
-      this._pc.onconnectionstatechange = null;
-      this._pc.oniceconnectionstatechange = null;
-      this._pc.onicecandidate = null;
-      try { this._pc.close(); } catch (_) {}
-      this._pc = null;
-    }
-
-    if (this._ws) {
-      this._ws.onmessage = null;
-      this._ws.onerror = null;
-      this._ws.onclose = null;
-      try { this._ws.close(); } catch (_) {}
-      this._ws = null;
-    }
-
-    // Stop oscillator (fresh one created each _connect), keep AudioContext alive
-    if (this._oscillator) {
-      try { this._oscillator.stop(); } catch (_) {}
-      this._oscillator = null;
-    }
+    if (this._pc) { this._pc.ontrack = null; this._pc.onconnectionstatechange = null; this._pc.onicecandidate = null; try { this._pc.close(); } catch (_) {} this._pc = null; }
+    if (this._ws) { this._ws.onmessage = null; this._ws.onerror = null; this._ws.onclose = null; try { this._ws.close(); } catch (_) {} this._ws = null; }
+    if (this._oscillator) { try { this._oscillator.stop(); } catch (_) {} this._oscillator = null; }
     this._silenceTrack = null;
     this._silenceStream = null;
     this._remoteStream = null;
@@ -1422,31 +804,16 @@ class BticinoIntercomCard extends HTMLElement {
   }
 
   _cleanup() {
-    if (this._reconnectTimer) {
-      clearTimeout(this._reconnectTimer);
-      this._reconnectTimer = null;
-    }
+    if (this._reconnectTimer) { clearTimeout(this._reconnectTimer); this._reconnectTimer = null; }
     this._resetControlsTimer();
     this._closeConnection();
-    // Full cleanup: destroy AudioContext (only on stop/disconnect, not reconnect)
-    if (this._oscillator) {
-      try { this._oscillator.stop(); } catch (_) {}
-      this._oscillator = null;
-    }
-    if (this._audioCtx) {
-      try { this._audioCtx.close(); } catch (_) {}
-      this._audioCtx = null;
-    }
-    this._silenceTrack = null;
-    this._silenceStream = null;
+    if (this._audioCtx) { try { this._audioCtx.close(); } catch (_) {} this._audioCtx = null; }
   }
 
   // ========== Helpers ==========
 
   _entityName(entityId) {
-    if (!entityId || !this._hass) return null;
-    const entity = this._hass.states[entityId];
-    return entity?.attributes?.friendly_name || null;
+    return this._hass?.states[entityId]?.attributes?.friendly_name || null;
   }
 
   _esc(str) {
@@ -1467,7 +834,7 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: 'bticino-intercom-card',
   name: 'BTicino Intercom',
-  description: 'Live video with audio from BTicino intercom',
+  description: 'Live video with audio from BTicino intercom (Chrome/Chromium only)',
   preview: true,
 });
 
