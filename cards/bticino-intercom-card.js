@@ -595,6 +595,23 @@ class BticinoIntercomCard extends HTMLElement {
       console.log(`[bticino-card] ICE state: ${this._pc?.iceConnectionState}`);
     };
 
+    this._pc.onicecandidate = (e) => {
+      if (e.candidate && this._ws?.readyState === WebSocket.OPEN) {
+        // Forward local ICE candidates to the device via HA WebSocket.
+        // HA's camera/webrtc/candidate command relays them through SignalingClient.
+        this._ws.send(JSON.stringify({
+          id: 2,
+          type: 'camera/webrtc/candidate',
+          entity_id: this._config.entity,
+          candidate: {
+            candidate: e.candidate.candidate,
+            sdpMLineIndex: e.candidate.sdpMLineIndex,
+            sdpMid: e.candidate.sdpMid,
+          },
+        }));
+      }
+    };
+
     // 3. Create offer
     const offer = await this._pc.createOffer();
     await this._pc.setLocalDescription(offer);
