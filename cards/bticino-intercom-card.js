@@ -31,7 +31,7 @@
  * @license MIT
  */
 
-const CARD_VERSION = '3.0.6';
+const CARD_VERSION = '3.1.0';
 
 const STATE = {
   IDLE: 'idle',
@@ -300,6 +300,7 @@ class BticinoIntercomCard extends HTMLElement {
       title: config.title || null,
       actions: config.actions || [],
       max_actions: config.max_actions ?? 4,
+      auto_mic: config.auto_mic ?? true,
     };
     if (this._hass) this._render();
   }
@@ -542,7 +543,7 @@ class BticinoIntercomCard extends HTMLElement {
 
   // ========== Play / Stop ==========
 
-  _startPlay() {
+  async _startPlay() {
     if (this._playing) return;
     this._wantPlay = true;
     this._playing = true;
@@ -550,6 +551,12 @@ class BticinoIntercomCard extends HTMLElement {
 
     if (!this._audioCtx || this._audioCtx.state === 'closed') {
       this._audioCtx = new AudioContext();
+    }
+
+    if (this._config.auto_mic && navigator.mediaDevices?.getUserMedia) {
+      try {
+        this._micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (_) {}
     }
 
     this.shadowRoot?.getElementById('poster')?.classList.add('hidden');
@@ -634,7 +641,10 @@ class BticinoIntercomCard extends HTMLElement {
   // ========== WebRTC Connection ==========
 
   async _connect() {
+    const savedMicStream = this._micStream;
+    this._micStream = null;
     this._closeConnection();
+    this._micStream = savedMicStream;
 
     try {
       const osc = this._audioCtx.createOscillator();
@@ -662,8 +672,13 @@ class BticinoIntercomCard extends HTMLElement {
       } catch (_) {}
 
       this._pc = new RTCPeerConnection({ iceServers, rtcpMuxPolicy: 'require' });
-      this._pc.addTransceiver(this._silenceTrack, { direction: 'sendrecv', streams: [this._silenceStream] });
+      const micTrack = this._micStream?.getAudioTracks()?.[0];
+      this._pc.addTransceiver(micTrack || this._silenceTrack, { direction: 'sendrecv', streams: [this._silenceStream] });
       this._pc.addTransceiver('video', { direction: 'recvonly' });
+      if (micTrack) {
+        this._micSender = this._pc.getSenders().find(s => s.track?.kind === 'audio');
+        this._micActive = true;
+      }
 
       this._remoteStream = new MediaStream();
       const video = this.shadowRoot?.getElementById('video');
@@ -676,6 +691,7 @@ class BticinoIntercomCard extends HTMLElement {
         if (state === 'connected') {
           this._reconnectCount = 0;
           this._setState(STATE.LIVE);
+          if (this._micActive) this._updateMicUI();
         }
         else if (['disconnected', 'failed', 'closed'].includes(state) && this._wantPlay) this._scheduleReconnect();
       };
