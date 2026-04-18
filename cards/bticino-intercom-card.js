@@ -31,7 +31,7 @@
  * @license MIT
  */
 
-const CARD_VERSION = '3.0.5';
+const CARD_VERSION = '3.0.6';
 
 const STATE = {
   IDLE: 'idle',
@@ -555,15 +555,6 @@ class BticinoIntercomCard extends HTMLElement {
     this.shadowRoot?.getElementById('poster')?.classList.add('hidden');
     this.shadowRoot?.getElementById('play-overlay')?.classList.add('hidden');
 
-    // Create the remote stream and prime the video element NOW (user gesture active)
-    // so Chrome allows unmuted playback when tracks arrive later
-    this._remoteStream = new MediaStream();
-    const video = this.shadowRoot?.getElementById('video');
-    if (video) {
-      video.srcObject = this._remoteStream;
-      video.play().catch(() => {});
-    }
-
     this._setState(STATE.CONNECTING);
     this._connect();
   }
@@ -674,7 +665,9 @@ class BticinoIntercomCard extends HTMLElement {
       this._pc.addTransceiver(this._silenceTrack, { direction: 'sendrecv', streams: [this._silenceStream] });
       this._pc.addTransceiver('video', { direction: 'recvonly' });
 
-      // remoteStream already created in _startPlay with play() primed
+      this._remoteStream = new MediaStream();
+      const video = this.shadowRoot?.getElementById('video');
+      if (video) video.srcObject = this._remoteStream;
 
       this._pc.ontrack = (e) => { this._remoteStream.addTrack(e.track); };
 
