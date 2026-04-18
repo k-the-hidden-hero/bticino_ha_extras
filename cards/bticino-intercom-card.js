@@ -31,7 +31,7 @@
  * @license MIT
  */
 
-const CARD_VERSION = '3.0.1';
+const CARD_VERSION = '3.0.2';
 
 const STATE = {
   IDLE: 'idle',
@@ -50,20 +50,7 @@ const ERROR_MESSAGES = {
   'No auth token available': 'Authentication token not available. Try reloading the page.',
 };
 
-const ICONS = {
-  play: 'M8,5.14V19.14L19,12.14L8,5.14Z',
-  stop: 'M18,18H6V6H18V18Z',
-  volumeHigh: 'M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.84 14,18.7V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.76 16.5,12M3,9V15H7L12,20V4L7,9H3Z',
-  volumeOff: 'M12,4L9.91,6.09L12,8.18M4.27,3L3,4.27L7.73,9H3V15H7L12,20V13.27L16.25,17.53C15.58,18.04 14.83,18.46 14,18.7V20.77C15.38,20.45 16.63,19.82 17.68,18.96L19.73,21L21,19.73L12,10.73M19,12C19,12.94 18.8,13.82 18.46,14.64L19.97,16.15C20.62,14.91 21,13.5 21,12C21,7.72 18,4.14 14,3.23V5.29C16.89,6.15 19,8.83 19,12M16.5,12C16.5,10.23 15.5,8.71 14,7.97V10.18L16.45,12.63C16.5,12.43 16.5,12.21 16.5,12Z',
-  mic: 'M12,2A3,3 0 0,1 15,5V11A3,3 0 0,1 12,14A3,3 0 0,1 9,11V5A3,3 0 0,1 12,2M19,11C19,14.53 16.39,17.44 13,17.93V21H11V17.93C7.61,17.44 5,14.53 5,11H7A5,5 0 0,0 12,16A5,5 0 0,0 17,11H19Z',
-  micOff: 'M19,11C19,14.53 16.39,17.44 13,17.93V21H11V17.93C9.12,17.64 7.47,16.66 6.32,15.25L7.77,13.8C8.61,14.82 9.83,15.5 11.2,15.5H12.8C14.96,15.14 16.5,13.27 16.5,11H18.5M12,2A3,3 0 0,1 15,5V11C15,11.35 14.94,11.69 14.84,12L3.65,0.81L2.39,2.07L21.61,21.29L22.87,20.03L14.97,12.13V12.13C15,12.09 15,12.04 15,12V5A3,3 0 0,0 12,2M9,5V10.18L14,15.18V11A5,5 0 0,0 9,5Z',
-  fullscreen: 'M5,5H10V7H7V10H5V5M14,5H19V10H17V7H14V5M17,14H19V19H14V17H17V14M10,17V19H5V14H7V17H10Z',
-  dots: 'M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z',
-};
-
-function icon(name) {
-  return `<svg viewBox="0 0 24 24"><path d="${ICONS[name]}"/></svg>`;
-}
+const PLAY_ICON = '<svg viewBox="0 0 24 24"><path d="M8,5.14V19.14L19,12.14L8,5.14Z"/></svg>';
 
 // ---------------------------------------------------------------------------
 // Styles
@@ -205,7 +192,7 @@ const CARD_STYLES = `
   }
   .vc-btn:hover { background: rgba(255,255,255,0.25); }
   .vc-btn:active { transform: scale(0.92); }
-  .vc-btn svg { width: 20px; height: 20px; fill: currentColor; }
+  .vc-btn ha-icon { --mdc-icon-size: 20px; }
   .vc-btn.mic-active { background: rgba(76,175,80,0.35); color: #66bb6a; }
 
   .action-bar {
@@ -352,7 +339,7 @@ class BticinoIntercomCard extends HTMLElement {
         <div class="video-area" id="video-area">
           <video id="video" autoplay playsinline muted></video>
           <div class="poster" id="poster"><img id="poster-img" alt="" /></div>
-          <div class="play-overlay" id="play-overlay"><div class="play-btn">${icon('play')}</div></div>
+          <div class="play-overlay" id="play-overlay"><div class="play-btn">${PLAY_ICON}</div></div>
           <div class="error-overlay" id="error-overlay">
             <svg class="error-icon" viewBox="0 0 24 24"><path d="M13,13H11V7H13M13,17H11V15H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg>
             <div class="error-msg" id="error-msg"></div>
@@ -360,18 +347,18 @@ class BticinoIntercomCard extends HTMLElement {
           </div>
           <div class="video-controls" id="video-controls">
             <div class="ctrl-group">
-              <button class="vc-btn" id="vc-playpause" title="Stop">${icon('stop')}</button>
-              <button class="vc-btn" id="vc-volume" title="Mute">${icon('volumeHigh')}</button>
-              <button class="vc-btn" id="vc-mic" title="Microphone">${icon('micOff')}</button>
+              <button class="vc-btn" id="vc-playpause" title="Stop"><ha-icon icon="mdi:stop"></ha-icon></button>
+              <button class="vc-btn" id="vc-volume" title="Mute"><ha-icon icon="mdi:volume-high"></ha-icon></button>
+              <button class="vc-btn" id="vc-mic" title="Microphone"><ha-icon icon="mdi:microphone-off"></ha-icon></button>
             </div>
             <div class="ctrl-group">
-              <button class="vc-btn" id="vc-fullscreen" title="Fullscreen">${icon('fullscreen')}</button>
+              <button class="vc-btn" id="vc-fullscreen" title="Fullscreen"><ha-icon icon="mdi:fullscreen"></ha-icon></button>
             </div>
           </div>
         </div>
         <div class="action-bar" id="action-bar">
           ${visibleActions.map((a, i) => this._renderActionBtn(a, i)).join('')}
-          ${hasOverflow ? `<button class="action-btn" id="overflow-btn" title="More">${icon('dots')}<span class="action-label">...</span></button>` : ''}
+          ${hasOverflow ? `<button class="action-btn" id="overflow-btn" title="More"><ha-icon icon="mdi:dots-vertical"></ha-icon><span class="action-label">...</span></button>` : ''}
           ${hasOverflow ? `<div class="overflow-popup" id="overflow-popup">${overflowActions.map((a, i) => this._renderOverflowItem(a, maxActions + i)).join('')}</div>` : ''}
         </div>
       </ha-card>
@@ -593,7 +580,7 @@ class BticinoIntercomCard extends HTMLElement {
     const video = this.shadowRoot?.getElementById('video');
     if (video) video.muted = this._muted;
     const btn = this.shadowRoot?.getElementById('vc-volume');
-    if (btn) btn.innerHTML = icon(this._muted ? 'volumeOff' : 'volumeHigh');
+    if (btn) btn.innerHTML = `<ha-icon icon="mdi:${this._muted ? 'volume-off' : 'volume-high'}"></ha-icon>`;
   }
 
   async _toggleMic() {
@@ -603,6 +590,10 @@ class BticinoIntercomCard extends HTMLElement {
 
   async _startMic() {
     try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        this._showError('Microphone requires HTTPS. Access HA via https:// to use two-way audio.');
+        return;
+      }
       if (this._audioCtx?.state === 'suspended') await this._audioCtx.resume();
       this._micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const micTrack = this._micStream.getAudioTracks()[0];
@@ -629,7 +620,7 @@ class BticinoIntercomCard extends HTMLElement {
   _updateMicUI() {
     const btn = this.shadowRoot?.getElementById('vc-mic');
     if (!btn) return;
-    btn.innerHTML = icon(this._micActive ? 'mic' : 'micOff');
+    btn.innerHTML = `<ha-icon icon="mdi:${this._micActive ? 'microphone' : 'microphone-off'}"></ha-icon>`;
     btn.classList.toggle('mic-active', this._micActive);
   }
 
