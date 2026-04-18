@@ -31,7 +31,7 @@
  * @license MIT
  */
 
-const CARD_VERSION = '3.0.2';
+const CARD_VERSION = '3.0.3';
 
 const STATE = {
   IDLE: 'idle',
@@ -337,7 +337,7 @@ class BticinoIntercomCard extends HTMLElement {
           <div class="status-pill ready" id="status-pill">Ready</div>
         </div>
         <div class="video-area" id="video-area">
-          <video id="video" autoplay playsinline muted></video>
+          <video id="video" autoplay playsinline></video>
           <div class="poster" id="poster"><img id="poster-img" alt="" /></div>
           <div class="play-overlay" id="play-overlay"><div class="play-btn">${PLAY_ICON}</div></div>
           <div class="error-overlay" id="error-overlay">
@@ -677,8 +677,6 @@ class BticinoIntercomCard extends HTMLElement {
         if (state === 'connected') {
           this._reconnectCount = 0;
           this._setState(STATE.LIVE);
-          const v = this.shadowRoot?.getElementById('video');
-          if (v) { v.muted = this._muted; v.play().catch(() => {}); }
         }
         else if (['disconnected', 'failed', 'closed'].includes(state) && this._wantPlay) this._scheduleReconnect();
       };
