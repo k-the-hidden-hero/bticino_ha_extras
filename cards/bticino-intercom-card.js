@@ -26,7 +26,7 @@
  * @license MIT
  */
 
-const CARD_VERSION = '2.0.0';
+const CARD_VERSION = '2.10.0';
 
 const STATE = {
   IDLE: 'idle',
@@ -34,6 +34,15 @@ const STATE = {
   LIVE: 'live',
   RECONNECTING: 'reconnecting',
   ERROR: 'error',
+};
+
+const ERROR_MESSAGES = {
+  'Max number of peers reached': 'Device busy — too many active connections. Close other sessions and try again.',
+  'Offer rejected': 'Device rejected the connection request.',
+  'Signaling timeout': 'Device did not respond in time. Check if it is online.',
+  'Authentication failed': 'Home Assistant authentication failed. Try reloading the page.',
+  'WebSocket error': 'Lost connection to Home Assistant.',
+  'No auth token available': 'Authentication token not available. Try reloading the page.',
 };
 
 // MDI icon SVG paths (viewBox 0 0 24 24)
@@ -163,6 +172,55 @@ const CARD_STYLES = `
     width: 100%;
     height: 100%;
     object-fit: contain;
+  }
+
+  /* Error overlay */
+  .error-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(0,0,0,0.85);
+    z-index: 5;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    padding: 20px;
+  }
+  .error-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .error-overlay .error-icon {
+    width: 40px;
+    height: 40px;
+    fill: #ef5350;
+  }
+  .error-overlay .error-msg {
+    color: #ef5350;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
+    line-height: 1.4;
+    max-width: 280px;
+  }
+  .error-overlay .error-dismiss {
+    margin-top: 4px;
+    padding: 6px 16px;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    background: none;
+    color: var(--bti-text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .error-overlay .error-dismiss:hover {
+    background: rgba(255,255,255,0.1);
+    color: var(--bti-text);
   }
 
   /* Play button overlay (IDLE) */
@@ -397,6 +455,7 @@ class BticinoIntercomCard extends HTMLElement {
     this._audioCtx = null;
     this._oscillator = null;
     this._silenceTrack = null;
+    this._silenceStream = null;
     this._remoteStream = null;
 
     // Mic state
@@ -415,6 +474,9 @@ class BticinoIntercomCard extends HTMLElement {
     this._controlsTimer = null;
     this._controlsVisible = false;
     this._overflowOpen = false;
+
+    // Local ICE candidate buffer (flushed when session_id arrives)
+    this._pendingLocalCandidates = [];
 
     // Bound handlers for cleanup
     this._boundDocClick = this._onDocumentClick.bind(this);
@@ -489,7 +551,7 @@ class BticinoIntercomCard extends HTMLElement {
         </div>
 
         <div class="video-area" id="video-area">
-          <video id="video" autoplay playsinline></video>
+          <video id="video" autoplay playsinline muted></video>
 
           <div class="poster" id="poster">
             <img id="poster-img" alt="" />
@@ -497,6 +559,12 @@ class BticinoIntercomCard extends HTMLElement {
 
           <div class="play-overlay" id="play-overlay">
             <div class="play-btn">${icon('play')}</div>
+          </div>
+
+          <div class="error-overlay" id="error-overlay">
+            <svg class="error-icon" viewBox="0 0 24 24"><path d="M13,13H11V7H13M13,17H11V15H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg>
+            <div class="error-msg" id="error-msg"></div>
+            <button class="error-dismiss" id="error-dismiss">Dismiss</button>
           </div>
 
           <div class="video-controls" id="video-controls">
@@ -577,6 +645,9 @@ class BticinoIntercomCard extends HTMLElement {
     // Play overlay
     $('play-overlay')?.addEventListener('click', () => this._startPlay());
 
+    // Error dismiss
+    $('error-dismiss')?.addEventListener('click', (e) => { e.stopPropagation(); this._dismissError(); });
+
     // Video area — hover/tap for controls
     const videoArea = $('video-area');
     videoArea?.addEventListener('mouseenter', () => this._showControls());
@@ -654,6 +725,24 @@ class BticinoIntercomCard extends HTMLElement {
       case STATE.RECONNECTING: pill.classList.add('reconnecting'); break;
       case STATE.ERROR: pill.classList.add('error'); break;
     }
+  }
+
+  _showError(message) {
+    const friendly = Object.entries(ERROR_MESSAGES).find(([key]) => message.includes(key));
+    const displayMsg = friendly ? friendly[1] : message;
+    const overlay = this.shadowRoot?.getElementById('error-overlay');
+    const msgEl = this.shadowRoot?.getElementById('error-msg');
+    if (overlay && msgEl) {
+      msgEl.textContent = displayMsg;
+      overlay.classList.add('visible');
+    }
+    this._setState(STATE.ERROR);
+  }
+
+  _dismissError() {
+    const overlay = this.shadowRoot?.getElementById('error-overlay');
+    if (overlay) overlay.classList.remove('visible');
+    this._stopPlay();
   }
 
   _updatePoster() {
@@ -791,11 +880,22 @@ class BticinoIntercomCard extends HTMLElement {
 
   // ========== Play / Stop ==========
 
-  _startPlay() {
+  async _startPlay() {
     if (this._playing) return;
     this._wantPlay = true;
     this._playing = true;
     this._reconnectCount = 0;
+
+    // Create AudioContext NOW — must be synchronous with user click
+    // Firefox suspends AudioContext if not created during a user gesture
+    // Create AudioContext but keep it SUSPENDED — just for the SDP sendrecv track.
+    // Firefox sends DTX (3-byte) Opus packets when running, which confuses the device.
+    // With suspended context, no audio RTP is sent, and video works.
+    // The mic button will resume() when the user actually wants two-way audio.
+    if (!this._audioCtx || this._audioCtx.state === 'closed') {
+      this._audioCtx = new AudioContext();
+      console.log(`[bticino-card] AudioContext state: ${this._audioCtx.state}`);
+    }
 
     // Hide poster and play overlay
     const poster = this.shadowRoot?.getElementById('poster');
@@ -817,7 +917,9 @@ class BticinoIntercomCard extends HTMLElement {
     const video = this.shadowRoot?.getElementById('video');
     if (video) video.srcObject = null;
 
-    // Show poster and play overlay again
+    // Hide error overlay, show poster and play overlay again
+    const errorOverlay = this.shadowRoot?.getElementById('error-overlay');
+    if (errorOverlay) errorOverlay.classList.remove('visible');
     const poster = this.shadowRoot?.getElementById('poster');
     const overlay = this.shadowRoot?.getElementById('play-overlay');
     if (poster) poster.classList.remove('hidden');
@@ -853,6 +955,10 @@ class BticinoIntercomCard extends HTMLElement {
 
   async _startMic() {
     try {
+      // Resume AudioContext on mic activation (user gesture)
+      if (this._audioCtx?.state === 'suspended') {
+        await this._audioCtx.resume();
+      }
       this._micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const micTrack = this._micStream.getAudioTracks()[0];
 
@@ -911,29 +1017,49 @@ class BticinoIntercomCard extends HTMLElement {
   // ========== WebRTC Connection ==========
 
   async _connect() {
-    // Tear down any previous connection
+    // Tear down peer connection but keep AudioContext alive for reconnects
     this._closeConnection();
 
     try {
-      // 1. Create AudioContext + silent oscillator for audio track
-      this._audioCtx = new AudioContext();
+      // Create fresh oscillator + silence track each connection (reuse AudioContext)
       const osc = this._audioCtx.createOscillator();
-      osc.frequency.value = 0; // 0 Hz = silence
+      osc.frequency.value = 0;
       const dest = this._audioCtx.createMediaStreamDestination();
       osc.connect(dest);
       osc.start();
       this._oscillator = osc;
+      this._silenceStream = dest.stream;
+      this._silenceTrack = this._silenceStream.getAudioTracks()[0];
+      console.log(`[bticino-card] Audio track: enabled=${this._silenceTrack.enabled} readyState=${this._silenceTrack.readyState}`);
+      // 1. Fetch ICE servers (TURN/STUN) from HA
+      let iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
+      try {
+        const config = await this._hass.callWS({
+          type: 'camera/webrtc/get_client_config',
+          entity_id: this._config.camera,
+        });
+        if (config?.configuration?.iceServers?.length) {
+          iceServers = config.configuration.iceServers.map(server => {
+            const urls = (Array.isArray(server.urls) ? server.urls : [server.urls])
+              .filter(u => !u.includes('transport=tcp') && !u.startsWith('turns:'));
+            if (!urls.length) return null;
+            return { ...server, urls };
+          }).filter(Boolean);
+          console.log(`[bticino-card] Loaded ${iceServers.length} ICE servers (TCP/TLS filtered)`);
+        }
+      } catch (err) {
+        console.warn('[bticino-card] Failed to fetch ICE servers, using fallback STUN:', err);
+      }
 
-      const silenceStream = dest.stream;
-      this._silenceTrack = silenceStream.getAudioTracks()[0];
-
-      // 2. Create RTCPeerConnection
+      // 2. Create RTCPeerConnection with proper ICE servers
       this._pc = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+        iceServers,
+        bundlePolicy: 'max-compat',
+        rtcpMuxPolicy: 'require',
       });
 
-      // Add silence audio track (makes SDP sendrecv with real SSRC)
-      this._pc.addTrack(this._silenceTrack, silenceStream);
+      // Add silence audio track with explicit transceiver direction
+      this._pc.addTransceiver(this._silenceTrack, { direction: 'sendrecv', streams: [this._silenceStream] });
 
       // Add video transceiver (recvonly)
       this._pc.addTransceiver('video', { direction: 'recvonly' });
@@ -943,7 +1069,6 @@ class BticinoIntercomCard extends HTMLElement {
       const video = this.shadowRoot?.getElementById('video');
       if (video) {
         video.srcObject = this._remoteStream;
-        video.muted = this._muted;
       }
 
       this._pc.ontrack = (e) => {
@@ -951,12 +1076,26 @@ class BticinoIntercomCard extends HTMLElement {
         this._remoteStream.addTrack(e.track);
       };
 
+      if (video) {
+        video.addEventListener('playing', () => {
+          console.log('[bticino-card] Video playing');
+          video.muted = this._muted;
+        }, { once: true });
+        video.addEventListener('error', () => {
+          const e = video.error;
+          console.error(`[bticino-card] Video element error: ${e?.code} ${e?.message}`);
+        });
+        video.addEventListener('stalled', () => console.warn('[bticino-card] Video stalled'));
+        video.addEventListener('suspend', () => console.log('[bticino-card] Video suspend'));
+      }
+
       this._pc.onconnectionstatechange = () => {
         const state = this._pc?.connectionState;
         console.log(`[bticino-card] Connection state: ${state}`);
         if (state === 'connected') {
           this._reconnectCount = 0;
           this._setState(STATE.LIVE);
+          this._logMediaDiagnostics();
         } else if (state === 'disconnected' || state === 'failed' || state === 'closed') {
           if (this._wantPlay) {
             this._scheduleReconnect();
@@ -969,35 +1108,30 @@ class BticinoIntercomCard extends HTMLElement {
       };
 
       this._pc.onicecandidate = (e) => {
-        if (e.candidate && this._ws?.readyState === WebSocket.OPEN && this._sessionId) {
-          this._candidateMsgId = (this._candidateMsgId || 100) + 1;
-          this._ws.send(JSON.stringify({
-            id: this._candidateMsgId,
-            type: 'camera/webrtc/candidate',
-            entity_id: this._config.camera,
-            session_id: this._sessionId,
-            candidate: {
-              candidate: e.candidate.candidate,
-              sdpMLineIndex: e.candidate.sdpMLineIndex,
-              sdpMid: e.candidate.sdpMid,
-            },
-          }));
+        if (!e.candidate) return;
+        const candidateMsg = {
+          candidate: e.candidate.candidate,
+          sdpMLineIndex: e.candidate.sdpMLineIndex,
+          sdpMid: e.candidate.sdpMid,
+        };
+        if (this._ws?.readyState === WebSocket.OPEN && this._sessionId) {
+          this._sendCandidate(candidateMsg);
+        } else {
+          this._pendingLocalCandidates.push(candidateMsg);
         }
       };
 
       // 3. Create offer
       const offer = await this._pc.createOffer();
       await this._pc.setLocalDescription(offer);
+      console.log('[bticino-card] Offer SDP:\n' + this._pc.localDescription.sdp);
 
       // 4. Send via HA WebSocket
       await this._signalViaWebSocket(this._pc.localDescription.sdp);
 
     } catch (err) {
       console.error('[bticino-card] Connection failed:', err);
-      this._setState(STATE.ERROR);
-      if (this._wantPlay) {
-        this._scheduleReconnect();
-      }
+      this._showError(err.message || 'Connection failed');
     }
   }
 
@@ -1078,9 +1212,11 @@ class BticinoIntercomCard extends HTMLElement {
           if (evt.type === 'session') {
             this._sessionId = evt.session_id;
             console.log(`[bticino-card] Session ID: ${this._sessionId}`);
+            this._flushLocalCandidates();
 
           } else if (evt.type === 'answer') {
             try {
+              console.log('[bticino-card] Answer SDP:\n' + evt.answer);
               await this._pc.setRemoteDescription({ type: 'answer', sdp: evt.answer });
               console.log('[bticino-card] Remote description set');
               clearTimeout(timeout);
@@ -1123,6 +1259,74 @@ class BticinoIntercomCard extends HTMLElement {
     });
   }
 
+  // ========== Diagnostics ==========
+
+  async _logMediaDiagnostics() {
+    if (!this._pc) return;
+    setTimeout(async () => {
+      if (!this._pc) return;
+      try {
+        const stats = await this._pc.getStats();
+        // Dump ALL stats types to find DTLS
+        const byType = {};
+        stats.forEach(report => {
+          if (!byType[report.type]) byType[report.type] = [];
+          byType[report.type].push(report);
+        });
+        console.log(`[bticino-card] Stats types: ${Object.keys(byType).join(', ')}`);
+        // Dump each type
+        stats.forEach(report => {
+          if (report.type === 'transport') {
+            console.log(`[bticino-card] Transport: dtls=${report.dtlsState} ice=${report.iceState} bytesRx=${report.bytesReceived} bytesTx=${report.bytesSent} selectedPair=${report.selectedCandidatePairId}`);
+          } else if (report.type === 'candidate-pair' && report.selected) {
+            console.log(`[bticino-card] Selected pair: state=${report.state} bytesRx=${report.bytesReceived} bytesTx=${report.bytesSent} rtt=${report.currentRoundTripTime}`);
+          } else if (report.type === 'inbound-rtp') {
+            console.log(`[bticino-card] Inbound ${report.kind}: packets=${report.packetsReceived} bytes=${report.bytesReceived} lost=${report.packetsLost} frames=${report.framesDecoded} codec=${report.codecId} jitter=${report.jitter} nackCount=${report.nackCount} pliCount=${report.pliCount}`);
+          } else if (report.type === 'outbound-rtp') {
+            console.log(`[bticino-card] Outbound ${report.kind}: packets=${report.packetsSent} bytes=${report.bytesSent} codec=${report.codecId} nackCount=${report.nackCount}`);
+          } else if (report.type === 'codec') {
+            console.log(`[bticino-card] Codec: ${report.mimeType} pt=${report.payloadType}`);
+          } else if (report.type === 'remote-inbound-rtp') {
+            console.log(`[bticino-card] RemoteInbound ${report.kind}: packetsLost=${report.packetsLost} jitter=${report.jitter} rtt=${report.roundTripTime}`);
+          }
+        });
+        const transceivers = this._pc.getTransceivers();
+        transceivers.forEach((t, i) => {
+          const recvTrack = t.receiver?.track;
+          console.log(`[bticino-card] Transceiver[${i}]: mid=${t.mid} dir=${t.direction} currentDir=${t.currentDirection} recvTrack=${recvTrack?.kind}/${recvTrack?.readyState}/${recvTrack?.muted}`);
+        });
+        const video = this.shadowRoot?.getElementById('video');
+        if (video) {
+          console.log(`[bticino-card] Video: readyState=${video.readyState} paused=${video.paused} videoWidth=${video.videoWidth} networkState=${video.networkState} srcObject=${!!video.srcObject} tracks=${video.srcObject?.getTracks().length}`);
+        }
+      } catch (err) {
+        console.warn('[bticino-card] Stats error:', err);
+      }
+    }, 3000);
+  }
+
+  // ========== ICE candidate helpers ==========
+
+  _sendCandidate(candidateMsg) {
+    this._candidateMsgId = (this._candidateMsgId || 100) + 1;
+    this._ws.send(JSON.stringify({
+      id: this._candidateMsgId,
+      type: 'camera/webrtc/candidate',
+      entity_id: this._config.camera,
+      session_id: this._sessionId,
+      candidate: candidateMsg,
+    }));
+  }
+
+  _flushLocalCandidates() {
+    if (!this._pendingLocalCandidates.length) return;
+    console.log(`[bticino-card] Flushing ${this._pendingLocalCandidates.length} buffered local ICE candidates`);
+    for (const candidate of this._pendingLocalCandidates) {
+      this._sendCandidate(candidate);
+    }
+    this._pendingLocalCandidates = [];
+  }
+
   // ========== Reconnect ==========
 
   _scheduleReconnect() {
@@ -1131,7 +1335,7 @@ class BticinoIntercomCard extends HTMLElement {
 
     this._reconnectCount++;
     if (this._reconnectCount > this._maxRetries) {
-      this._setState(STATE.ERROR, 'Connection lost');
+      this._showError('Connection lost after multiple retries');
       return;
     }
 
@@ -1166,19 +1370,16 @@ class BticinoIntercomCard extends HTMLElement {
       this._ws = null;
     }
 
+    // Stop oscillator (fresh one created each _connect), keep AudioContext alive
     if (this._oscillator) {
       try { this._oscillator.stop(); } catch (_) {}
       this._oscillator = null;
     }
-
-    if (this._audioCtx) {
-      try { this._audioCtx.close(); } catch (_) {}
-      this._audioCtx = null;
-    }
-
     this._silenceTrack = null;
+    this._silenceStream = null;
     this._remoteStream = null;
     this._sessionId = null;
+    this._pendingLocalCandidates = [];
   }
 
   _cleanup() {
@@ -1188,6 +1389,17 @@ class BticinoIntercomCard extends HTMLElement {
     }
     this._resetControlsTimer();
     this._closeConnection();
+    // Full cleanup: destroy AudioContext (only on stop/disconnect, not reconnect)
+    if (this._oscillator) {
+      try { this._oscillator.stop(); } catch (_) {}
+      this._oscillator = null;
+    }
+    if (this._audioCtx) {
+      try { this._audioCtx.close(); } catch (_) {}
+      this._audioCtx = null;
+    }
+    this._silenceTrack = null;
+    this._silenceStream = null;
   }
 
   // ========== Helpers ==========
@@ -1221,7 +1433,7 @@ window.customCards.push({
 });
 
 console.info(
-  `%c BTICINO-INTERCOM-CARD %c v${CARD_VERSION} `,
+  `%c 📹 BTICINO-INTERCOM-CARD %c v${CARD_VERSION} `,
   'background: #03a9f4; color: white; font-weight: bold; padding: 2px 6px; border-radius: 4px 0 0 4px;',
   'background: #444; color: white; padding: 2px 6px; border-radius: 0 4px 4px 0;',
 );
