@@ -31,7 +31,7 @@
  * @license MIT
  */
 
-const CARD_VERSION = '3.0.0';
+const CARD_VERSION = '3.0.1';
 
 const STATE = {
   IDLE: 'idle',
@@ -223,7 +223,7 @@ const CARD_STYLES = `
   }
   .action-btn:hover { background: rgba(255,255,255,0.12); color: var(--bti-text); }
   .action-btn:active { transform: scale(0.95); }
-  .action-btn svg { width: 22px; height: 22px; fill: currentColor; flex-shrink: 0; }
+  .action-btn ha-icon { --mdc-icon-size: 22px; flex-shrink: 0; }
   .action-btn .action-label {
     font-size: 10px; font-weight: 500; line-height: 1.2; text-align: center;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
@@ -254,7 +254,7 @@ const CARD_STYLES = `
     transition: background 0.12s, color 0.12s;
   }
   .overflow-item:hover { background: rgba(255,255,255,0.08); color: var(--bti-text); }
-  .overflow-item svg { width: 20px; height: 20px; fill: currentColor; flex-shrink: 0; }
+  .overflow-item ha-icon { --mdc-icon-size: 20px; flex-shrink: 0; }
 
   @container (max-width: 350px) { .action-btn .action-label { display: none; } }
   @media (max-width: 350px) { .action-btn .action-label { display: none; } }
@@ -382,34 +382,17 @@ class BticinoIntercomCard extends HTMLElement {
   }
 
   _renderActionBtn(action, index) {
-    const iconPath = this._resolveIconPath(action.icon);
     return `<button class="action-btn" data-action-idx="${index}" title="${this._esc(action.label || '')}">
-      <svg viewBox="0 0 24 24"><path d="${iconPath}"/></svg>
+      <ha-icon icon="${this._esc(action.icon || 'mdi:circle')}"></ha-icon>
       ${action.label ? `<span class="action-label">${this._esc(action.label)}</span>` : ''}
     </button>`;
   }
 
   _renderOverflowItem(action, index) {
-    const iconPath = this._resolveIconPath(action.icon);
     return `<button class="overflow-item" data-action-idx="${index}">
-      <svg viewBox="0 0 24 24"><path d="${iconPath}"/></svg>
+      <ha-icon icon="${this._esc(action.icon || 'mdi:circle')}"></ha-icon>
       <span>${this._esc(action.label || action.entity)}</span>
     </button>`;
-  }
-
-  _resolveIconPath(mdiIcon) {
-    if (!mdiIcon) return ICONS.dots;
-    const name = mdiIcon.replace('mdi:', '');
-    const map = {
-      gate: 'M8.81,6.44V3H2V21H4V13H8.81V18.56L14,12L8.81,6.44M22,3H15.19V6.44L20.38,12L15.19,17.56V21H22V3Z',
-      door: 'M12,3L2,12H5V20H19V12H22L12,3M12,8.75A2.25,2.25 0 0,1 14.25,11A2.25,2.25 0 0,1 12,13.25A2.25,2.25 0 0,1 9.75,11A2.25,2.25 0 0,1 12,8.75Z',
-      lightbulb: 'M12,2A7,7 0 0,0 5,9C5,11.38 6.19,13.47 8,14.74V17A1,1 0 0,0 9,18H15A1,1 0 0,0 16,17V14.74C17.81,13.47 19,11.38 19,9A7,7 0 0,0 12,2M9,21A1,1 0 0,0 10,22H14A1,1 0 0,0 15,21V20H9V21Z',
-      'lightbulb-outline': 'M12,2A7,7 0 0,0 5,9C5,11.38 6.19,13.47 8,14.74V17A1,1 0 0,0 9,18H15A1,1 0 0,0 16,17V14.74C17.81,13.47 19,11.38 19,9A7,7 0 0,0 12,2M9,21A1,1 0 0,0 10,22H14A1,1 0 0,0 15,21V20H9V21M12,4A5,5 0 0,1 17,9C17,11.05 15.81,12.83 14,13.71V16H10V13.71C8.19,12.83 7,11.05 7,9A5,5 0 0,1 12,4Z',
-      lock: 'M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z',
-      'lock-open': 'M12,17C10.89,17 10,16.1 10,15C10,13.89 10.89,13 12,13A2,2 0 0,1 14,15A2,2 0 0,1 12,17M18,20V10H6V20H18M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6C4.89,22 4,21.1 4,20V10A2,2 0 0,1 6,8H15V6A3,3 0 0,0 12,3A3,3 0 0,0 9,6H7A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18Z',
-      stairs: 'M15,5V9H11V13H7V17H3V20H7V17H11V13H15V9H19V5H15Z',
-    };
-    return map[name] || ICONS.dots;
   }
 
   // ========== Event binding ==========
@@ -694,14 +677,18 @@ class BticinoIntercomCard extends HTMLElement {
       const video = this.shadowRoot?.getElementById('video');
       if (video) {
         video.srcObject = this._remoteStream;
-        video.addEventListener('playing', () => { video.muted = this._muted; }, { once: true });
       }
 
       this._pc.ontrack = (e) => { this._remoteStream.addTrack(e.track); };
 
       this._pc.onconnectionstatechange = () => {
         const state = this._pc?.connectionState;
-        if (state === 'connected') { this._reconnectCount = 0; this._setState(STATE.LIVE); }
+        if (state === 'connected') {
+          this._reconnectCount = 0;
+          this._setState(STATE.LIVE);
+          const v = this.shadowRoot?.getElementById('video');
+          if (v) { v.muted = this._muted; v.play().catch(() => {}); }
+        }
         else if (['disconnected', 'failed', 'closed'].includes(state) && this._wantPlay) this._scheduleReconnect();
       };
 
