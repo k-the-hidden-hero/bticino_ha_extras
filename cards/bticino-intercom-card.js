@@ -36,6 +36,8 @@ class BticinoIntercomCard extends HTMLElement {
     // WebRTC state
     this._pc = null;
     this._ws = null;
+    this._sessionId = null;
+    this._candidateMsgId = 100;
     this._audioCtx = null;
     this._oscillator = null;
     this._remoteStream = null;
@@ -596,13 +598,16 @@ class BticinoIntercomCard extends HTMLElement {
     };
 
     this._pc.onicecandidate = (e) => {
-      if (e.candidate && this._ws?.readyState === WebSocket.OPEN) {
+      if (e.candidate && this._ws?.readyState === WebSocket.OPEN && this._sessionId) {
         // Forward local ICE candidates to the device via HA WebSocket.
-        // HA's camera/webrtc/candidate command relays them through SignalingClient.
+        // The camera/webrtc/candidate command requires session_id (from the
+        // "session" event sent by HA after accepting the offer).
+        this._candidateMsgId = (this._candidateMsgId || 100) + 1;
         this._ws.send(JSON.stringify({
-          id: 2,
+          id: this._candidateMsgId,
           type: 'camera/webrtc/candidate',
           entity_id: this._config.entity,
+          session_id: this._sessionId,
           candidate: {
             candidate: e.candidate.candidate,
             sdpMLineIndex: e.candidate.sdpMLineIndex,
@@ -693,7 +698,12 @@ class BticinoIntercomCard extends HTMLElement {
           // success: wait for answer/candidate events
         } else if (msg.type === 'event') {
           const evt = msg.event;
-          if (evt.type === 'answer') {
+          if (evt.type === 'session') {
+            // HA sends the session_id as the first event after accepting the offer.
+            // We need it for sending ICE candidates via camera/webrtc/candidate.
+            this._sessionId = evt.session_id;
+            console.log(`[bticino-card] Session ID: ${this._sessionId}`);
+          } else if (evt.type === 'answer') {
             try {
               await this._pc.setRemoteDescription({ type: 'answer', sdp: evt.answer });
               console.log('[bticino-card] Remote description set');
