@@ -214,16 +214,13 @@ const CARD_STYLES = `
   }
 
   .idle-overlay {
-    position: absolute; inset: 0;
-    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
-    background: rgba(0,0,0,0.85);
-    pointer-events: none;
-    transition: opacity 0.3s;
-    padding-bottom: 16px;
+    position: absolute; left: 0; right: 0; bottom: 0; top: 60%;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    pointer-events: none; gap: 4px;
   }
   .idle-overlay.hidden { opacity: 0; pointer-events: none; }
   .idle-name {
-    font-size: 16px; font-weight: 600; color: var(--bti-text); opacity: 0.4;
+    font-size: 15px; font-weight: 600; color: var(--bti-text); opacity: 0.4;
     letter-spacing: 0.5px;
   }
 
@@ -696,7 +693,7 @@ class BticinoIntercomCard extends HTMLElement {
         ` : ''}
         <div class="video-area" id="video-area">
           <video id="video" autoplay playsinline></video>
-          <div class="idle-overlay" id="idle-overlay"><div class="idle-name">${this._esc(this._activeIntercom.name)}</div></div>
+          <div class="idle-overlay" id="idle-overlay"><ha-icon icon="mdi:doorbell-video" style="--mdc-icon-size:36px;opacity:0.25"></ha-icon><div class="idle-name">${this._esc(this._activeIntercom.name)}</div></div>
           <div class="call-overlay" id="call-overlay"><div class="call-btn">${ICON_PHONE}</div></div>
           <div class="connecting-overlay" id="connecting-overlay">
             <div class="connecting-rings">
