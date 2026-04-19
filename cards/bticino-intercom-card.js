@@ -504,7 +504,7 @@ const CARD_STYLES = `
     overflow: hidden; position: relative;
   }
   .ring-preview img {
-    max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px;
+    width: 100%; height: 100%; object-fit: cover;
   }
   .ring-preview .ring-placeholder {
     display: flex; align-items: center; justify-content: center;
@@ -1497,8 +1497,9 @@ class BticinoIntercomCard extends HTMLElement {
 
     nameEl.textContent = eventData.module_name || 'Incoming call';
 
-    if (eventData.vignette_url) {
-      this._hass.callWS({ type: 'auth/sign_path', path: eventData.vignette_url, expires: 60 })
+    const imageUrl = eventData.snapshot_url || eventData.vignette_url;
+    if (imageUrl) {
+      this._hass.callWS({ type: 'auth/sign_path', path: imageUrl, expires: 60 })
         .then(({ path }) => {
           preview.innerHTML = '<img src="' + path + '" alt="" /><div class="ring-pulse"><div class="rp"></div><div class="rp"></div><div class="rp"></div></div>';
         })
