@@ -1,0 +1,106 @@
+<h2>Intercom Card UI — Research & Inspiration</h2>
+<p class="subtitle">Patterns from Ring, UniFi Protect, BTicino and other intercom apps</p>
+
+<div class="section">
+<h3>Common patterns across all apps</h3>
+<ul>
+<li><strong>Video dominates</strong> — 70-80% of screen is the live feed</li>
+<li><strong>Action buttons at bottom</strong> — large, thumb-friendly, 3-4 max</li>
+<li><strong>Incoming call = fullscreen takeover</strong> — big Answer/Decline buttons</li>
+<li><strong>Idle = poster/snapshot</strong> with play button overlay</li>
+<li><strong>Dark background</strong> — video looks better on dark</li>
+</ul>
+</div>
+
+<h3>Which layout pattern should we follow?</h3>
+<p class="subtitle">Click to select your preference</p>
+
+<div class="cards">
+  <div class="card" data-choice="ring" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#1a1a2e;padding:12px;">
+      <div style="background:#000;border-radius:8px;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;color:#666;font-size:14px;position:relative;">
+        <div style="color:#aaa;">📹 Live Video</div>
+        <div style="position:absolute;top:8px;left:8px;background:rgba(255,0,0,0.8);color:white;font-size:10px;padding:2px 8px;border-radius:10px;">● LIVE</div>
+      </div>
+      <div style="display:flex;justify-content:center;gap:16px;margin-top:12px;">
+        <div style="width:56px;height:56px;border-radius:50%;background:#4CAF50;display:flex;align-items:center;justify-content:center;font-size:24px;">🔊</div>
+        <div style="width:56px;height:56px;border-radius:50%;background:#2196F3;display:flex;align-items:center;justify-content:center;font-size:24px;">🔓</div>
+        <div style="width:56px;height:56px;border-radius:50%;background:#f44336;display:flex;align-items:center;justify-content:center;font-size:24px;">✕</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Ring Style</h3>
+      <p>Video fullwidth, round action buttons below. Simple, proven. 16:9 aspect ratio. Actions: Talk, Unlock, End.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="unifi" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#1a1a2e;padding:12px;">
+      <div style="background:#000;border-radius:8px;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;color:#666;font-size:14px;position:relative;">
+        <div style="color:#aaa;">📹 Live Video</div>
+        <div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,0.8));padding:12px;display:flex;justify-content:space-between;align-items:center;border-radius:0 0 8px 8px;">
+          <span style="color:white;font-size:12px;">Citofono Strada</span>
+          <div style="display:flex;gap:8px;">
+            <div style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:14px;">🔊</div>
+            <div style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:14px;">⛶</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button style="flex:1;padding:8px;border-radius:6px;border:none;background:#4CAF50;color:white;font-size:13px;cursor:pointer;">🔓 Porta Est.</button>
+        <button style="flex:1;padding:8px;border-radius:6px;border:none;background:#2196F3;color:white;font-size:13px;cursor:pointer;">🔓 Porta Int.</button>
+        <button style="flex:1;padding:8px;border-radius:6px;border:none;background:#FF9800;color:white;font-size:13px;cursor:pointer;">💡 Luci</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>UniFi Protect Style</h3>
+      <p>Video with gradient overlay for controls. Named action buttons below. 4:3 aspect ratio. Compact, information-dense.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="intercom" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#1a1a2e;padding:12px;">
+      <div style="background:#000;border-radius:12px;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;color:#666;font-size:14px;position:relative;overflow:hidden;">
+        <div style="color:#aaa;">📹 Live Video</div>
+        <!-- Incoming call overlay -->
+        <div style="position:absolute;inset:0;background:rgba(0,0,0,0.6);display:flex;flex-direction:column;justify-content:flex-end;padding:16px;">
+          <div style="text-align:center;color:white;margin-bottom:8px;font-size:13px;">Qualcuno al citofono</div>
+          <div style="display:flex;justify-content:center;gap:24px;">
+            <div style="text-align:center;">
+              <div style="width:52px;height:52px;border-radius:50%;background:#4CAF50;display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto;">📞</div>
+              <div style="color:white;font-size:10px;margin-top:4px;">Rispondi</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="width:52px;height:52px;border-radius:50%;background:#2196F3;display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto;">🔓</div>
+              <div style="color:white;font-size:10px;margin-top:4px;">Apri</div>
+            </div>
+            <div style="text-align:center;">
+              <div style="width:52px;height:52px;border-radius:50%;background:#f44336;display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto;">✕</div>
+              <div style="color:white;font-size:10px;margin-top:4px;">Rifiuta</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+        <button style="flex:1;min-width:45%;padding:6px;border-radius:6px;border:1px solid #444;background:transparent;color:#ccc;font-size:11px;cursor:pointer;">🔓 Porta Esterna</button>
+        <button style="flex:1;min-width:45%;padding:6px;border-radius:6px;border:1px solid #444;background:transparent;color:#ccc;font-size:11px;cursor:pointer;">🔓 Porta Interna</button>
+        <button style="flex:1;min-width:45%;padding:6px;border-radius:6px;border:1px solid #444;background:transparent;color:#ccc;font-size:11px;cursor:pointer;">💡 Luci Scale</button>
+        <button style="flex:1;min-width:45%;padding:6px;border-radius:6px;border:1px solid #444;background:transparent;color:#ccc;font-size:11px;cursor:pointer;">🎤 Microfono</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>Intercom Dedicato</h3>
+      <p>Incoming call overlay con preview. Grid di azioni configurabili sotto. Pulsanti in griglia 2xN per molte azioni. Più flessibile per configurazioni variabili.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:24px;">
+<h3>Punti chiave per la modularità</h3>
+<ul>
+<li><strong>Configurazione YAML</strong> — l'utente lista le azioni che vuole (lock, light, custom)</li>
+<li><strong>Ogni azione = entity_id + icona + label + servizio</strong></li>
+<li><strong>0-N telecamere</strong> — se 0, mostra solo i pulsanti azione</li>
+<li><strong>Responsive</strong> — funziona su telefono (singola colonna) e desktop</li>
+</ul>
+</div>

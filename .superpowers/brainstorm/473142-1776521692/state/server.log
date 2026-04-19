@@ -1,0 +1,6 @@
+{"type":"server-started","port":50895,"host":"0.0.0.0","url_host":"localhost","url":"http://localhost:50895","screen_dir":"/home/koma/src/bticino_ha_extras/.superpowers/brainstorm/473142-1776521692/content","state_dir":"/home/koma/src/bticino_ha_extras/.superpowers/brainstorm/473142-1776521692/state"}
+{"type":"screen-added","file":"/home/koma/src/bticino_ha_extras/.superpowers/brainstorm/473142-1776521692/content/01-research-intercom-uis.html"}
+{"type":"screen-added","file":"/home/koma/src/bticino_ha_extras/.superpowers/brainstorm/473142-1776521692/content/02-real-screenshots.html"}
+{"type":"screen-added","file":"/home/koma/src/bticino_ha_extras/.superpowers/brainstorm/473142-1776521692/content/03-mockup-review.html"}
+{"type":"screen-added","file":"/home/koma/src/bticino_ha_extras/.superpowers/brainstorm/473142-1776521692/content/waiting.html"}
+{"type":"server-stopped","reason":"idle timeout"}

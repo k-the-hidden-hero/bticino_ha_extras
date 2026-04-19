@@ -1,0 +1,79 @@
+<h2>Multi-Intercom: Layout dei Tab</h2>
+<p class="subtitle">Come disporre i tab per switchare tra citofoni</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#1c1c1e;border-radius:12px;overflow:hidden;font-family:system-ui;color:#e1e1e1;width:100%;">
+        <!-- Title bar -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 6px;">
+          <div style="font-size:14px;font-weight:500;">Intercom</div>
+          <div style="padding:2px 8px;border-radius:8px;font-size:9px;font-weight:600;background:rgba(76,175,80,0.2);color:#66bb6a;letter-spacing:0.5px;">READY</div>
+        </div>
+        <!-- Tabs -->
+        <div style="display:flex;gap:2px;padding:0 12px 8px;">
+          <div style="flex:1;text-align:center;padding:7px 0;border-radius:8px;background:rgba(3,169,244,0.15);color:#29b6f6;font-size:11px;font-weight:600;">Strada</div>
+          <div style="flex:1;text-align:center;padding:7px 0;border-radius:8px;background:rgba(255,255,255,0.06);color:#9e9e9e;font-size:11px;">Ingresso</div>
+        </div>
+        <!-- Video area -->
+        <div style="aspect-ratio:4/3;background:#000;display:flex;align-items:center;justify-content:center;border-radius:8px;margin:0 0;position:relative;">
+          <div style="color:#444;font-size:11px;">Citofono Strada</div>
+          <!-- Swipe dots -->
+          <div style="position:absolute;bottom:8px;display:flex;gap:6px;">
+            <div style="width:6px;height:6px;border-radius:50%;background:#29b6f6;"></div>
+            <div style="width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.3);"></div>
+          </div>
+        </div>
+        <!-- Actions -->
+        <div style="display:flex;gap:2px;padding:8px 12px 10px;justify-content:center;">
+          <div style="flex:1;max-width:80px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px 6px;border-radius:8px;background:rgba(255,255,255,0.06);color:#9e9e9e;font-size:9px;">
+            <span style="font-size:18px;">&#x1F6AA;</span>Cancello
+          </div>
+          <div style="flex:1;max-width:80px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px 6px;border-radius:8px;background:rgba(255,255,255,0.06);color:#9e9e9e;font-size:9px;">
+            <span style="font-size:18px;">&#x1F4A1;</span>Luci
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A: Tab sopra il video</h3>
+      <p>Tab tra title bar e video. Swipe dots in basso al video. Compatto, chiaro quale citofono e' attivo.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#1c1c1e;border-radius:12px;overflow:hidden;font-family:system-ui;color:#e1e1e1;width:100%;">
+        <!-- Title bar with integrated segment -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 8px;">
+          <div style="display:flex;background:rgba(255,255,255,0.08);border-radius:8px;overflow:hidden;flex:1;margin-right:10px;">
+            <div style="flex:1;text-align:center;padding:6px 0;background:rgba(3,169,244,0.2);color:#29b6f6;font-size:11px;font-weight:600;">Strada</div>
+            <div style="flex:1;text-align:center;padding:6px 0;color:#9e9e9e;font-size:11px;">Ingresso</div>
+          </div>
+          <div style="padding:2px 8px;border-radius:8px;font-size:9px;font-weight:600;background:rgba(76,175,80,0.2);color:#66bb6a;letter-spacing:0.5px;flex-shrink:0;">READY</div>
+        </div>
+        <!-- Video area -->
+        <div style="aspect-ratio:4/3;background:#000;display:flex;align-items:center;justify-content:center;border-radius:8px;position:relative;">
+          <div style="color:#444;font-size:11px;">Citofono Strada</div>
+          <div style="position:absolute;bottom:8px;display:flex;gap:6px;">
+            <div style="width:6px;height:6px;border-radius:50%;background:#29b6f6;"></div>
+            <div style="width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.3);"></div>
+          </div>
+        </div>
+        <!-- Actions -->
+        <div style="display:flex;gap:2px;padding:8px 12px 10px;justify-content:center;">
+          <div style="flex:1;max-width:80px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px 6px;border-radius:8px;background:rgba(255,255,255,0.06);color:#9e9e9e;font-size:9px;">
+            <span style="font-size:18px;">&#x1F6AA;</span>Cancello
+          </div>
+          <div style="flex:1;max-width:80px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px 6px;border-radius:8px;background:rgba(255,255,255,0.06);color:#9e9e9e;font-size:9px;">
+            <span style="font-size:18px;">&#x1F4A1;</span>Luci
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B: Segmented control nella title bar</h3>
+      <p>Tab integrati nella barra del titolo come segmented control iOS. Piu' compatto verticalmente, niente riga extra.</p>
+    </div>
+  </div>
+</div>

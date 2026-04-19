@@ -1,0 +1,77 @@
+<h2>Mockup Review — Cosa teniamo?</h2>
+<p class="subtitle">Basato sul mockup Gemini. Seleziona gli elementi che vuoi nella card finale.</p>
+
+<div style="text-align:center;margin-bottom:24px;">
+  <img src="mockup-gemini.png" style="max-width:100%;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.3);" alt="Mockup Gemini">
+</div>
+
+<h3>Quali elementi teniamo?</h3>
+<p class="subtitle">Seleziona tutti quelli che ti piacciono</p>
+
+<div class="options" data-multiselect>
+  <div class="option" data-choice="title-bar" onclick="toggleSelect(this)">
+    <div class="letter">1</div>
+    <div class="content">
+      <h3>Title bar con nome camera</h3>
+      <p>"Front Door Camera" — configurabile via YAML. Utile per distinguere più card.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="status-badge" onclick="toggleSelect(this)">
+    <div class="letter">2</div>
+    <div class="content">
+      <h3>Status badge (Connected / LIVE)</h3>
+      <p>Verde "Connected" in idle, rosso "LIVE" durante lo streaming. Indica lo stato della connessione.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="play-overlay" onclick="toggleSelect(this)">
+    <div class="letter">3</div>
+    <div class="content">
+      <h3>Play button grande centrato (idle)</h3>
+      <p>Click per avviare lo stream. Non auto-connect al caricamento della dashboard.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="snapshot-poster" onclick="toggleSelect(this)">
+    <div class="letter">4</div>
+    <div class="content">
+      <h3>Snapshot come poster (idle)</h3>
+      <p>Mostra l'ultimo snapshot/vignette quando il video non è attivo. Configurabile via poster_entity.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="video-controls" onclick="toggleSelect(this)">
+    <div class="letter">5</div>
+    <div class="content">
+      <h3>Controlli overlay sul video (live)</h3>
+      <p>Play/pause e volume sovrapposti al video, appaiono al hover/tap.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="action-buttons" onclick="toggleSelect(this)">
+    <div class="letter">6</div>
+    <div class="content">
+      <h3>Riga di action buttons (sotto il video)</h3>
+      <p>Icona + label per ogni azione. Configurabili via YAML. Si illuminano quando attivi.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="active-highlight" onclick="toggleSelect(this)">
+    <div class="letter">7</div>
+    <div class="content">
+      <h3>Highlight colorato per bottoni attivi</h3>
+      <p>Come Lights (giallo) e Talk (verde) nel mockup. Feedback visivo immediato.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:24px;">
+  <h3>Domande aperte</h3>
+  <ul>
+    <li>Il <strong>titolo</strong> serve sempre o solo se ci sono più card?</li>
+    <li>I <strong>pulsanti azione</strong> devono essere visibili anche in idle o solo durante il live?</li>
+    <li>Servono <strong>più righe di pulsanti</strong> per chi ha 5+ azioni?</li>
+    <li>Lo <strong>stato "incoming call"</strong> lo gestiamo come terzo stato della card?</li>
+  </ul>
+</div>

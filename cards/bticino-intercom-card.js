@@ -38,7 +38,13 @@
  * @license MIT
  */
 
-const CARD_VERSION = '4.0.0';
+const CARD_VERSION = '0.1.5';
+
+const DOMAIN_ICONS = {
+  lock: 'mdi:lock', light: 'mdi:lightbulb', switch: 'mdi:toggle-switch',
+  cover: 'mdi:window-shutter', script: 'mdi:play', scene: 'mdi:palette',
+  fan: 'mdi:fan', climate: 'mdi:thermostat', vacuum: 'mdi:robot-vacuum',
+};
 
 const STATE = {
   IDLE: 'idle',
@@ -122,17 +128,14 @@ const CARD_STYLES = `
 
   .tab-bar {
     display: flex;
-    align-items: center;
-    gap: 2px;
-    padding: 0 16px 6px;
-    overflow-x: auto;
-    scrollbar-width: none;
+    gap: 4px;
+    padding: 0 12px 8px;
   }
-  .tab-bar::-webkit-scrollbar { display: none; }
   .tab-bar.hidden { display: none; }
   .tab {
-    flex-shrink: 0;
-    padding: 5px 14px;
+    flex: 1;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 8px 0;
     border: none;
     border-radius: 8px;
     background: rgba(255,255,255,0.06);
@@ -142,8 +145,8 @@ const CARD_STYLES = `
     font-family: inherit;
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
-    white-space: nowrap;
   }
+  .tab ha-icon { --mdc-icon-size: 20px; flex-shrink: 0; }
   .tab:hover { background: rgba(255,255,255,0.12); color: var(--bti-text); }
   .tab.active {
     background: rgba(3,169,244,0.15);
@@ -346,7 +349,7 @@ const CARD_STYLES = `
     gap: 2px; padding: 10px 12px 12px; position: relative;
   }
   .action-btn {
-    flex: 1; max-width: 100px;
+    flex: 1;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 4px; padding: 10px 6px 8px; border: none; border-radius: 10px;
     background: rgba(255,255,255,0.06); cursor: pointer;
@@ -354,6 +357,7 @@ const CARD_STYLES = `
     transition: background 0.15s, color 0.15s, transform 0.1s;
     position: relative; overflow: hidden;
   }
+  .action-bar.compact .action-btn { max-width: 100px; }
   .action-btn:hover { background: rgba(255,255,255,0.12); color: var(--bti-text); }
   .action-btn:active { transform: scale(0.95); }
   .action-btn ha-icon { --mdc-icon-size: 22px; flex-shrink: 0; }
@@ -455,11 +459,12 @@ class BticinoIntercomCard extends HTMLElement {
     }
     this._config = {
       intercoms: config.intercoms.map(ic => ({
-        name: ic.name, camera: ic.camera, actions: ic.actions || [],
+        name: ic.name, camera: ic.camera, icon: ic.icon || null, actions: ic.actions || [],
       })),
       max_actions: config.max_actions ?? 4,
       auto_mic: config.auto_mic ?? true,
       ignore_ssl_warning: config.ignore_ssl_warning ?? false,
+      action_layout: config.action_layout || 'fill',
       title: config.title || null,
     };
     this._activeIndex = 0;
@@ -467,6 +472,10 @@ class BticinoIntercomCard extends HTMLElement {
   }
 
   getCardSize() { return 5; }
+
+  static getConfigElement() {
+    return document.createElement('bticino-intercom-card-editor');
+  }
 
   static getStubConfig() {
     return {
@@ -507,7 +516,7 @@ class BticinoIntercomCard extends HTMLElement {
           <div class="status-pill ready" id="status-pill">Ready</div>
         </div>
         <div class="tab-bar${showTabs ? '' : ' hidden'}" id="tab-bar">
-          ${intercoms.map((ic, i) => `<button class="tab${i === this._activeIndex ? ' active' : ''}" data-tab-idx="${i}">${this._esc(ic.name)}</button>`).join('')}
+          ${intercoms.map((ic, i) => `<button class="tab${i === this._activeIndex ? ' active' : ''}" data-tab-idx="${i}">${ic.icon ? `<ha-icon icon="${this._esc(ic.icon)}"></ha-icon>` : ''}${this._esc(ic.name)}</button>`).join('')}
         </div>
         ${isFirefox ? `
         <div class="warning-banner firefox">
@@ -554,7 +563,7 @@ class BticinoIntercomCard extends HTMLElement {
             ${intercoms.map((_, i) => `<div class="swipe-dot${i === this._activeIndex ? ' active' : ''}"></div>`).join('')}
           </div>
         </div>
-        <div class="action-bar" id="action-bar">
+        <div class="action-bar${this._config.action_layout === 'compact' ? ' compact' : ''}" id="action-bar">
           ${visibleActions.map((a, i) => this._renderActionBtn(a, i)).join('')}
           ${hasOverflow ? `<button class="action-btn" id="overflow-btn" title="More"><ha-icon icon="mdi:dots-vertical"></ha-icon><span class="action-label">...</span></button>` : ''}
           ${hasOverflow ? `<div class="overflow-popup" id="overflow-popup">${overflowActions.map((a, i) => this._renderOverflowItem(a, maxActions + i)).join('')}</div>` : ''}
@@ -567,16 +576,18 @@ class BticinoIntercomCard extends HTMLElement {
   }
 
   _renderActionBtn(action, index) {
-    return `<button class="action-btn" data-action-idx="${index}" title="${this._esc(action.label || '')}">
-      <ha-icon icon="${this._esc(action.icon || 'mdi:circle')}"></ha-icon>
-      ${action.label ? `<span class="action-label">${this._esc(action.label)}</span>` : ''}
+    const { icon, label } = this._resolveAction(action);
+    return `<button class="action-btn" data-action-idx="${index}" title="${this._esc(label)}">
+      <ha-icon icon="${this._esc(icon)}"></ha-icon>
+      <span class="action-label">${this._esc(label)}</span>
     </button>`;
   }
 
   _renderOverflowItem(action, index) {
+    const { icon, label } = this._resolveAction(action);
     return `<button class="overflow-item" data-action-idx="${index}">
-      <ha-icon icon="${this._esc(action.icon || 'mdi:circle')}"></ha-icon>
-      <span>${this._esc(action.label || action.entity)}</span>
+      <ha-icon icon="${this._esc(icon)}"></ha-icon>
+      <span>${this._esc(label)}</span>
     </button>`;
   }
 
@@ -1052,6 +1063,15 @@ class BticinoIntercomCard extends HTMLElement {
 
   // ========== Helpers ==========
 
+  _resolveAction(action) {
+    const entity = this._hass?.states[action.entity];
+    const domain = action.entity?.split('.')[0];
+    return {
+      icon: action.icon || entity?.attributes?.icon || DOMAIN_ICONS[domain] || 'mdi:circle',
+      label: action.label || entity?.attributes?.friendly_name || action.entity,
+    };
+  }
+
   _esc(str) {
     if (!str) return '';
     const el = document.createElement('span');
@@ -1059,6 +1079,346 @@ class BticinoIntercomCard extends HTMLElement {
     return el.innerHTML;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Visual Editor
+// ---------------------------------------------------------------------------
+
+const EDITOR_STYLES = `
+  :host { display: block; }
+  .editor { padding: 0; }
+  .section { margin-bottom: 16px; }
+  .section-title {
+    font-size: 14px; font-weight: 500; margin: 0 0 8px;
+    color: var(--primary-text-color);
+  }
+  .row { display: flex; gap: 8px; margin-bottom: 8px; align-items: flex-end; }
+  .row > * { flex: 1; min-width: 0; }
+  .intercom-card {
+    border: 1px solid var(--divider-color, #e0e0e0);
+    border-radius: 8px; padding: 12px; margin-bottom: 8px;
+    background: var(--card-background-color, #fff);
+  }
+  .intercom-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px; font-weight: 500; font-size: 13px;
+  }
+  .action-card {
+    border: 1px solid var(--divider-color, #e0e0e0);
+    border-radius: 6px; padding: 8px; margin-bottom: 6px;
+    background: var(--secondary-background-color, #fafafa);
+  }
+  .action-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 6px; font-size: 12px; color: var(--secondary-text-color);
+  }
+  .btn-row { display: flex; gap: 8px; margin-top: 4px; }
+  mwc-button, ha-button {
+    --mdc-theme-primary: var(--primary-color);
+  }
+  .remove-btn {
+    cursor: pointer; color: var(--error-color, #db4437);
+    background: none; border: none; font-size: 12px; padding: 4px 8px;
+  }
+  .remove-btn:hover { text-decoration: underline; }
+  .add-btn {
+    cursor: pointer; color: var(--primary-color);
+    background: none; border: none; font-size: 13px; font-weight: 500;
+    padding: 6px 0; display: flex; align-items: center; gap: 4px;
+  }
+  .add-btn:hover { text-decoration: underline; }
+  .toggle-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0;
+  }
+  .toggle-label { font-size: 14px; }
+`;
+
+class BticinoIntercomCardEditor extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+    this._hass = null;
+    this._config = {};
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    if (this.shadowRoot?.getElementById('ed-intercoms')) this._setIntercomProperties();
+  }
+
+  setConfig(config) {
+    this._config = {
+      title: config.title || '',
+      action_layout: config.action_layout || 'fill',
+      auto_mic: config.auto_mic ?? true,
+      ignore_ssl_warning: config.ignore_ssl_warning ?? false,
+      max_actions: config.max_actions ?? 4,
+      intercoms: (config.intercoms || []).map(ic => ({
+        name: ic.name || '',
+        camera: ic.camera || '',
+        icon: ic.icon || '',
+        actions: (ic.actions || []).map(a => ({
+          entity: a.entity || '',
+          service: a.service || '',
+          icon: a.icon || '',
+          label: a.label || '',
+          service_data: a.service_data || undefined,
+        })),
+      })),
+    };
+    this._render();
+  }
+
+  _fire() {
+    const cfg = { type: 'custom:bticino-intercom-card', ...this._config };
+    if (!cfg.title) delete cfg.title;
+    if (cfg.action_layout === 'fill') delete cfg.action_layout;
+    if (cfg.auto_mic === true) delete cfg.auto_mic;
+    if (cfg.ignore_ssl_warning === false) delete cfg.ignore_ssl_warning;
+    if (cfg.max_actions === 4) delete cfg.max_actions;
+    cfg.intercoms = cfg.intercoms.map(ic => {
+      const out = { name: ic.name, camera: ic.camera, actions: ic.actions.map(a => {
+        const ao = { entity: a.entity, service: a.service };
+        if (a.icon) ao.icon = a.icon;
+        if (a.label) ao.label = a.label;
+        if (a.service_data) ao.service_data = a.service_data;
+        return ao;
+      })};
+      if (ic.icon) out.icon = ic.icon;
+      if (!out.actions.length) delete out.actions;
+      return out;
+    });
+    this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: cfg }, bubbles: true, composed: true }));
+  }
+
+  _render() {
+    const c = this._config;
+    this.shadowRoot.innerHTML = `
+      <style>${EDITOR_STYLES}</style>
+      <div class="editor">
+        <div class="section">
+          <div class="row">
+            <ha-textfield label="Title (optional)" id="ed-title"></ha-textfield>
+          </div>
+          <div class="row">
+            <ha-select label="Action layout" id="ed-layout">
+              <mwc-list-item value="fill">Fill (stretch)</mwc-list-item>
+              <mwc-list-item value="compact">Compact (fixed width)</mwc-list-item>
+            </ha-select>
+          </div>
+          <div class="row">
+            <ha-textfield label="Max visible actions" type="number" id="ed-max-actions"></ha-textfield>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Auto-activate microphone</span>
+            <ha-switch id="ed-auto-mic"></ha-switch>
+          </div>
+          <div class="toggle-row">
+            <span class="toggle-label">Ignore SSL warning</span>
+            <ha-switch id="ed-ignore-ssl"></ha-switch>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Intercoms</div>
+          <div id="ed-intercoms"></div>
+          <button class="add-btn" id="ed-add-intercom">+ Add intercom</button>
+        </div>
+      </div>
+    `;
+    // Set properties on HA components (can't be done via innerHTML attributes)
+    const $ = (id) => this.shadowRoot.getElementById(id);
+    $('ed-title').value = c.title || '';
+    $('ed-layout').value = c.action_layout;
+    $('ed-max-actions').value = String(c.max_actions);
+    $('ed-auto-mic').checked = c.auto_mic;
+    $('ed-ignore-ssl').checked = c.ignore_ssl_warning;
+
+    this._renderIntercoms();
+    this._bindEditorEvents();
+  }
+
+  _renderIntercoms() {
+    const container = this.shadowRoot.getElementById('ed-intercoms');
+    if (!container) return;
+    container.innerHTML = this._config.intercoms.map((ic, i) => `
+      <div class="intercom-card" data-ic-idx="${i}">
+        <div class="intercom-header">
+          <span>Intercom ${i + 1}</span>
+          <button class="remove-btn" data-remove-ic="${i}">Remove</button>
+        </div>
+        <div class="row">
+          <ha-textfield label="Name" data-ic-field="name" data-ic-idx="${i}"></ha-textfield>
+          <ha-icon-picker label="Icon (optional)" data-ic-field="icon" data-ic-idx="${i}"></ha-icon-picker>
+        </div>
+        <div class="row">
+          <ha-entity-picker
+            label="Camera entity"
+            data-ic-field="camera"
+            data-ic-idx="${i}"
+            allow-custom-entity
+          ></ha-entity-picker>
+        </div>
+        <div class="section-title" style="font-size:12px;margin-top:8px;">Actions</div>
+        <div id="ed-actions-${i}">
+          ${ic.actions.map((a, j) => this._renderActionEditor(i, j, a)).join('')}
+        </div>
+        <button class="add-btn" data-add-action="${i}">+ Add action</button>
+      </div>
+    `).join('');
+
+    this._setIntercomProperties();
+  }
+
+  _renderActionEditor(icIdx, actIdx, action) {
+    return `
+      <div class="action-card" data-ic-idx="${icIdx}" data-act-idx="${actIdx}">
+        <div class="action-header">
+          <span>Action ${actIdx + 1}</span>
+          <button class="remove-btn" data-remove-action="${icIdx}-${actIdx}">Remove</button>
+        </div>
+        <div class="row">
+          <ha-entity-picker
+            label="Entity"
+            data-act-field="entity"
+            data-ic-idx="${icIdx}"
+            data-act-idx="${actIdx}"
+            allow-custom-entity
+          ></ha-entity-picker>
+        </div>
+        <div class="row">
+          <ha-textfield label="Service (e.g. lock.unlock)" data-act-field="service" data-ic-idx="${icIdx}" data-act-idx="${actIdx}"></ha-textfield>
+        </div>
+        <div class="row">
+          <ha-icon-picker label="Icon (auto from entity)" data-act-field="icon" data-ic-idx="${icIdx}" data-act-idx="${actIdx}"></ha-icon-picker>
+          <ha-textfield label="Label (auto from entity)" data-act-field="label" data-ic-idx="${icIdx}" data-act-idx="${actIdx}"></ha-textfield>
+        </div>
+      </div>
+    `;
+  }
+
+  _setIntercomProperties() {
+    this._config.intercoms.forEach((ic, i) => {
+      // Intercom fields
+      this.shadowRoot.querySelectorAll(`[data-ic-field][data-ic-idx="${i}"]`).forEach(el => {
+        const field = el.dataset.icField;
+        if (el.tagName === 'HA-ENTITY-PICKER') {
+          el.hass = this._hass;
+          el.value = ic[field] || '';
+          if (field === 'camera') el.includeDomains = ['camera'];
+        } else {
+          el.value = ic[field] || '';
+        }
+      });
+      // Action fields
+      ic.actions.forEach((a, j) => {
+        this.shadowRoot.querySelectorAll(`[data-act-field][data-ic-idx="${i}"][data-act-idx="${j}"]`).forEach(el => {
+          const field = el.dataset.actField;
+          if (el.tagName === 'HA-ENTITY-PICKER') {
+            el.hass = this._hass;
+          }
+          el.value = a[field] || '';
+        });
+      });
+    });
+  }
+
+  _bindEditorEvents() {
+    const $ = (id) => this.shadowRoot.getElementById(id);
+
+    // Global fields
+    $('ed-title')?.addEventListener('change', (e) => {
+      this._config.title = e.target.value;
+      this._fire();
+    });
+    $('ed-layout')?.addEventListener('selected', (e) => {
+      this._config.action_layout = e.target.value;
+      this._fire();
+    });
+    $('ed-max-actions')?.addEventListener('change', (e) => {
+      this._config.max_actions = parseInt(e.target.value, 10) || 4;
+      this._fire();
+    });
+    $('ed-auto-mic')?.addEventListener('change', (e) => {
+      this._config.auto_mic = e.target.checked;
+      this._fire();
+    });
+    $('ed-ignore-ssl')?.addEventListener('change', (e) => {
+      this._config.ignore_ssl_warning = e.target.checked;
+      this._fire();
+    });
+
+    // Add intercom
+    $('ed-add-intercom')?.addEventListener('click', () => {
+      this._config.intercoms.push({ name: '', camera: '', icon: '', actions: [] });
+      this._renderIntercoms();
+      this._bindIntercomEvents();
+    });
+
+    this._bindIntercomEvents();
+  }
+
+  _bindIntercomEvents() {
+    // Remove intercom
+    this.shadowRoot.querySelectorAll('[data-remove-ic]').forEach(btn => {
+      btn.onclick = () => {
+        this._config.intercoms.splice(parseInt(btn.dataset.removeIc, 10), 1);
+        this._renderIntercoms();
+        this._bindIntercomEvents();
+        this._fire();
+      };
+    });
+
+    // Intercom fields
+    this.shadowRoot.querySelectorAll('[data-ic-field]').forEach(el => {
+      const handler = (e) => {
+        const idx = parseInt(el.dataset.icIdx, 10);
+        const field = el.dataset.icField;
+        this._config.intercoms[idx][field] = e.detail?.value ?? e.target.value ?? '';
+        this._fire();
+      };
+      el.addEventListener('change', handler);
+      el.addEventListener('value-changed', handler);
+    });
+
+    // Add action
+    this.shadowRoot.querySelectorAll('[data-add-action]').forEach(btn => {
+      btn.onclick = () => {
+        const icIdx = parseInt(btn.dataset.addAction, 10);
+        this._config.intercoms[icIdx].actions.push({ entity: '', service: '', icon: '', label: '' });
+        this._renderIntercoms();
+        this._bindIntercomEvents();
+      };
+    });
+
+    // Remove action
+    this.shadowRoot.querySelectorAll('[data-remove-action]').forEach(btn => {
+      btn.onclick = () => {
+        const [icIdx, actIdx] = btn.dataset.removeAction.split('-').map(Number);
+        this._config.intercoms[icIdx].actions.splice(actIdx, 1);
+        this._renderIntercoms();
+        this._bindIntercomEvents();
+        this._fire();
+      };
+    });
+
+    // Action fields
+    this.shadowRoot.querySelectorAll('[data-act-field]').forEach(el => {
+      const handler = (e) => {
+        const icIdx = parseInt(el.dataset.icIdx, 10);
+        const actIdx = parseInt(el.dataset.actIdx, 10);
+        const field = el.dataset.actField;
+        this._config.intercoms[icIdx].actions[actIdx][field] = e.detail?.value ?? e.target.value ?? '';
+        this._fire();
+      };
+      el.addEventListener('change', handler);
+      el.addEventListener('value-changed', handler);
+    });
+  }
+}
+
+customElements.define('bticino-intercom-card-editor', BticinoIntercomCardEditor);
 
 // ---------------------------------------------------------------------------
 // Registration
