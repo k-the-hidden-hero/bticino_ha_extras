@@ -215,14 +215,15 @@ const CARD_STYLES = `
 
   .idle-overlay {
     position: absolute; inset: 0;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
     background: rgba(0,0,0,0.85);
     pointer-events: none;
     transition: opacity 0.3s;
+    padding-bottom: 16px;
   }
   .idle-overlay.hidden { opacity: 0; pointer-events: none; }
   .idle-name {
-    font-size: 18px; font-weight: 600; color: var(--bti-text); opacity: 0.5;
+    font-size: 16px; font-weight: 600; color: var(--bti-text); opacity: 0.4;
     letter-spacing: 0.5px;
   }
 
@@ -695,7 +696,7 @@ class BticinoIntercomCard extends HTMLElement {
         ` : ''}
         <div class="video-area" id="video-area">
           <video id="video" autoplay playsinline></video>
-          <div class="idle-overlay" id="idle-overlay"><ha-icon icon="mdi:doorbell-video" style="--mdc-icon-size:48px;opacity:0.3"></ha-icon><div class="idle-name">${this._esc(this._activeIntercom.name)}</div></div>
+          <div class="idle-overlay" id="idle-overlay"><div class="idle-name">${this._esc(this._activeIntercom.name)}</div></div>
           <div class="call-overlay" id="call-overlay"><div class="call-btn">${ICON_PHONE}</div></div>
           <div class="connecting-overlay" id="connecting-overlay">
             <div class="connecting-rings">
