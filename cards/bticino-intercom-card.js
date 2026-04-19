@@ -213,13 +213,14 @@ const CARD_STYLES = `
     background: #000;
   }
 
-  .poster {
+  .idle-overlay {
     position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
-    background: #000; z-index: 2; transition: opacity 0.3s ease;
+    background: rgba(0,0,0,0.85);
+    pointer-events: none;
+    transition: opacity 0.3s;
   }
-  .poster.hidden { opacity: 0; pointer-events: none; }
-  .poster img { width: 100%; height: 100%; object-fit: contain; }
+  .idle-overlay.hidden { opacity: 0; pointer-events: none; }
 
   .error-overlay {
     position: absolute; inset: 0;
@@ -395,6 +396,155 @@ const CARD_STYLES = `
 
   @container (max-width: 350px) { .action-btn .action-label { display: none; } }
   @media (max-width: 350px) { .action-btn .action-label { display: none; } }
+
+  /* History overlay */
+  .history-btn {
+    flex-shrink: 0; margin-left: 8px; background: none; border: none;
+    cursor: pointer; color: var(--bti-text-secondary); padding: 2px;
+    display: flex; align-items: center; border-radius: 50%;
+    transition: color 0.15s, background 0.15s;
+  }
+  .history-btn:hover { color: var(--bti-text); background: rgba(255,255,255,0.08); }
+  .history-btn ha-icon { --mdc-icon-size: 20px; }
+  .history-overlay {
+    position: absolute; inset: 0; z-index: 20;
+    background: var(--bti-bg); display: none; flex-direction: column;
+    border-radius: var(--bti-radius); overflow: hidden;
+  }
+  .history-overlay.open { display: flex; }
+  .history-header {
+    display: flex; align-items: center; padding: 12px 16px 8px;
+    border-bottom: 1px solid var(--bti-divider);
+  }
+  .history-header .title { flex: 1; font-size: 15px; font-weight: 500; }
+  .history-close {
+    background: none; border: none; cursor: pointer; color: var(--bti-text-secondary);
+    padding: 4px; border-radius: 50%; display: flex; align-items: center;
+  }
+  .history-close:hover { color: var(--bti-text); background: rgba(255,255,255,0.08); }
+  .history-close ha-icon { --mdc-icon-size: 20px; }
+  .history-list {
+    flex: 1; overflow-y: auto; padding: 8px 12px;
+    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.15) transparent;
+  }
+  .history-empty {
+    display: flex; align-items: center; justify-content: center;
+    height: 100%; color: var(--bti-text-secondary); font-size: 13px;
+  }
+  .history-loading {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    height: 100%; color: var(--bti-text-secondary); font-size: 13px;
+  }
+  .history-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px; margin-bottom: 4px; border-radius: 8px; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .history-item:hover { background: rgba(255,255,255,0.06); }
+  .history-thumb {
+    width: 56px; height: 42px; border-radius: 6px; object-fit: cover;
+    background: rgba(255,255,255,0.04); flex-shrink: 0;
+  }
+  .history-info { flex: 1; min-width: 0; }
+  .history-time { font-size: 13px; font-weight: 500; color: var(--bti-text); }
+  .history-module { font-size: 11px; color: var(--bti-text-secondary); margin-top: 1px; }
+  .history-badge {
+    flex-shrink: 0; padding: 2px 8px; border-radius: 8px;
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px;
+  }
+  .history-badge.incoming_call { background: rgba(255,152,0,0.2); color: #ffa726; }
+  .history-badge.answered_elsewhere { background: rgba(76,175,80,0.2); color: #66bb6a; }
+  .history-badge.terminated { background: rgba(244,67,54,0.2); color: #ef5350; }
+  .history-detail {
+    position: absolute; inset: 0; z-index: 21;
+    background: var(--bti-bg); display: none; flex-direction: column;
+    border-radius: var(--bti-radius); overflow: hidden;
+  }
+  .history-detail.open { display: flex; }
+  .history-detail-body {
+    flex: 1; display: flex; align-items: center; position: relative; overflow: hidden;
+  }
+  .history-detail-img {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    padding: 8px; overflow: hidden; min-height: 0;
+  }
+  .history-detail-img img {
+    max-width: 100%; max-height: 100%; border-radius: 8px; object-fit: contain;
+  }
+  .detail-nav {
+    position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
+    background: rgba(0,0,0,0.45); border: none; border-radius: 50%;
+    width: 36px; height: 36px; cursor: pointer; color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .detail-nav:hover { background: rgba(0,0,0,0.7); }
+  .detail-nav:disabled { opacity: 0.2; cursor: default; }
+  .detail-nav.prev { left: 8px; }
+  .detail-nav.next { right: 8px; }
+  .detail-nav ha-icon { --mdc-icon-size: 22px; }
+  .history-detail-bar {
+    padding: 10px 16px; border-top: 1px solid var(--bti-divider);
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; color: var(--bti-text-secondary);
+  }
+  .history-detail-bar .detail-info { flex: 1; min-width: 0; }
+  .history-detail-bar .detail-module {
+    display: flex; align-items: center; gap: 4px; font-size: 12px; margin-top: 2px;
+  }
+
+  .ring-overlay {
+    position: absolute; inset: 0; z-index: 15;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.9);
+  }
+  .ring-overlay.open { display: flex; }
+  .ring-preview {
+    width: 100%; flex: 1; display: flex; align-items: center; justify-content: center;
+    overflow: hidden; position: relative;
+  }
+  .ring-preview img {
+    max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px;
+  }
+  .ring-preview .ring-placeholder {
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; height: 100%;
+  }
+  .ring-name {
+    font-size: 16px; font-weight: 500; padding: 8px 0 4px; color: var(--bti-text);
+  }
+  .ring-pulse {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  .ring-pulse .rp { position: absolute; border-radius: 50%; border: 2px solid #66bb6a; opacity: 0; }
+  .ring-pulse .rp:nth-child(1) { width: 80px; height: 80px; margin: -40px 0 0 -40px; animation: rp 2s ease-out infinite; }
+  .ring-pulse .rp:nth-child(2) { width: 120px; height: 120px; margin: -60px 0 0 -60px; animation: rp 2s ease-out 0.5s infinite; }
+  .ring-pulse .rp:nth-child(3) { width: 160px; height: 160px; margin: -80px 0 0 -80px; animation: rp 2s ease-out 1s infinite; }
+  @keyframes rp { 0% { opacity: 0.6; transform: scale(0.5); } 100% { opacity: 0; transform: scale(1); } }
+  .ring-actions {
+    display: flex; gap: 16px; padding: 16px; justify-content: center;
+  }
+  .ring-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 12px 20px; border: none; border-radius: 12px; cursor: pointer;
+    font-size: 11px; font-weight: 500;
+  }
+  .ring-btn.answer { background: rgba(76,175,80,0.25); color: #66bb6a; }
+  .ring-btn.answer:hover { background: rgba(76,175,80,0.4); }
+  .ring-btn.reject { background: rgba(244,67,54,0.25); color: #ef5350; }
+  .ring-btn.reject:hover { background: rgba(244,67,54,0.4); }
+  .ring-btn.dismiss { background: rgba(255,255,255,0.08); color: var(--bti-text-secondary); }
+  .ring-btn.dismiss:hover { background: rgba(255,255,255,0.15); }
+  .ring-btn ha-icon { --mdc-icon-size: 28px; }
+  .missed-banner {
+    position: absolute; inset: 0; z-index: 15;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.85); gap: 8px;
+  }
+  .missed-banner.open { display: flex; }
+  .missed-banner ha-icon { --mdc-icon-size: 36px; color: #ffa726; }
+  .missed-text { font-size: 14px; color: var(--bti-text-secondary); }
 `;
 
 // ---------------------------------------------------------------------------
@@ -446,7 +596,7 @@ class BticinoIntercomCard extends HTMLElement {
     const prev = this._hass;
     this._hass = hass;
     if (!prev && hass && this._config) this._render();
-    this._updatePoster();
+    this._updateIdleOverlay();
     this._updateActionStates();
   }
 
@@ -513,6 +663,7 @@ class BticinoIntercomCard extends HTMLElement {
       <ha-card>
         <div class="title-bar">
           <div class="title">${this._esc(title)}</div>
+          <button class="history-btn" id="history-btn" title="Call history"><ha-icon icon="mdi:history"></ha-icon></button>
           <div class="status-pill ready" id="status-pill">Ready</div>
         </div>
         <div class="tab-bar${showTabs ? '' : ' hidden'}" id="tab-bar">
@@ -534,7 +685,7 @@ class BticinoIntercomCard extends HTMLElement {
         ` : ''}
         <div class="video-area" id="video-area">
           <video id="video" autoplay playsinline></video>
-          <div class="poster" id="poster"><img id="poster-img" alt="" /></div>
+          <div class="idle-overlay" id="idle-overlay"><ha-icon icon="mdi:doorbell-video" style="--mdc-icon-size:48px;opacity:0.3"></ha-icon></div>
           <div class="call-overlay" id="call-overlay"><div class="call-btn">${ICON_PHONE}</div></div>
           <div class="connecting-overlay" id="connecting-overlay">
             <div class="connecting-rings">
@@ -562,16 +713,53 @@ class BticinoIntercomCard extends HTMLElement {
           <div class="swipe-dots${showTabs ? '' : ' hidden'}" id="swipe-dots">
             ${intercoms.map((_, i) => `<div class="swipe-dot${i === this._activeIndex ? ' active' : ''}"></div>`).join('')}
           </div>
+          <div class="ring-overlay" id="ring-overlay">
+            <div class="ring-preview" id="ring-preview">
+              <div class="ring-placeholder"><ha-icon icon="mdi:doorbell-video" style="--mdc-icon-size:64px;opacity:0.3"></ha-icon></div>
+              <div class="ring-pulse"><div class="rp"></div><div class="rp"></div><div class="rp"></div></div>
+            </div>
+            <div class="ring-name" id="ring-name"></div>
+            <div class="ring-actions">
+              <button class="ring-btn answer" id="ring-answer"><ha-icon icon="mdi:phone"></ha-icon>Answer</button>
+              <button class="ring-btn reject" id="ring-reject"><ha-icon icon="mdi:phone-hangup"></ha-icon>Reject</button>
+              <button class="ring-btn dismiss" id="ring-dismiss"><ha-icon icon="mdi:close"></ha-icon>Dismiss</button>
+            </div>
+          </div>
+          <div class="missed-banner" id="missed-banner">
+            <ha-icon icon="mdi:phone-missed"></ha-icon>
+            <div class="missed-text">Missed call</div>
+          </div>
         </div>
         <div class="action-bar${this._config.action_layout === 'compact' ? ' compact' : ''}" id="action-bar">
           ${visibleActions.map((a, i) => this._renderActionBtn(a, i)).join('')}
           ${hasOverflow ? `<button class="action-btn" id="overflow-btn" title="More"><ha-icon icon="mdi:dots-vertical"></ha-icon><span class="action-label">...</span></button>` : ''}
           ${hasOverflow ? `<div class="overflow-popup" id="overflow-popup">${overflowActions.map((a, i) => this._renderOverflowItem(a, maxActions + i)).join('')}</div>` : ''}
         </div>
+        <div class="history-overlay" id="history-overlay">
+          <div class="history-header">
+            <div class="title">Call History</div>
+            <button class="history-close" id="history-close"><ha-icon icon="mdi:close"></ha-icon></button>
+          </div>
+          <div class="history-list" id="history-list">
+            <div class="history-empty">No call history available</div>
+          </div>
+        </div>
+        <div class="history-detail" id="history-detail">
+          <div class="history-header">
+            <div class="title" id="history-detail-title"></div>
+            <button class="history-close" id="history-detail-close"><ha-icon icon="mdi:close"></ha-icon></button>
+          </div>
+          <div class="history-detail-body">
+            <button class="detail-nav prev" id="detail-prev" title="Previous"><ha-icon icon="mdi:chevron-left"></ha-icon></button>
+            <div class="history-detail-img"><img id="history-detail-img" alt="" /></div>
+            <button class="detail-nav next" id="detail-next" title="Next"><ha-icon icon="mdi:chevron-right"></ha-icon></button>
+          </div>
+          <div class="history-detail-bar" id="history-detail-bar"></div>
+        </div>
       </ha-card>
     `;
     this._bindEvents();
-    this._updatePoster();
+    this._updateIdleOverlay();
     this._updateActionStates();
   }
 
@@ -636,6 +824,16 @@ class BticinoIntercomCard extends HTMLElement {
       this._sslWarningDismissed = true;
       this.shadowRoot?.getElementById('ssl-warning')?.remove();
     });
+
+    $('ring-answer')?.addEventListener('click', (e) => { e.stopPropagation(); this._answerIncomingCall(); });
+    $('ring-reject')?.addEventListener('click', (e) => { e.stopPropagation(); this._rejectIncomingCall(); });
+    $('ring-dismiss')?.addEventListener('click', (e) => { e.stopPropagation(); this._dismissIncomingCall(); });
+
+    $('history-btn')?.addEventListener('click', (e) => { e.stopPropagation(); this._openHistory(); });
+    $('history-close')?.addEventListener('click', (e) => { e.stopPropagation(); this._closeHistory(); });
+    $('history-detail-close')?.addEventListener('click', (e) => { e.stopPropagation(); this._closeHistoryDetail(); });
+    $('detail-prev')?.addEventListener('click', (e) => { e.stopPropagation(); this._navigateDetail(-1); });
+    $('detail-next')?.addEventListener('click', (e) => { e.stopPropagation(); this._navigateDetail(1); });
 
     document.removeEventListener('click', this._boundDocClick);
     document.addEventListener('click', this._boundDocClick);
@@ -708,19 +906,14 @@ class BticinoIntercomCard extends HTMLElement {
     this._hangUp();
   }
 
-  _updatePoster() {
-    const posterEl = this.shadowRoot?.getElementById('poster');
-    const imgEl = this.shadowRoot?.getElementById('poster-img');
-    if (!posterEl || !imgEl || !this._hass || !this._config) return;
-    if (this._playing) { posterEl.classList.add('hidden'); return; }
-    const cameraEntity = this._activeIntercom.camera;
-    const entity = this._hass.states[cameraEntity];
-    if (entity?.attributes?.entity_picture) {
-      imgEl.src = entity.attributes.entity_picture;
-      posterEl.classList.remove('hidden');
-      return;
+  _updateIdleOverlay() {
+    const el = this.shadowRoot?.getElementById('idle-overlay');
+    if (!el) return;
+    if (this._playing) {
+      el.classList.add('hidden');
+    } else {
+      el.classList.remove('hidden');
     }
-    posterEl.classList.add('hidden');
   }
 
   _updateActionStates() {
@@ -813,7 +1006,7 @@ class BticinoIntercomCard extends HTMLElement {
       } catch (_) {}
     }
 
-    this.shadowRoot?.getElementById('poster')?.classList.add('hidden');
+    this.shadowRoot?.getElementById('idle-overlay')?.classList.add('hidden');
     this.shadowRoot?.getElementById('call-overlay')?.classList.add('hidden');
     this.shadowRoot?.getElementById('connecting-overlay')?.classList.add('visible');
 
@@ -830,9 +1023,9 @@ class BticinoIntercomCard extends HTMLElement {
     if (video) video.srcObject = null;
     this.shadowRoot?.getElementById('error-overlay')?.classList.remove('visible');
     this.shadowRoot?.getElementById('connecting-overlay')?.classList.remove('visible');
-    this.shadowRoot?.getElementById('poster')?.classList.remove('hidden');
+    this.shadowRoot?.getElementById('idle-overlay')?.classList.remove('hidden');
     this.shadowRoot?.getElementById('call-overlay')?.classList.remove('hidden');
-    this._updatePoster();
+    this._updateIdleOverlay();
     this._setState(STATE.IDLE);
   }
 
@@ -1061,14 +1254,212 @@ class BticinoIntercomCard extends HTMLElement {
     if (this._audioCtx) { try { this._audioCtx.close(); } catch (_) {} this._audioCtx = null; }
   }
 
+  // ========== History ==========
+
+  _getConfigEntryId() {
+    const camera = this._activeIntercom?.camera;
+    if (!camera) return null;
+    const entityReg = this._hass?.entities?.[camera];
+    if (!entityReg?.device_id) return null;
+    const device = Object.values(this._hass.devices || {}).find(d => d.id === entityReg.device_id);
+    return device?.config_entries?.[0] || null;
+  }
+
+  async _openHistory() {
+    const overlay = this.shadowRoot.getElementById('history-overlay');
+    const list = this.shadowRoot.getElementById('history-list');
+    if (!overlay || !list) return;
+    overlay.classList.add('open');
+    list.innerHTML = '<div class="history-loading"><ha-icon icon="mdi:loading"></ha-icon> Loading...</div>';
+
+    const entryId = this._getConfigEntryId();
+    if (!entryId) { list.innerHTML = '<div class="history-empty">No config entry found</div>'; return; }
+
+    try {
+      const entry = await this._hass.callWS({
+        type: 'media_source/browse_media',
+        media_content_id: `media-source://bticino_intercom/${entryId}`
+      });
+      let allEvents = [];
+      for (const module of (entry.children || [])) {
+        const mod = await this._hass.callWS({
+          type: 'media_source/browse_media',
+          media_content_id: module.media_content_id
+        });
+        allEvents.push(...(mod.children || []).map(e => ({ ...e, moduleName: module.title })));
+      }
+      allEvents.sort((a, b) => (b.title || '').localeCompare(a.title || ''));
+      const thumbPaths = allEvents.map(e => e.thumbnail).filter(Boolean);
+      const signedMap = {};
+      for (const p of thumbPaths) {
+        try {
+          const { path: signed } = await this._hass.callWS({ type: 'auth/sign_path', path: p, expires: 300 });
+          signedMap[p] = signed;
+        } catch (_) { /* skip */ }
+      }
+      allEvents.forEach(e => { if (e.thumbnail) e._signedThumb = signedMap[e.thumbnail] || ''; });
+      this._historyEvents = allEvents;
+      this._renderHistoryList(allEvents, entryId);
+    } catch (e) {
+      list.innerHTML = `<div class="history-empty">Error: ${e.message}</div>`;
+    }
+  }
+
+  _renderHistoryList(events, entryId) {
+    const list = this.shadowRoot.getElementById('history-list');
+    if (!events.length) { list.innerHTML = '<div class="history-empty">No call history</div>'; return; }
+
+    const EVENT_LABELS = { incoming_call: 'Missed', answered_elsewhere: 'Answered', terminated: 'Rejected' };
+    const EVENT_ICONS = { incoming_call: 'mdi:phone-missed', answered_elsewhere: 'mdi:phone-in-talk', terminated: 'mdi:phone-hangup' };
+
+    list.innerHTML = events.map((ev, i) => {
+      const m = ev.title?.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}) — (.+?) \((\w+)\)$/);
+      const date = m?.[1] || '';
+      const time = m?.[2] || '';
+      const module = m?.[3] || ev.moduleName || '';
+      const type = m?.[4] || 'incoming_call';
+      const label = EVENT_LABELS[type] || type;
+      const icon = EVENT_ICONS[type] || 'mdi:phone';
+      const thumb = ev._signedThumb || '';
+      return `<div class="history-item" data-history-idx="${i}">
+        ${thumb ? `<img class="history-thumb" src="${thumb}" alt="" loading="lazy" />` : ''}
+        <div class="history-info">
+          <div class="history-time">${time} <span style="opacity:0.5;font-size:11px">${date}</span></div>
+          <div class="history-module"><ha-icon icon="${icon}" style="--mdc-icon-size:14px;vertical-align:-2px;margin-right:2px"></ha-icon>${this._esc(module)}</div>
+        </div>
+        <div class="history-badge ${type}">${label}</div>
+      </div>`;
+    }).join('');
+
+    list.querySelectorAll('.history-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const idx = parseInt(item.dataset.historyIdx, 10);
+        this._openHistoryDetail(events[idx], entryId, idx);
+      });
+    });
+  }
+
+  async _openHistoryDetail(event, entryId, idx) {
+    const detail = this.shadowRoot.getElementById('history-detail');
+    const img = this.shadowRoot.getElementById('history-detail-img');
+    const title = this.shadowRoot.getElementById('history-detail-title');
+    const bar = this.shadowRoot.getElementById('history-detail-bar');
+    if (!detail || !img) return;
+
+    this._detailIdx = idx;
+    this._detailEntryId = entryId;
+
+    const m = event.title?.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}) — (.+?) \((\w+)\)$/);
+    const EVENT_LABELS = { incoming_call: 'Missed', answered_elsewhere: 'Answered', terminated: 'Rejected' };
+    const EVENT_ICONS = { incoming_call: 'mdi:phone-missed', answered_elsewhere: 'mdi:phone-in-talk', terminated: 'mdi:phone-hangup' };
+    const type = m?.[4] || 'incoming_call';
+    const label = EVENT_LABELS[type] || type;
+    const icon = EVENT_ICONS[type] || 'mdi:phone';
+    const module = m?.[3] || '';
+    const eventId = event.media_content_id?.split('/').pop();
+    const snapshotPath = `/api/bticino_intercom/image/${entryId}/${eventId}/snapshot`;
+
+    try {
+      const { path: signed } = await this._hass.callWS({ type: 'auth/sign_path', path: snapshotPath, expires: 300 });
+      img.src = signed;
+    } catch (_) {
+      img.src = event._signedThumb || '';
+    }
+    img.onerror = () => { if (event._signedThumb) img.src = event._signedThumb; };
+    title.textContent = m ? `${m[2]} ${m[1]}` : 'Detail';
+    bar.innerHTML = `
+      <div class="detail-info">
+        <div style="font-size:13px;font-weight:500;color:var(--bti-text)">${m ? `${m[2]}` : ''} <span style="opacity:0.5;font-size:11px">${m?.[1] || ''}</span></div>
+        <div class="detail-module"><ha-icon icon="${icon}" style="--mdc-icon-size:14px"></ha-icon>${this._esc(module)}</div>
+      </div>
+      <div class="history-badge ${type}">${label}</div>
+    `;
+
+    const total = this._historyEvents?.length || 0;
+    this.shadowRoot.getElementById('detail-prev').disabled = idx <= 0;
+    this.shadowRoot.getElementById('detail-next').disabled = idx >= total - 1;
+
+    detail.classList.add('open');
+  }
+
+  _navigateDetail(dir) {
+    const events = this._historyEvents;
+    if (!events) return;
+    const newIdx = this._detailIdx + dir;
+    if (newIdx < 0 || newIdx >= events.length) return;
+    this._openHistoryDetail(events[newIdx], this._detailEntryId, newIdx);
+  }
+
+  _closeHistory() {
+    this.shadowRoot.getElementById('history-overlay')?.classList.remove('open');
+    this._closeHistoryDetail();
+  }
+
+  _closeHistoryDetail() {
+    this.shadowRoot.getElementById('history-detail')?.classList.remove('open');
+  }
+
+  // ========== Ring overlay ==========
+
+  _answerIncomingCall() {
+    this.shadowRoot?.getElementById('ring-overlay')?.classList.remove('open');
+    this._startCall();
+  }
+
+  _rejectIncomingCall() {
+    this.shadowRoot?.getElementById('ring-overlay')?.classList.remove('open');
+    const entryId = this._getConfigEntryId();
+    if (entryId && this._hass) {
+      this._hass.callService('bticino_intercom', 'reject_call', { entry_id: entryId });
+    }
+  }
+
+  _dismissIncomingCall() {
+    this.shadowRoot?.getElementById('ring-overlay')?.classList.remove('open');
+  }
+
+  _showRingOverlay(eventData) {
+    const overlay = this.shadowRoot?.getElementById('ring-overlay');
+    const preview = this.shadowRoot?.getElementById('ring-preview');
+    const nameEl = this.shadowRoot?.getElementById('ring-name');
+    if (!overlay) return;
+
+    const camIdx = this._config.intercoms.findIndex(ic => ic.camera === eventData.camera_entity_id);
+    if (camIdx >= 0 && camIdx !== this._activeIndex) {
+      this._switchIntercom(camIdx);
+    }
+
+    nameEl.textContent = eventData.module_name || 'Incoming call';
+
+    if (eventData.vignette_url) {
+      this._hass.callWS({ type: 'auth/sign_path', path: eventData.vignette_url, expires: 60 })
+        .then(({ path }) => {
+          preview.innerHTML = '<img src="' + path + '" alt="" /><div class="ring-pulse"><div class="rp"></div><div class="rp"></div><div class="rp"></div></div>';
+        })
+        .catch(() => {});
+    }
+
+    overlay.classList.add('open');
+  }
+
+  _showMissedCall() {
+    this.shadowRoot?.getElementById('ring-overlay')?.classList.remove('open');
+    const banner = this.shadowRoot?.getElementById('missed-banner');
+    if (!banner) return;
+    banner.classList.add('open');
+    setTimeout(() => banner.classList.remove('open'), 5000);
+  }
+
   // ========== Helpers ==========
 
   _resolveAction(action) {
     const entity = this._hass?.states[action.entity];
+    const entityReg = this._hass?.entities?.[action.entity];
     const domain = action.entity?.split('.')[0];
+    const shortName = entityReg?.name || entityReg?.original_name;
     return {
       icon: action.icon || entity?.attributes?.icon || DOMAIN_ICONS[domain] || 'mdi:circle',
-      label: action.label || entity?.attributes?.friendly_name || action.entity,
+      label: action.label || shortName || entity?.attributes?.friendly_name || action.entity,
     };
   }
 
@@ -1121,6 +1512,13 @@ const EDITOR_STYLES = `
     background: none; border: none; font-size: 12px; padding: 4px 8px;
   }
   .remove-btn:hover { text-decoration: underline; }
+  .move-btn {
+    cursor: pointer; background: none; border: none; font-size: 14px;
+    padding: 2px 6px; color: var(--secondary-text-color); line-height: 1;
+  }
+  .move-btn:hover { color: var(--primary-text-color); }
+  .move-btn:disabled { opacity: 0.2; cursor: default; }
+  .action-controls { display: flex; align-items: center; gap: 2px; }
   .add-btn {
     cursor: pointer; color: var(--primary-color);
     background: none; border: none; font-size: 13px; font-weight: 500;
@@ -1132,6 +1530,23 @@ const EDITOR_STYLES = `
     padding: 8px 0;
   }
   .toggle-label { font-size: 14px; }
+  .field-group { margin-bottom: 8px; }
+  .field-label { display: block; font-size: 12px; color: var(--secondary-text-color); margin-bottom: 4px; }
+  .native-select {
+    width: 100%; padding: 10px 12px; font-size: 14px;
+    border: 1px solid var(--divider-color, #e0e0e0); border-radius: 4px;
+    background: var(--card-background-color, #fff); color: var(--primary-text-color);
+    appearance: auto; cursor: pointer;
+  }
+  .actions-toggle {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 12px; font-weight: 500; margin-top: 8px; margin-bottom: 4px;
+    cursor: pointer; user-select: none; background: none; border: none;
+    padding: 4px 0; color: var(--primary-text-color);
+  }
+  .actions-toggle .arrow { transition: transform 0.2s; display: inline-block; font-size: 10px; }
+  .actions-toggle .arrow.collapsed { transform: rotate(-90deg); }
+  .actions-body.collapsed { display: none; }
 `;
 
 class BticinoIntercomCardEditor extends HTMLElement {
@@ -1192,6 +1607,16 @@ class BticinoIntercomCardEditor extends HTMLElement {
     this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: cfg }, bubbles: true, composed: true }));
   }
 
+  async _ensureEntityPicker() {
+    if (customElements.get('ha-entity-picker')) return;
+    const helpers = await window.loadCardHelpers?.();
+    if (helpers) {
+      const card = await helpers.createCardElement({ type: 'entities', entities: [] });
+      await card?.constructor?.getConfigElement?.();
+      await customElements.whenDefined('ha-entity-picker');
+    }
+  }
+
   _render() {
     const c = this._config;
     this.shadowRoot.innerHTML = `
@@ -1201,11 +1626,12 @@ class BticinoIntercomCardEditor extends HTMLElement {
           <div class="row">
             <ha-textfield label="Title (optional)" id="ed-title"></ha-textfield>
           </div>
-          <div class="row">
-            <ha-select label="Action layout" id="ed-layout">
-              <mwc-list-item value="fill">Fill (stretch)</mwc-list-item>
-              <mwc-list-item value="compact">Compact (fixed width)</mwc-list-item>
-            </ha-select>
+          <div class="field-group">
+            <label class="field-label" for="ed-layout">Action layout</label>
+            <select id="ed-layout" class="native-select">
+              <option value="fill">Fill (stretch)</option>
+              <option value="compact">Compact (fixed width)</option>
+            </select>
           </div>
           <div class="row">
             <ha-textfield label="Max visible actions" type="number" id="ed-max-actions"></ha-textfield>
@@ -1227,7 +1653,6 @@ class BticinoIntercomCardEditor extends HTMLElement {
         </div>
       </div>
     `;
-    // Set properties on HA components (can't be done via innerHTML attributes)
     const $ = (id) => this.shadowRoot.getElementById(id);
     $('ed-title').value = c.title || '';
     $('ed-layout').value = c.action_layout;
@@ -1246,47 +1671,46 @@ class BticinoIntercomCardEditor extends HTMLElement {
       <div class="intercom-card" data-ic-idx="${i}">
         <div class="intercom-header">
           <span>Intercom ${i + 1}</span>
-          <button class="remove-btn" data-remove-ic="${i}">Remove</button>
+          <div class="action-controls">
+            <button class="move-btn" data-move-ic="${i}-up" ${i === 0 ? 'disabled' : ''} title="Move up">&#9650;</button>
+            <button class="move-btn" data-move-ic="${i}-down" ${i === this._config.intercoms.length - 1 ? 'disabled' : ''} title="Move down">&#9660;</button>
+            <button class="remove-btn" data-remove-ic="${i}">Remove</button>
+          </div>
         </div>
         <div class="row">
           <ha-textfield label="Name" data-ic-field="name" data-ic-idx="${i}"></ha-textfield>
           <ha-icon-picker label="Icon (optional)" data-ic-field="icon" data-ic-idx="${i}"></ha-icon-picker>
         </div>
-        <div class="row">
-          <ha-entity-picker
-            label="Camera entity"
-            data-ic-field="camera"
-            data-ic-idx="${i}"
-            allow-custom-entity
-          ></ha-entity-picker>
+        <div class="row" id="ed-camera-row-${i}"></div>
+        <button class="actions-toggle" data-toggle-actions="${i}">
+          <span class="arrow">&#9660;</span> Actions (${ic.actions.length})
+        </button>
+        <div class="actions-body" id="ed-actions-body-${i}">
+          <div id="ed-actions-${i}">
+            ${ic.actions.map((a, j) => this._renderActionEditor(i, j, a)).join('')}
+          </div>
+          <button class="add-btn" data-add-action="${i}">+ Add action</button>
         </div>
-        <div class="section-title" style="font-size:12px;margin-top:8px;">Actions</div>
-        <div id="ed-actions-${i}">
-          ${ic.actions.map((a, j) => this._renderActionEditor(i, j, a)).join('')}
-        </div>
-        <button class="add-btn" data-add-action="${i}">+ Add action</button>
       </div>
     `).join('');
 
     this._setIntercomProperties();
+    this._ensureEntityPicker().then(() => this._createEntityPickers());
   }
 
   _renderActionEditor(icIdx, actIdx, action) {
+    const total = this._config.intercoms[icIdx]?.actions?.length || 0;
     return `
       <div class="action-card" data-ic-idx="${icIdx}" data-act-idx="${actIdx}">
         <div class="action-header">
           <span>Action ${actIdx + 1}</span>
-          <button class="remove-btn" data-remove-action="${icIdx}-${actIdx}">Remove</button>
+          <div class="action-controls">
+            <button class="move-btn" data-move-action="${icIdx}-${actIdx}-up" ${actIdx === 0 ? 'disabled' : ''} title="Move up">&#9650;</button>
+            <button class="move-btn" data-move-action="${icIdx}-${actIdx}-down" ${actIdx === total - 1 ? 'disabled' : ''} title="Move down">&#9660;</button>
+            <button class="remove-btn" data-remove-action="${icIdx}-${actIdx}">Remove</button>
+          </div>
         </div>
-        <div class="row">
-          <ha-entity-picker
-            label="Entity"
-            data-act-field="entity"
-            data-ic-idx="${icIdx}"
-            data-act-idx="${actIdx}"
-            allow-custom-entity
-          ></ha-entity-picker>
-        </div>
+        <div class="row" id="ed-action-entity-row-${icIdx}-${actIdx}"></div>
         <div class="row">
           <ha-textfield label="Service (e.g. lock.unlock)" data-act-field="service" data-ic-idx="${icIdx}" data-act-idx="${actIdx}"></ha-textfield>
         </div>
@@ -1296,6 +1720,37 @@ class BticinoIntercomCardEditor extends HTMLElement {
         </div>
       </div>
     `;
+  }
+
+  _createEntityPickers() {
+    this._config.intercoms.forEach((ic, i) => {
+      const cameraRow = this.shadowRoot.getElementById(`ed-camera-row-${i}`);
+      if (cameraRow) {
+        const picker = document.createElement('ha-entity-picker');
+        picker.label = 'Camera entity';
+        picker.hass = this._hass;
+        picker.value = ic.camera || '';
+        picker.includeDomains = ['camera'];
+        picker.allowCustomEntity = true;
+        picker.dataset.icField = 'camera';
+        picker.dataset.icIdx = String(i);
+        cameraRow.appendChild(picker);
+      }
+      ic.actions.forEach((a, j) => {
+        const actionRow = this.shadowRoot.getElementById(`ed-action-entity-row-${i}-${j}`);
+        if (actionRow) {
+          const picker = document.createElement('ha-entity-picker');
+          picker.label = 'Entity';
+          picker.hass = this._hass;
+          picker.value = a.entity || '';
+          picker.allowCustomEntity = true;
+          picker.dataset.actField = 'entity';
+          picker.dataset.icIdx = String(i);
+          picker.dataset.actIdx = String(j);
+          actionRow.appendChild(picker);
+        }
+      });
+    });
   }
 
   _setIntercomProperties() {
@@ -1332,7 +1787,7 @@ class BticinoIntercomCardEditor extends HTMLElement {
       this._config.title = e.target.value;
       this._fire();
     });
-    $('ed-layout')?.addEventListener('selected', (e) => {
+    $('ed-layout')?.addEventListener('change', (e) => {
       this._config.action_layout = e.target.value;
       this._fire();
     });
@@ -1360,6 +1815,31 @@ class BticinoIntercomCardEditor extends HTMLElement {
   }
 
   _bindIntercomEvents() {
+    // Toggle actions collapse
+    this.shadowRoot.querySelectorAll('[data-toggle-actions]').forEach(btn => {
+      btn.onclick = () => {
+        const idx = btn.dataset.toggleActions;
+        const body = this.shadowRoot.getElementById(`ed-actions-body-${idx}`);
+        const arrow = btn.querySelector('.arrow');
+        body?.classList.toggle('collapsed');
+        arrow?.classList.toggle('collapsed');
+      };
+    });
+
+    // Move intercom
+    this.shadowRoot.querySelectorAll('[data-move-ic]').forEach(btn => {
+      btn.onclick = () => {
+        const [idx, dir] = btn.dataset.moveIc.split('-');
+        const from = parseInt(idx, 10);
+        const to = dir === 'up' ? from - 1 : from + 1;
+        const ics = this._config.intercoms;
+        [ics[from], ics[to]] = [ics[to], ics[from]];
+        this._renderIntercoms();
+        this._bindIntercomEvents();
+        this._fire();
+      };
+    });
+
     // Remove intercom
     this.shadowRoot.querySelectorAll('[data-remove-ic]').forEach(btn => {
       btn.onclick = () => {
@@ -1389,6 +1869,21 @@ class BticinoIntercomCardEditor extends HTMLElement {
         this._config.intercoms[icIdx].actions.push({ entity: '', service: '', icon: '', label: '' });
         this._renderIntercoms();
         this._bindIntercomEvents();
+      };
+    });
+
+    // Move action
+    this.shadowRoot.querySelectorAll('[data-move-action]').forEach(btn => {
+      btn.onclick = () => {
+        const [icIdx, actIdx, dir] = btn.dataset.moveAction.split('-');
+        const ic = parseInt(icIdx, 10);
+        const from = parseInt(actIdx, 10);
+        const to = dir === 'up' ? from - 1 : from + 1;
+        const actions = this._config.intercoms[ic].actions;
+        [actions[from], actions[to]] = [actions[to], actions[from]];
+        this._renderIntercoms();
+        this._bindIntercomEvents();
+        this._fire();
       };
     });
 
