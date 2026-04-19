@@ -146,8 +146,9 @@ const CARD_STYLES = `
   }
   .tab:hover { background: rgba(255,255,255,0.12); color: var(--bti-text); }
   .tab.active {
-    background: var(--bti-primary);
-    color: #fff;
+    background: rgba(3,169,244,0.15);
+    color: var(--bti-primary);
+    font-weight: 600;
   }
 
   .warning-banner {
@@ -275,7 +276,6 @@ const CARD_STYLES = `
   }
   .ring:nth-child(1) { width: 40px; height: 40px; animation-delay: 0s; }
   .ring:nth-child(2) { width: 56px; height: 56px; animation-delay: 0.4s; }
-  .ring:nth-child(3) { width: 72px; height: 72px; animation-delay: 0.8s; }
   .ring-center {
     width: 24px; height: 24px; border-radius: 50%;
     background: #4caf50;
@@ -292,12 +292,12 @@ const CARD_STYLES = `
   }
 
   @keyframes pulse-ring {
-    0% { transform: scale(0.8); opacity: 0.8; }
-    100% { transform: scale(1.3); opacity: 0; }
+    0% { transform: scale(1); opacity: 0.6; }
+    100% { transform: scale(1.8); opacity: 0; }
   }
   @keyframes pulse-dot {
     0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.15); }
+    50% { transform: scale(1.1); }
   }
 
   .video-controls {
@@ -338,8 +338,7 @@ const CARD_STYLES = `
     transition: background 0.2s, transform 0.2s;
   }
   .swipe-dot.active {
-    background: #fff;
-    transform: scale(1.3);
+    background: var(--bti-primary);
   }
 
   .action-bar {
@@ -532,10 +531,9 @@ class BticinoIntercomCard extends HTMLElement {
             <div class="connecting-rings">
               <div class="ring"></div>
               <div class="ring"></div>
-              <div class="ring"></div>
               <div class="ring-center">${ICON_PHONE}</div>
             </div>
-            <div class="connecting-text">Connecting...</div>
+            <div class="connecting-text">Connessione in corso...</div>
           </div>
           <div class="error-overlay" id="error-overlay">
             <svg class="error-icon" viewBox="0 0 24 24"><path d="M13,13H11V7H13M13,17H11V15H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg>
