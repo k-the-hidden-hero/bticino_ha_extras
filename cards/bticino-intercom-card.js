@@ -590,10 +590,6 @@ class BticinoIntercomCard extends HTMLElement {
     const videoArea = $('video-area');
     videoArea?.addEventListener('mouseenter', () => this._showControls());
     videoArea?.addEventListener('mouseleave', () => this._hideControlsDelayed());
-    videoArea?.addEventListener('touchstart', (e) => {
-      if (this._playing && (e.target === videoArea || e.target.tagName === 'VIDEO')) this._toggleControlsVisibility();
-    }, { passive: true });
-
     this._bindSwipe(videoArea);
 
     $('vc-hangup')?.addEventListener('click', (e) => { e.stopPropagation(); this._hangUp(); });
@@ -649,6 +645,10 @@ class BticinoIntercomCard extends HTMLElement {
         } else if (dx > 0 && this._activeIndex > 0) {
           this._switchIntercom(this._activeIndex - 1);
         }
+        return;
+      }
+      if (this._playing && (e.target === el || e.target.tagName === 'VIDEO')) {
+        this._toggleControlsVisibility();
       }
     }, { passive: true });
   }
@@ -965,9 +965,11 @@ class BticinoIntercomCard extends HTMLElement {
       this._ws = new WebSocket(`${proto}//${location.host}/api/websocket`);
       let msgId = 1, settled = false;
 
-      const timeout = setTimeout(() => { if (!settled) { settled = true; reject(new Error('Signaling timeout')); } }, 15000);
+      this._signalingTimeout = setTimeout(() => { if (!settled) { settled = true; reject(new Error('Signaling timeout')); } }, 15000);
+      const timeout = this._signalingTimeout;
 
       this._ws.onerror = () => { if (!settled) { settled = true; clearTimeout(timeout); reject(new Error('WebSocket error')); } };
+      this._ws.onclose = () => { if (!settled) { settled = true; clearTimeout(timeout); reject(new Error('WebSocket closed')); } };
 
       this._ws.onmessage = async (event) => {
         const msg = JSON.parse(event.data);
@@ -1030,6 +1032,7 @@ class BticinoIntercomCard extends HTMLElement {
 
   _closeConnection() {
     this._stopMic();
+    if (this._signalingTimeout) { clearTimeout(this._signalingTimeout); this._signalingTimeout = null; }
     if (this._pc) { this._pc.ontrack = null; this._pc.onconnectionstatechange = null; this._pc.onicecandidate = null; try { this._pc.close(); } catch (_) {} this._pc = null; }
     if (this._ws) { this._ws.onmessage = null; this._ws.onerror = null; this._ws.onclose = null; try { this._ws.close(); } catch (_) {} this._ws = null; }
     if (this._oscillator) { try { this._oscillator.stop(); } catch (_) {} this._oscillator = null; }
@@ -1048,10 +1051,6 @@ class BticinoIntercomCard extends HTMLElement {
   }
 
   // ========== Helpers ==========
-
-  _entityName(entityId) {
-    return this._hass?.states[entityId]?.attributes?.friendly_name || null;
-  }
 
   _esc(str) {
     if (!str) return '';
