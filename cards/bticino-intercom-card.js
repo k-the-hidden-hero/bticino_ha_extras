@@ -586,6 +586,8 @@ class BticinoIntercomCard extends HTMLElement {
     this._pendingLocalCandidates = [];
     this._sslWarningDismissed = false;
     this._boundDocClick = this._onDocumentClick.bind(this);
+    this._callEventUnsub = null;
+    this._ringSessionId = null;
   }
 
   get _activeIntercom() {
@@ -595,6 +597,7 @@ class BticinoIntercomCard extends HTMLElement {
   set hass(hass) {
     const prev = this._hass;
     this._hass = hass;
+    if (!this._callEventUnsub && hass?.connection) this._subscribeCallEvents();
     if (!prev && hass && this._config) this._render();
     this._updateIdleOverlay();
     this._updateActionStates();
@@ -636,10 +639,13 @@ class BticinoIntercomCard extends HTMLElement {
 
   connectedCallback() {
     if (this._config && this._hass) this._render();
+    this._subscribeCallEvents();
+    this._checkAutoAnswer();
   }
 
   disconnectedCallback() {
     this._cleanup();
+    this._unsubscribeCallEvents();
     document.removeEventListener('click', this._boundDocClick);
   }
 
@@ -1397,6 +1403,66 @@ class BticinoIntercomCard extends HTMLElement {
 
   _closeHistoryDetail() {
     this.shadowRoot.getElementById('history-detail')?.classList.remove('open');
+  }
+
+  // ========== Call event subscription ==========
+
+  _subscribeCallEvents() {
+    if (this._callEventUnsub || !this._hass?.connection) return;
+    this._callEventUnsub = this._hass.connection.subscribeEvents(
+      (event) => this._handleCallEvent(event),
+      'bticino_intercom_call'
+    );
+  }
+
+  _unsubscribeCallEvents() {
+    if (this._callEventUnsub) {
+      this._callEventUnsub.then(unsub => unsub());
+      this._callEventUnsub = null;
+    }
+  }
+
+  _handleCallEvent(event) {
+    const data = event.data;
+
+    if (data.type === 'ring') {
+      const cameras = this._config?.intercoms?.map(ic => ic.camera) || [];
+      if (data.camera_entity_id && !cameras.includes(data.camera_entity_id)) return;
+      this._ringSessionId = data.session_id;
+      this._showRingOverlay(data);
+    } else if (data.type === 'end') {
+      if (data.session_id !== this._ringSessionId) return;
+      this._ringSessionId = null;
+      const ringOverlay = this.shadowRoot?.getElementById('ring-overlay');
+      if (ringOverlay?.classList.contains('open')) {
+        this._showMissedCall();
+      }
+      if (this._state === STATE.LIVE) {
+        this._hangUp();
+      }
+    }
+  }
+
+  // ========== URL auto-answer ==========
+
+  _checkAutoAnswer() {
+    const params = new URLSearchParams(window.location.search);
+    const answerCamera = params.get('answer');
+    if (!answerCamera || !this._config) return;
+
+    const camIdx = this._config.intercoms.findIndex(ic => ic.camera === answerCamera);
+    if (camIdx < 0) return;
+
+    params.delete('answer');
+    const newUrl = params.toString()
+      ? `${window.location.pathname}?${params}`
+      : window.location.pathname;
+    history.replaceState(null, '', newUrl);
+
+    if (camIdx !== this._activeIndex) {
+      this._switchIntercom(camIdx);
+    }
+    setTimeout(() => this._startCall(), 500);
   }
 
   // ========== Ring overlay ==========
