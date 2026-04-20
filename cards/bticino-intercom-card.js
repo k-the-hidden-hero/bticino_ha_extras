@@ -569,6 +569,45 @@ const CARD_STYLES = `
   .missed-banner.open { display: flex; }
   .missed-banner ha-icon { --mdc-icon-size: 36px; color: #ffa726; }
   .missed-text { font-size: 14px; color: var(--bti-text-secondary); }
+
+  .ring-snapshot {
+    position: absolute; inset: 0;
+    z-index: 2;
+  }
+  .ring-snapshot img {
+    width: 100%; height: 100%; object-fit: cover;
+  }
+  .ring-snapshot .ring-gradient {
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 50%; background: linear-gradient(rgba(0,0,0,0.75), transparent);
+    pointer-events: none;
+  }
+  .ring-snapshot .ring-label {
+    position: absolute; top: 14px; left: 20px; right: 20px;
+    display: flex; justify-content: space-between; align-items: center;
+    pointer-events: none;
+  }
+  .ring-label-text { color: #ff9800; font-size: 17px; font-weight: 700; }
+  .ring-label-sub { color: rgba(255,255,255,0.5); font-size: 13px; margin-top: 2px; }
+  .ring-badge {
+    background: rgba(255,152,0,0.2); color: #ff9800;
+    border-radius: 14px; padding: 5px 12px; font-size: 12px; font-weight: 600;
+    animation: ring-blink 1s infinite;
+  }
+  @keyframes ring-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+  ha-card.ringing {
+    border: 2px solid rgba(255,152,0,0.4);
+    box-shadow: 0 0 20px rgba(255,152,0,0.15);
+  }
+
+  .action-bar .ring-action { font-weight: 600; }
+  .action-bar .ring-action.answer { color: #66bb6a; }
+  .action-bar .ring-action.answer:hover { background: rgba(76,175,80,0.15); }
+  .action-bar .ring-action.open-door { color: #42a5f5; }
+  .action-bar .ring-action.open-door:hover { background: rgba(33,150,243,0.15); }
+  .action-bar .ring-action.reject { color: #ef5350; }
+  .action-bar .ring-action.reject:hover { background: rgba(244,67,54,0.15); }
 `;
 
 // ---------------------------------------------------------------------------
@@ -930,12 +969,18 @@ class BticinoIntercomCard extends HTMLElement {
   _updateTabStates() {
     const tabs = this.shadowRoot?.querySelectorAll('.tab');
     if (!tabs) return;
+    const isRinging = this.shadowRoot?.querySelector('ha-card')?.classList.contains('ringing');
     tabs.forEach((tab, i) => {
       tab.classList.remove('ring', 'live');
-      if (i === this._activeIndex) {
-        if (this._state === STATE.LIVE || this._state === STATE.CONNECTING || this._state === STATE.RECONNECTING) {
-          tab.classList.add('live');
-        }
+      const origName = this._config.intercoms[i]?.name || '';
+      if (i === this._activeIndex && isRinging) {
+        tab.classList.add('ring');
+        tab.textContent = `🔔 ${origName}`;
+      } else if (i === this._activeIndex && (this._state === STATE.LIVE || this._state === STATE.CONNECTING || this._state === STATE.RECONNECTING)) {
+        tab.classList.add('live');
+        tab.textContent = `● ${origName}`;
+      } else {
+        tab.textContent = origName;
       }
     });
   }
@@ -1479,15 +1524,15 @@ class BticinoIntercomCard extends HTMLElement {
     } else if (data.type === 'end') {
       if (data.session_id !== this._ringSessionId) return;
       this._ringSessionId = null;
-      const ringOverlay = this.shadowRoot?.getElementById('ring-overlay');
-      if (ringOverlay?.classList.contains('open')) {
+      const wasRinging = this.shadowRoot?.querySelector('ha-card')?.classList.contains('ringing');
+      this._clearRingState();
+      if (wasRinging) {
         this._showMissedCall();
-        this._collapseIfIdle();
       }
       if (this._state === STATE.LIVE) {
         this._hangUp();
-        this._collapseIfIdle();
       }
+      this._collapseIfIdle();
     }
   }
 
@@ -1515,49 +1560,129 @@ class BticinoIntercomCard extends HTMLElement {
 
   // ========== Ring overlay ==========
 
-  _answerIncomingCall() {
+  _clearRingState() {
+    this.shadowRoot?.querySelector('ha-card')?.classList.remove('ringing');
+    this.shadowRoot?.getElementById('ring-snapshot')?.remove();
     this.shadowRoot?.getElementById('ring-overlay')?.classList.remove('open');
+    this._restoreActionBar();
+    this._updateTabStates();
+    this._ringData = null;
+  }
+
+  _answerIncomingCall() {
+    this._clearRingState();
     this._startCall();
   }
 
   _rejectIncomingCall() {
-    this.shadowRoot?.getElementById('ring-overlay')?.classList.remove('open');
+    this._clearRingState();
+    this._collapseIfIdle();
     const entryId = this._getConfigEntryId();
     if (entryId && this._hass) {
       this._hass.callService('bticino_intercom', 'reject_call', { entry_id: entryId });
     }
-    this._collapseIfIdle();
   }
 
   _dismissIncomingCall() {
-    this.shadowRoot?.getElementById('ring-overlay')?.classList.remove('open');
+    this._clearRingState();
     this._collapseIfIdle();
   }
 
   _showRingOverlay(eventData) {
-    this.shadowRoot?.querySelector('ha-card')?.classList.add('expanded');
-    const overlay = this.shadowRoot?.getElementById('ring-overlay');
-    const preview = this.shadowRoot?.getElementById('ring-preview');
-    const nameEl = this.shadowRoot?.getElementById('ring-name');
-    if (!overlay) return;
-
     const camIdx = this._config.intercoms.findIndex(ic => ic.camera === eventData.camera_entity_id);
     if (camIdx >= 0 && camIdx !== this._activeIndex) {
-      this._switchIntercom(camIdx);
+      this._activeIndex = camIdx;
     }
 
-    nameEl.textContent = eventData.module_name || 'Incoming call';
+    this._ringData = eventData;
+    const card = this.shadowRoot?.querySelector('ha-card');
+    card?.classList.add('expanded', 'ringing');
+
+    this._updateTabStates();
+
+    const videoArea = this.shadowRoot?.getElementById('video-area');
+    if (!videoArea) return;
+
+    videoArea.querySelector('.ring-snapshot')?.remove();
+
+    const snapshotDiv = document.createElement('div');
+    snapshotDiv.className = 'ring-snapshot';
+    snapshotDiv.id = 'ring-snapshot';
 
     const imageUrl = eventData.snapshot_url || eventData.vignette_url;
+    const moduleName = eventData.module_name || this._activeIntercom.name;
+
+    snapshotDiv.innerHTML = `
+      ${imageUrl ? '' : '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:#111"><ha-icon icon="mdi:doorbell-video" style="--mdc-icon-size:64px;opacity:0.2"></ha-icon></div>'}
+      <div class="ring-gradient"></div>
+      <div class="ring-label">
+        <div>
+          <div class="ring-label-text">Qualcuno alla porta</div>
+          <div class="ring-label-sub">${this._esc(moduleName)}</div>
+        </div>
+        <div class="ring-badge">● RING</div>
+      </div>
+    `;
+
+    videoArea.prepend(snapshotDiv);
+
     if (imageUrl) {
       this._hass.callWS({ type: 'auth/sign_path', path: imageUrl, expires: 60 })
         .then(({ path }) => {
-          preview.innerHTML = '<img src="' + path + '" alt="" /><div class="ring-pulse"><div class="rp"></div><div class="rp"></div><div class="rp"></div></div>';
+          const img = document.createElement('img');
+          img.src = path;
+          img.alt = '';
+          snapshotDiv.insertBefore(img, snapshotDiv.firstChild);
         })
         .catch(() => {});
     }
 
-    overlay.classList.add('open');
+    this._showRingActions();
+  }
+
+  _showRingActions() {
+    const bar = this.shadowRoot?.getElementById('action-bar');
+    if (!bar) return;
+    this._savedActionBarHTML = bar.innerHTML;
+    bar.innerHTML = `
+      <button class="action-btn ring-action answer" id="ring-answer">
+        <ha-icon icon="mdi:phone"></ha-icon>
+        <span class="action-label">Rispondi</span>
+      </button>
+      <button class="action-btn ring-action open-door" id="ring-open">
+        <ha-icon icon="mdi:door-open"></ha-icon>
+        <span class="action-label">Apri</span>
+      </button>
+      <button class="action-btn ring-action reject" id="ring-reject">
+        <ha-icon icon="mdi:phone-hangup"></ha-icon>
+        <span class="action-label">Rifiuta</span>
+      </button>
+    `;
+    bar.querySelector('#ring-answer')?.addEventListener('click', () => this._answerIncomingCall());
+    bar.querySelector('#ring-open')?.addEventListener('click', () => this._openDoorDuringRing());
+    bar.querySelector('#ring-reject')?.addEventListener('click', () => this._rejectIncomingCall());
+  }
+
+  _restoreActionBar() {
+    const bar = this.shadowRoot?.getElementById('action-bar');
+    if (!bar || !this._savedActionBarHTML) return;
+    bar.innerHTML = this._savedActionBarHTML;
+    this._savedActionBarHTML = null;
+    bar.querySelectorAll('.action-btn[data-action-idx]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._executeAction(parseInt(btn.dataset.actionIdx, 10), btn);
+      });
+    });
+    this._updateActionStates();
+  }
+
+  _openDoorDuringRing() {
+    const lockAction = this._activeIntercom.actions.find(a => a.entity?.startsWith('lock.'));
+    if (lockAction && this._hass) {
+      const [domain, service] = (lockAction.service || 'lock.unlock').split('.');
+      this._hass.callService(domain, service, lockAction.service_data || {}, { entity_id: lockAction.entity });
+    }
   }
 
   _showMissedCall() {
