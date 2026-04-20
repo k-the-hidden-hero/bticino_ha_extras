@@ -92,24 +92,6 @@ const CARD_STYLES = `
     position: relative;
   }
 
-  .status-pill {
-    flex-shrink: 0;
-    margin-left: 10px;
-    padding: 3px 10px;
-    border-radius: 10px;
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.6px;
-    text-transform: uppercase;
-    line-height: 1.4;
-    user-select: none;
-  }
-  .status-pill.ready { background: rgba(76,175,80,0.2); color: #66bb6a; }
-  .status-pill.connecting,
-  .status-pill.reconnecting { background: rgba(255,152,0,0.2); color: #ffa726; }
-  .status-pill.live { background: rgba(244,67,54,0.25); color: #ef5350; }
-  .status-pill.error { background: rgba(244,67,54,0.2); color: #ef5350; }
-
   .tab-bar {
     display: flex;
     border-bottom: 1px solid var(--bti-divider);
@@ -527,59 +509,6 @@ const CARD_STYLES = `
     display: flex; align-items: center; gap: 4px; font-size: 12px; margin-top: 2px;
   }
 
-  .ring-overlay {
-    position: absolute; inset: 0; z-index: 15;
-    display: none; flex-direction: column; align-items: center; justify-content: center;
-    background: rgba(0,0,0,0.9);
-  }
-  .ring-overlay.open { display: flex; }
-  .ring-preview {
-    width: 100%; flex: 1; display: flex; align-items: center; justify-content: center;
-    overflow: hidden; position: relative;
-  }
-  .ring-preview img {
-    width: 100%; height: 100%; object-fit: cover;
-  }
-  .ring-preview .ring-placeholder {
-    display: flex; align-items: center; justify-content: center;
-    width: 100%; height: 100%;
-  }
-  .ring-name {
-    font-size: 16px; font-weight: 500; padding: 8px 0 4px; color: var(--bti-text);
-  }
-  .ring-pulse {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    pointer-events: none;
-  }
-  .ring-pulse .rp { position: absolute; border-radius: 50%; border: 2px solid #66bb6a; opacity: 0; }
-  .ring-pulse .rp:nth-child(1) { width: 80px; height: 80px; margin: -40px 0 0 -40px; animation: rp 2s ease-out infinite; }
-  .ring-pulse .rp:nth-child(2) { width: 120px; height: 120px; margin: -60px 0 0 -60px; animation: rp 2s ease-out 0.5s infinite; }
-  .ring-pulse .rp:nth-child(3) { width: 160px; height: 160px; margin: -80px 0 0 -80px; animation: rp 2s ease-out 1s infinite; }
-  @keyframes rp { 0% { opacity: 0.6; transform: scale(0.5); } 100% { opacity: 0; transform: scale(1); } }
-  .ring-actions {
-    display: flex; gap: 16px; padding: 16px; justify-content: center;
-  }
-  .ring-btn {
-    display: flex; flex-direction: column; align-items: center; gap: 4px;
-    padding: 12px 20px; border: none; border-radius: 12px; cursor: pointer;
-    font-size: 11px; font-weight: 500;
-  }
-  .ring-btn.answer { background: rgba(76,175,80,0.25); color: #66bb6a; }
-  .ring-btn.answer:hover { background: rgba(76,175,80,0.4); }
-  .ring-btn.reject { background: rgba(244,67,54,0.25); color: #ef5350; }
-  .ring-btn.reject:hover { background: rgba(244,67,54,0.4); }
-  .ring-btn.dismiss { background: rgba(255,255,255,0.08); color: var(--bti-text-secondary); }
-  .ring-btn.dismiss:hover { background: rgba(255,255,255,0.15); }
-  .ring-btn ha-icon { --mdc-icon-size: 28px; }
-  .missed-banner {
-    position: absolute; inset: 0; z-index: 15;
-    display: none; flex-direction: column; align-items: center; justify-content: center;
-    background: rgba(0,0,0,0.85); gap: 8px;
-  }
-  .missed-banner.open { display: flex; }
-  .missed-banner ha-icon { --mdc-icon-size: 36px; color: #ffa726; }
-  .missed-text { font-size: 14px; color: var(--bti-text-secondary); }
-
   .ring-snapshot {
     position: absolute; inset: 0;
     z-index: 2;
@@ -662,6 +591,9 @@ class BticinoIntercomCard extends HTMLElement {
     this._callEventUnsub = null;
     this._ringSessionId = null;
     this._ringtoneAudio = null;
+    this._ringData = null;
+    this._savedActionBarHTML = null;
+    this._missedCallTimer = null;
   }
 
   get _activeIntercom() {
@@ -794,22 +726,6 @@ class BticinoIntercomCard extends HTMLElement {
               <button class="vc-btn" id="vc-fullscreen" title="Fullscreen"><ha-icon icon="mdi:fullscreen"></ha-icon></button>
             </div>
           </div>
-          <div class="ring-overlay" id="ring-overlay">
-            <div class="ring-preview" id="ring-preview">
-              <div class="ring-placeholder"><ha-icon icon="mdi:doorbell-video" style="--mdc-icon-size:64px;opacity:0.3"></ha-icon></div>
-              <div class="ring-pulse"><div class="rp"></div><div class="rp"></div><div class="rp"></div></div>
-            </div>
-            <div class="ring-name" id="ring-name"></div>
-            <div class="ring-actions">
-              <button class="ring-btn answer" id="ring-answer"><ha-icon icon="mdi:phone"></ha-icon>Answer</button>
-              <button class="ring-btn reject" id="ring-reject"><ha-icon icon="mdi:phone-hangup"></ha-icon>Reject</button>
-              <button class="ring-btn dismiss" id="ring-dismiss"><ha-icon icon="mdi:close"></ha-icon>Dismiss</button>
-            </div>
-          </div>
-          <div class="missed-banner" id="missed-banner">
-            <ha-icon icon="mdi:phone-missed"></ha-icon>
-            <div class="missed-text">Missed call</div>
-          </div>
         </div>
         </div>
         <div class="action-bar${this._config.action_layout === 'compact' ? ' compact' : ''}" id="action-bar">
@@ -912,10 +828,6 @@ class BticinoIntercomCard extends HTMLElement {
       this.shadowRoot?.getElementById('ssl-warning')?.remove();
     });
 
-    $('ring-answer')?.addEventListener('click', (e) => { e.stopPropagation(); this._answerIncomingCall(); });
-    $('ring-reject')?.addEventListener('click', (e) => { e.stopPropagation(); this._rejectIncomingCall(); });
-    $('ring-dismiss')?.addEventListener('click', (e) => { e.stopPropagation(); this._dismissIncomingCall(); });
-
     $('history-btn')?.addEventListener('click', (e) => { e.stopPropagation(); this._openHistory(); });
     $('history-close')?.addEventListener('click', (e) => { e.stopPropagation(); this._closeHistory(); });
     $('history-detail-close')?.addEventListener('click', (e) => { e.stopPropagation(); this._closeHistoryDetail(); });
@@ -963,16 +875,6 @@ class BticinoIntercomCard extends HTMLElement {
 
   _setState(state, label) {
     this._state = state;
-    const pill = this.shadowRoot?.getElementById('status-pill');
-    if (pill) {
-      const labels = {
-        [STATE.IDLE]: 'Ready', [STATE.CONNECTING]: 'Connecting...',
-        [STATE.LIVE]: 'LIVE', [STATE.RECONNECTING]: 'Reconnecting...', [STATE.ERROR]: 'Error',
-      };
-      pill.textContent = label || labels[state] || state;
-      pill.className = `status-pill ${state === STATE.IDLE ? 'ready' : state}`;
-    }
-
     if (state === STATE.LIVE) {
       this.shadowRoot?.getElementById('connecting-overlay')?.classList.remove('visible');
     }
@@ -1583,9 +1485,9 @@ class BticinoIntercomCard extends HTMLElement {
 
   _clearRingState() {
     this._stopRingtone();
+    if (this._missedCallTimer) { clearTimeout(this._missedCallTimer); this._missedCallTimer = null; }
     this.shadowRoot?.querySelector('ha-card')?.classList.remove('ringing');
     this.shadowRoot?.getElementById('ring-snapshot')?.remove();
-    this.shadowRoot?.getElementById('ring-overlay')?.classList.remove('open');
     this._restoreActionBar();
     this._updateTabStates();
     this._ringData = null;
@@ -1731,15 +1633,15 @@ class BticinoIntercomCard extends HTMLElement {
   }
 
   _showMissedCall() {
-    this._clearRingState();
     const nameEl = this.shadowRoot?.querySelector('.content-name');
     if (nameEl) {
       const original = nameEl.textContent;
       nameEl.textContent = '\u{1F4DE} Chiamata persa';
       nameEl.style.color = '#ffa726';
-      setTimeout(() => {
+      this._missedCallTimer = setTimeout(() => {
         nameEl.textContent = original;
         nameEl.style.color = '';
+        this._missedCallTimer = null;
       }, 5000);
     }
   }
