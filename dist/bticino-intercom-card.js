@@ -237,6 +237,7 @@ const CARD_STYLES = `
   .media-wrapper {
     display: grid;
     grid-template-rows: 0fr;
+    overflow: hidden;
     transition: grid-template-rows 0.35s ease;
   }
   .media-wrapper > .video-area {
