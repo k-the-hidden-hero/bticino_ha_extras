@@ -955,7 +955,7 @@ class BticinoIntercomCard extends HTMLElement {
 
   // ========== Status & UI ==========
 
-  _setState(state, label) {
+  _setState(state) {
     this._state = state;
     if (state === STATE.LIVE) {
       this.shadowRoot?.getElementById('connecting-overlay')?.classList.remove('visible');
@@ -1103,7 +1103,7 @@ class BticinoIntercomCard extends HTMLElement {
     if (this._config.auto_mic && window.isSecureContext && navigator.mediaDevices?.getUserMedia) {
       try {
         this._micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      } catch (_) {}
+      } catch {}
     }
 
     this.shadowRoot?.getElementById('idle-overlay')?.classList.add('hidden');
@@ -1227,7 +1227,7 @@ class BticinoIntercomCard extends HTMLElement {
             })
             .filter(Boolean);
         }
-      } catch (_) {}
+      } catch {}
 
       this._pc = new RTCPeerConnection({ iceServers, rtcpMuxPolicy: 'require' });
       const micTrack = this._micStream?.getAudioTracks()?.[0];
@@ -1292,8 +1292,8 @@ class BticinoIntercomCard extends HTMLElement {
       }
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
       this._ws = new WebSocket(`${proto}//${location.host}/api/websocket`);
-      let msgId = 1,
-        settled = false;
+      const msgId = 1;
+      let settled = false;
 
       this._signalingTimeout = setTimeout(() => {
         if (!settled) {
@@ -1373,7 +1373,7 @@ class BticinoIntercomCard extends HTMLElement {
                 candidate: evt.candidate.candidate,
                 sdpMLineIndex: evt.candidate.sdp_m_line_index ?? evt.candidate.sdpMLineIndex ?? 0,
               });
-            } catch (_) {}
+            } catch {}
           } else if (evt.type === 'error') {
             clearTimeout(timeout);
             if (!settled) {
@@ -1416,7 +1416,7 @@ class BticinoIntercomCard extends HTMLElement {
       this._showError('Connection lost after multiple retries');
       return;
     }
-    this._setState(STATE.RECONNECTING, `Reconnecting... (${this._reconnectCount}/${this._maxRetries})`);
+    this._setState(STATE.RECONNECTING);
     this._reconnectTimer = setTimeout(() => {
       this._reconnectTimer = null;
       if (this._wantPlay) this._connect();
@@ -1437,7 +1437,7 @@ class BticinoIntercomCard extends HTMLElement {
       this._pc.onicecandidate = null;
       try {
         this._pc.close();
-      } catch (_) {}
+      } catch {}
       this._pc = null;
     }
     if (this._ws) {
@@ -1446,13 +1446,13 @@ class BticinoIntercomCard extends HTMLElement {
       this._ws.onclose = null;
       try {
         this._ws.close();
-      } catch (_) {}
+      } catch {}
       this._ws = null;
     }
     if (this._oscillator) {
       try {
         this._oscillator.stop();
-      } catch (_) {}
+      } catch {}
       this._oscillator = null;
     }
     this._silenceTrack = null;
@@ -1472,7 +1472,7 @@ class BticinoIntercomCard extends HTMLElement {
     if (this._audioCtx) {
       try {
         this._audioCtx.close();
-      } catch (_) {}
+      } catch {}
       this._audioCtx = null;
     }
   }
@@ -1507,7 +1507,7 @@ class BticinoIntercomCard extends HTMLElement {
         type: 'media_source/browse_media',
         media_content_id: `media-source://bticino_intercom/${entryId}`,
       });
-      let allEvents = [];
+      const allEvents = [];
       for (const module of entry.children || []) {
         const mod = await this._hass.callWS({
           type: 'media_source/browse_media',
@@ -1522,7 +1522,7 @@ class BticinoIntercomCard extends HTMLElement {
         try {
           const { path: signed } = await this._hass.callWS({ type: 'auth/sign_path', path: p, expires: 300 });
           signedMap[p] = signed;
-        } catch (_) {
+        } catch {
           /* skip */
         }
       }
@@ -1606,7 +1606,7 @@ class BticinoIntercomCard extends HTMLElement {
     try {
       const { path: signed } = await this._hass.callWS({ type: 'auth/sign_path', path: snapshotPath, expires: 300 });
       img.src = signed;
-    } catch (_) {
+    } catch {
       img.src = event._signedThumb || '';
     }
     img.onerror = () => {
@@ -1727,7 +1727,7 @@ class BticinoIntercomCard extends HTMLElement {
       this._ringtoneAudio = new Audio('/local/doorbell.wav');
       this._ringtoneAudio.loop = true;
       this._ringtoneAudio.play().catch(() => {});
-    } catch (_) {}
+    } catch {}
   }
 
   _stopRingtone() {
@@ -2137,7 +2137,7 @@ class BticinoIntercomCardEditor extends HTMLElement {
     this._ensureEntityPicker().then(() => this._createEntityPickers());
   }
 
-  _renderActionEditor(icIdx, actIdx, action) {
+  _renderActionEditor(icIdx, actIdx, _action) {
     const total = this._config.intercoms[icIdx]?.actions?.length || 0;
     return `
       <div class="action-card" data-ic-idx="${icIdx}" data-act-idx="${actIdx}">
