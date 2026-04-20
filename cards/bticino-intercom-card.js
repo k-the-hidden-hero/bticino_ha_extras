@@ -244,7 +244,17 @@ const CARD_STYLES = `
   .call-pill:active { transform: scale(0.95); }
   .call-pill ha-icon { --mdc-icon-size: 16px; }
 
-  ha-card:not(.expanded) .video-area { display: none; }
+  .media-wrapper {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.35s ease;
+  }
+  .media-wrapper > .video-area {
+    overflow: hidden;
+  }
+  ha-card.expanded .media-wrapper {
+    grid-template-rows: 1fr;
+  }
   ha-card.expanded .content-row { display: none; }
 
   .error-overlay {
@@ -756,7 +766,8 @@ class BticinoIntercomCard extends HTMLElement {
           <button class="history-btn" id="history-btn" title="Call history"><ha-icon icon="mdi:history"></ha-icon></button>
           <button class="call-pill" id="call-pill"><ha-icon icon="mdi:phone"></ha-icon> Chiama</button>
         </div>
-        <div class="video-area" id="video-area">
+        <div class="media-wrapper">
+          <div class="video-area" id="video-area">
           <video id="video" autoplay playsinline></video>
           <div class="idle-overlay" id="idle-overlay"><ha-icon icon="mdi:doorbell-video" style="--mdc-icon-size:36px;opacity:0.25"></ha-icon><div class="idle-name">${this._esc(this._activeIntercom.name)}</div></div>
           <div class="call-overlay" id="call-overlay"><div class="call-btn">${ICON_PHONE}</div></div>
@@ -799,6 +810,7 @@ class BticinoIntercomCard extends HTMLElement {
             <ha-icon icon="mdi:phone-missed"></ha-icon>
             <div class="missed-text">Missed call</div>
           </div>
+        </div>
         </div>
         <div class="action-bar${this._config.action_layout === 'compact' ? ' compact' : ''}" id="action-bar">
           ${visibleActions.map((a, i) => this._renderActionBtn(a, i)).join('')}
@@ -1242,6 +1254,12 @@ class BticinoIntercomCard extends HTMLElement {
           this._reconnectCount = 0;
           this._setState(STATE.LIVE);
           if (this._micActive) this._updateMicUI();
+          const snapshot = this.shadowRoot?.getElementById('ring-snapshot');
+          if (snapshot) {
+            snapshot.style.transition = 'opacity 0.5s ease';
+            snapshot.style.opacity = '0';
+            setTimeout(() => snapshot.remove(), 500);
+          }
         }
         else if (['disconnected', 'failed', 'closed'].includes(state) && this._wantPlay) this._scheduleReconnect();
       };
@@ -1591,7 +1609,12 @@ class BticinoIntercomCard extends HTMLElement {
   }
 
   _answerIncomingCall() {
-    this._clearRingState();
+    this.shadowRoot?.querySelector('ha-card')?.classList.remove('ringing');
+    this._stopRingtone();
+    this._restoreActionBar();
+    this._updateTabStates();
+    this._ringData = null;
+    // Keep ring-snapshot visible for crossfade — removed when video connects
     this._startCall();
   }
 
@@ -1708,11 +1731,17 @@ class BticinoIntercomCard extends HTMLElement {
   }
 
   _showMissedCall() {
-    this.shadowRoot?.getElementById('ring-overlay')?.classList.remove('open');
-    const banner = this.shadowRoot?.getElementById('missed-banner');
-    if (!banner) return;
-    banner.classList.add('open');
-    setTimeout(() => banner.classList.remove('open'), 5000);
+    this._clearRingState();
+    const nameEl = this.shadowRoot?.querySelector('.content-name');
+    if (nameEl) {
+      const original = nameEl.textContent;
+      nameEl.textContent = '\u{1F4DE} Chiamata persa';
+      nameEl.style.color = '#ffa726';
+      setTimeout(() => {
+        nameEl.textContent = original;
+        nameEl.style.color = '';
+      }, 5000);
+    }
   }
 
   _collapseIfIdle() {
