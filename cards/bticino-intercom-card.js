@@ -41,9 +41,15 @@
 const CARD_VERSION = '0.2.0';
 
 const DOMAIN_ICONS = {
-  lock: 'mdi:lock', light: 'mdi:lightbulb', switch: 'mdi:toggle-switch',
-  cover: 'mdi:window-shutter', script: 'mdi:play', scene: 'mdi:palette',
-  fan: 'mdi:fan', climate: 'mdi:thermostat', vacuum: 'mdi:robot-vacuum',
+  lock: 'mdi:lock',
+  light: 'mdi:lightbulb',
+  switch: 'mdi:toggle-switch',
+  cover: 'mdi:window-shutter',
+  script: 'mdi:play',
+  scene: 'mdi:palette',
+  fan: 'mdi:fan',
+  climate: 'mdi:thermostat',
+  vacuum: 'mdi:robot-vacuum',
 };
 
 const STATE = {
@@ -63,8 +69,10 @@ const ERROR_MESSAGES = {
   'No auth token available': 'Authentication token not available. Try reloading the page.',
 };
 
-const ICON_PHONE = '<svg viewBox="0 0 24 24"><path d="M6.62,10.79C8.06,13.62 10.38,15.94 13.21,17.38L15.41,15.18C15.69,14.9 16.08,14.82 16.43,14.93C17.55,15.3 18.75,15.5 20,15.5A1,1 0 0,1 21,16.5V20A1,1 0 0,1 20,21A17,17 0 0,1 3,4A1,1 0 0,1 4,3H7.5A1,1 0 0,1 8.5,4C8.5,5.25 8.7,6.45 9.07,7.57C9.18,7.92 9.1,8.31 8.82,8.59L6.62,10.79Z"/></svg>';
-const ICON_HANGUP = '<svg viewBox="0 0 24 24" style="transform:rotate(135deg)"><path d="M6.62,10.79C8.06,13.62 10.38,15.94 13.21,17.38L15.41,15.18C15.69,14.9 16.08,14.82 16.43,14.93C17.55,15.3 18.75,15.5 20,15.5A1,1 0 0,1 21,16.5V20A1,1 0 0,1 20,21A17,17 0 0,1 3,4A1,1 0 0,1 4,3H7.5A1,1 0 0,1 8.5,4C8.5,5.25 8.7,6.45 9.07,7.57C9.18,7.92 9.1,8.31 8.82,8.59L6.62,10.79Z"/></svg>';
+const ICON_PHONE =
+  '<svg viewBox="0 0 24 24"><path d="M6.62,10.79C8.06,13.62 10.38,15.94 13.21,17.38L15.41,15.18C15.69,14.9 16.08,14.82 16.43,14.93C17.55,15.3 18.75,15.5 20,15.5A1,1 0 0,1 21,16.5V20A1,1 0 0,1 20,21A17,17 0 0,1 3,4A1,1 0 0,1 4,3H7.5A1,1 0 0,1 8.5,4C8.5,5.25 8.7,6.45 9.07,7.57C9.18,7.92 9.1,8.31 8.82,8.59L6.62,10.79Z"/></svg>';
+const ICON_HANGUP =
+  '<svg viewBox="0 0 24 24" style="transform:rotate(135deg)"><path d="M6.62,10.79C8.06,13.62 10.38,15.94 13.21,17.38L15.41,15.18C15.69,14.9 16.08,14.82 16.43,14.93C17.55,15.3 18.75,15.5 20,15.5A1,1 0 0,1 21,16.5V20A1,1 0 0,1 20,21A17,17 0 0,1 3,4A1,1 0 0,1 4,3H7.5A1,1 0 0,1 8.5,4C8.5,5.25 8.7,6.45 9.07,7.57C9.18,7.92 9.1,8.31 8.82,8.59L6.62,10.79Z"/></svg>';
 
 // ---------------------------------------------------------------------------
 // Styles
@@ -573,7 +581,6 @@ const CARD_STYLES = `
 // ---------------------------------------------------------------------------
 
 class BticinoIntercomCard extends HTMLElement {
-
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
@@ -636,8 +643,11 @@ class BticinoIntercomCard extends HTMLElement {
       if (!ic.name || !ic.camera) throw new Error('Each intercom requires name and camera');
     }
     this._config = {
-      intercoms: config.intercoms.map(ic => ({
-        name: ic.name, camera: ic.camera, icon: ic.icon || null, actions: ic.actions || [],
+      intercoms: config.intercoms.map((ic) => ({
+        name: ic.name,
+        camera: ic.camera,
+        icon: ic.icon || null,
+        actions: ic.actions || [],
       })),
       max_actions: config.max_actions ?? 4,
       auto_mic: config.auto_mic ?? true,
@@ -649,7 +659,9 @@ class BticinoIntercomCard extends HTMLElement {
     if (this._hass) this._render();
   }
 
-  getCardSize() { return 5; }
+  getCardSize() {
+    return 5;
+  }
 
   static getConfigElement() {
     return document.createElement('bticino-intercom-card-editor');
@@ -695,20 +707,28 @@ class BticinoIntercomCard extends HTMLElement {
         <div class="tab-bar${showTabs ? '' : ' hidden'}" id="tab-bar">
           ${intercoms.map((ic, i) => `<button class="tab${i === this._activeIndex ? ' active' : ''}" data-tab-idx="${i}">${ic.icon ? `<ha-icon icon="${this._esc(ic.icon)}"></ha-icon>` : ''}${this._esc(ic.name)}</button>`).join('')}
         </div>
-        ${isFirefox ? `
+        ${
+          isFirefox
+            ? `
         <div class="warning-banner firefox">
           <ha-icon icon="mdi:firefox"></ha-icon>
           <div>Firefox is not supported — this card requires <b>Chrome</b> or a Chromium-based browser.
           <a href="https://github.com/k-the-hidden-hero/bticino_intercom/blob/main/docs/firefox-webrtc-investigation.md" target="_blank" rel="noopener">Learn why</a></div>
         </div>
-        ` : ''}
-        ${showSslWarning ? `
+        `
+            : ''
+        }
+        ${
+          showSslWarning
+            ? `
         <div class="warning-banner ssl" id="ssl-warning">
           <ha-icon icon="mdi:shield-alert-outline"></ha-icon>
           <div>Non-secure connection (HTTP) — the microphone requires HTTPS. Video and incoming audio work normally.</div>
           <button class="dismiss-btn" id="dismiss-ssl">Ignore</button>
         </div>
-        ` : ''}
+        `
+            : ''
+        }
         <div class="content-row" id="content-row">
           <div class="content-icon"><ha-icon icon="mdi:doorbell-video"></ha-icon></div>
           <div class="content-info">
@@ -805,7 +825,10 @@ class BticinoIntercomCard extends HTMLElement {
     const $ = (id) => this.shadowRoot.getElementById(id);
     $('call-overlay')?.addEventListener('click', () => this._startCall());
     $('call-pill')?.addEventListener('click', () => this._startCall());
-    $('error-dismiss')?.addEventListener('click', (e) => { e.stopPropagation(); this._dismissError(); });
+    $('error-dismiss')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._dismissError();
+    });
 
     const videoArea = $('video-area');
     videoArea?.addEventListener('mouseenter', () => this._showControls());
@@ -813,27 +836,42 @@ class BticinoIntercomCard extends HTMLElement {
     this._bindSwipe(videoArea);
     this._bindSwipe($('content-row'));
 
-    $('vc-hangup')?.addEventListener('click', (e) => { e.stopPropagation(); this._hangUp(); });
-    $('vc-volume')?.addEventListener('click', (e) => { e.stopPropagation(); this._toggleMute(); });
-    $('vc-mic')?.addEventListener('click', (e) => { e.stopPropagation(); this._toggleMic(); });
-    $('vc-fullscreen')?.addEventListener('click', (e) => { e.stopPropagation(); this._toggleFullscreen(); });
+    $('vc-hangup')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._hangUp();
+    });
+    $('vc-volume')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._toggleMute();
+    });
+    $('vc-mic')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._toggleMic();
+    });
+    $('vc-fullscreen')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._toggleFullscreen();
+    });
 
-    this.shadowRoot.querySelectorAll('.tab[data-tab-idx]').forEach(tab => {
+    this.shadowRoot.querySelectorAll('.tab[data-tab-idx]').forEach((tab) => {
       tab.addEventListener('click', (e) => {
         e.stopPropagation();
         this._switchIntercom(parseInt(tab.dataset.tabIdx, 10));
       });
     });
 
-    this.shadowRoot.querySelectorAll('.action-btn[data-action-idx]').forEach(btn => {
+    this.shadowRoot.querySelectorAll('.action-btn[data-action-idx]').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         this._executeAction(parseInt(btn.dataset.actionIdx, 10), btn);
       });
     });
 
-    $('overflow-btn')?.addEventListener('click', (e) => { e.stopPropagation(); this._toggleOverflow(); });
-    this.shadowRoot.querySelectorAll('.overflow-item').forEach(item => {
+    $('overflow-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._toggleOverflow();
+    });
+    this.shadowRoot.querySelectorAll('.overflow-item').forEach((item) => {
       item.addEventListener('click', (e) => {
         e.stopPropagation();
         this._executeAction(parseInt(item.dataset.actionIdx, 10), item);
@@ -847,11 +885,26 @@ class BticinoIntercomCard extends HTMLElement {
       this.shadowRoot?.getElementById('ssl-warning')?.remove();
     });
 
-    $('history-btn')?.addEventListener('click', (e) => { e.stopPropagation(); this._openHistory(); });
-    $('history-close')?.addEventListener('click', (e) => { e.stopPropagation(); this._closeHistory(); });
-    $('history-detail-close')?.addEventListener('click', (e) => { e.stopPropagation(); this._closeHistoryDetail(); });
-    $('detail-prev')?.addEventListener('click', (e) => { e.stopPropagation(); this._navigateDetail(-1); });
-    $('detail-next')?.addEventListener('click', (e) => { e.stopPropagation(); this._navigateDetail(1); });
+    $('history-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._openHistory();
+    });
+    $('history-close')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._closeHistory();
+    });
+    $('history-detail-close')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._closeHistoryDetail();
+    });
+    $('detail-prev')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._navigateDetail(-1);
+    });
+    $('detail-next')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._navigateDetail(1);
+    });
 
     document.removeEventListener('click', this._boundDocClick);
     document.addEventListener('click', this._boundDocClick);
@@ -859,25 +912,33 @@ class BticinoIntercomCard extends HTMLElement {
 
   _bindSwipe(el) {
     if (!el) return;
-    el.addEventListener('touchstart', (e) => {
-      this._touchStartX = e.changedTouches[0].clientX;
-      this._touchStartY = e.changedTouches[0].clientY;
-    }, { passive: true });
-    el.addEventListener('touchend', (e) => {
-      const dx = e.changedTouches[0].clientX - this._touchStartX;
-      const dy = Math.abs(e.changedTouches[0].clientY - this._touchStartY);
-      if (Math.abs(dx) > 50 && dy < 30) {
-        if (dx < 0 && this._activeIndex < this._config.intercoms.length - 1) {
-          this._switchIntercom(this._activeIndex + 1);
-        } else if (dx > 0 && this._activeIndex > 0) {
-          this._switchIntercom(this._activeIndex - 1);
+    el.addEventListener(
+      'touchstart',
+      (e) => {
+        this._touchStartX = e.changedTouches[0].clientX;
+        this._touchStartY = e.changedTouches[0].clientY;
+      },
+      { passive: true },
+    );
+    el.addEventListener(
+      'touchend',
+      (e) => {
+        const dx = e.changedTouches[0].clientX - this._touchStartX;
+        const dy = Math.abs(e.changedTouches[0].clientY - this._touchStartY);
+        if (Math.abs(dx) > 50 && dy < 30) {
+          if (dx < 0 && this._activeIndex < this._config.intercoms.length - 1) {
+            this._switchIntercom(this._activeIndex + 1);
+          } else if (dx > 0 && this._activeIndex > 0) {
+            this._switchIntercom(this._activeIndex - 1);
+          }
+          return;
         }
-        return;
-      }
-      if (this._playing && (e.target === el || e.target.tagName === 'VIDEO')) {
-        this._toggleControlsVisibility();
-      }
-    }, { passive: true });
+        if (this._playing && (e.target === el || e.target.tagName === 'VIDEO')) {
+          this._toggleControlsVisibility();
+        }
+      },
+      { passive: true },
+    );
   }
 
   _switchIntercom(index) {
@@ -888,7 +949,9 @@ class BticinoIntercomCard extends HTMLElement {
     this._render();
   }
 
-  _onDocumentClick() { if (this._overflowOpen) this._closeOverflow(); }
+  _onDocumentClick() {
+    if (this._overflowOpen) this._closeOverflow();
+  }
 
   // ========== Status & UI ==========
 
@@ -911,7 +974,10 @@ class BticinoIntercomCard extends HTMLElement {
       if (i === this._activeIndex && isRinging) {
         tab.classList.add('ring');
         tab.textContent = `🔔 ${origName}`;
-      } else if (i === this._activeIndex && (this._state === STATE.LIVE || this._state === STATE.CONNECTING || this._state === STATE.RECONNECTING)) {
+      } else if (
+        i === this._activeIndex &&
+        (this._state === STATE.LIVE || this._state === STATE.CONNECTING || this._state === STATE.RECONNECTING)
+      ) {
         tab.classList.add('live');
         tab.textContent = `● ${origName}`;
       } else {
@@ -949,7 +1015,7 @@ class BticinoIntercomCard extends HTMLElement {
   _updateActionStates() {
     if (!this._hass || !this._config) return;
     const actions = this._activeIntercom.actions;
-    this.shadowRoot?.querySelectorAll('.action-btn[data-action-idx]').forEach(btn => {
+    this.shadowRoot?.querySelectorAll('.action-btn[data-action-idx]').forEach((btn) => {
       const action = actions[parseInt(btn.dataset.actionIdx, 10)];
       if (!action) return;
       btn.classList.remove('active-lock', 'active-light', 'active-default');
@@ -982,7 +1048,10 @@ class BticinoIntercomCard extends HTMLElement {
   }
 
   _resetControlsTimer() {
-    if (this._controlsTimer) { clearTimeout(this._controlsTimer); this._controlsTimer = null; }
+    if (this._controlsTimer) {
+      clearTimeout(this._controlsTimer);
+      this._controlsTimer = null;
+    }
   }
 
   _toggleControlsVisibility() {
@@ -1087,7 +1156,7 @@ class BticinoIntercomCard extends HTMLElement {
       if (this._audioCtx?.state === 'suspended') await this._audioCtx.resume();
       this._micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const micTrack = this._micStream.getAudioTracks()[0];
-      const audioSender = this._pc?.getSenders()?.find(s => s.track?.kind === 'audio');
+      const audioSender = this._pc?.getSenders()?.find((s) => s.track?.kind === 'audio');
       if (audioSender) {
         await audioSender.replaceTrack(micTrack);
         this._micSender = audioSender;
@@ -1101,7 +1170,10 @@ class BticinoIntercomCard extends HTMLElement {
 
   _stopMic() {
     if (this._micSender && this._silenceTrack) this._micSender.replaceTrack(this._silenceTrack);
-    if (this._micStream) { this._micStream.getTracks().forEach(t => t.stop()); this._micStream = null; }
+    if (this._micStream) {
+      this._micStream.getTracks().forEach((t) => t.stop());
+      this._micStream = null;
+    }
     this._micActive = false;
     this._micSender = null;
     this._updateMicUI();
@@ -1146,20 +1218,26 @@ class BticinoIntercomCard extends HTMLElement {
           entity_id: this._activeIntercom.camera,
         });
         if (config?.configuration?.iceServers?.length) {
-          iceServers = config.configuration.iceServers.map(server => {
-            const urls = (Array.isArray(server.urls) ? server.urls : [server.urls])
-              .filter(u => !u.includes('transport=tcp') && !u.startsWith('turns:'));
-            return urls.length ? { ...server, urls } : null;
-          }).filter(Boolean);
+          iceServers = config.configuration.iceServers
+            .map((server) => {
+              const urls = (Array.isArray(server.urls) ? server.urls : [server.urls]).filter(
+                (u) => !u.includes('transport=tcp') && !u.startsWith('turns:'),
+              );
+              return urls.length ? { ...server, urls } : null;
+            })
+            .filter(Boolean);
         }
       } catch (_) {}
 
       this._pc = new RTCPeerConnection({ iceServers, rtcpMuxPolicy: 'require' });
       const micTrack = this._micStream?.getAudioTracks()?.[0];
-      this._pc.addTransceiver(micTrack || this._silenceTrack, { direction: 'sendrecv', streams: [this._silenceStream] });
+      this._pc.addTransceiver(micTrack || this._silenceTrack, {
+        direction: 'sendrecv',
+        streams: [this._silenceStream],
+      });
       this._pc.addTransceiver('video', { direction: 'recvonly' });
       if (micTrack) {
-        this._micSender = this._pc.getSenders().find(s => s.track?.kind === 'audio');
+        this._micSender = this._pc.getSenders().find((s) => s.track?.kind === 'audio');
         this._micActive = true;
       }
 
@@ -1167,7 +1245,9 @@ class BticinoIntercomCard extends HTMLElement {
       const video = this.shadowRoot?.getElementById('video');
       if (video) video.srcObject = this._remoteStream;
 
-      this._pc.ontrack = (e) => { this._remoteStream.addTrack(e.track); };
+      this._pc.ontrack = (e) => {
+        this._remoteStream.addTrack(e.track);
+      };
 
       this._pc.onconnectionstatechange = () => {
         const state = this._pc?.connectionState;
@@ -1181,13 +1261,16 @@ class BticinoIntercomCard extends HTMLElement {
             snapshot.style.opacity = '0';
             setTimeout(() => snapshot.remove(), 500);
           }
-        }
-        else if (['disconnected', 'failed', 'closed'].includes(state) && this._wantPlay) this._scheduleReconnect();
+        } else if (['disconnected', 'failed', 'closed'].includes(state) && this._wantPlay) this._scheduleReconnect();
       };
 
       this._pc.onicecandidate = (e) => {
         if (!e.candidate) return;
-        const msg = { candidate: e.candidate.candidate, sdpMLineIndex: e.candidate.sdpMLineIndex, sdpMid: e.candidate.sdpMid };
+        const msg = {
+          candidate: e.candidate.candidate,
+          sdpMLineIndex: e.candidate.sdpMLineIndex,
+          sdpMid: e.candidate.sdpMid,
+        };
         if (this._ws?.readyState === WebSocket.OPEN && this._sessionId) this._sendCandidate(msg);
         else this._pendingLocalCandidates.push(msg);
       };
@@ -1203,30 +1286,67 @@ class BticinoIntercomCard extends HTMLElement {
 
   async _signalViaWebSocket(offerSdp) {
     return new Promise((resolve, reject) => {
-      if (!this._hass) { reject(new Error('No hass object')); return; }
+      if (!this._hass) {
+        reject(new Error('No hass object'));
+        return;
+      }
       const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
       this._ws = new WebSocket(`${proto}//${location.host}/api/websocket`);
-      let msgId = 1, settled = false;
+      let msgId = 1,
+        settled = false;
 
-      this._signalingTimeout = setTimeout(() => { if (!settled) { settled = true; reject(new Error('Signaling timeout')); } }, 15000);
+      this._signalingTimeout = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          reject(new Error('Signaling timeout'));
+        }
+      }, 15000);
       const timeout = this._signalingTimeout;
 
-      this._ws.onerror = () => { if (!settled) { settled = true; clearTimeout(timeout); reject(new Error('WebSocket error')); } };
-      this._ws.onclose = () => { if (!settled) { settled = true; clearTimeout(timeout); reject(new Error('WebSocket closed')); } };
+      this._ws.onerror = () => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timeout);
+          reject(new Error('WebSocket error'));
+        }
+      };
+      this._ws.onclose = () => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timeout);
+          reject(new Error('WebSocket closed'));
+        }
+      };
 
       this._ws.onmessage = async (event) => {
         const msg = JSON.parse(event.data);
 
         if (msg.type === 'auth_required') {
           const token = this._hass.auth?.data?.access_token || this._hass.connection?.options?.auth?.data?.access_token;
-          if (!token) { clearTimeout(timeout); settled = true; reject(new Error('No auth token available')); return; }
+          if (!token) {
+            clearTimeout(timeout);
+            settled = true;
+            reject(new Error('No auth token available'));
+            return;
+          }
           this._ws.send(JSON.stringify({ type: 'auth', access_token: token }));
         } else if (msg.type === 'auth_ok') {
-          this._ws.send(JSON.stringify({ id: msgId, type: 'camera/webrtc/offer', entity_id: this._activeIntercom.camera, offer: offerSdp }));
+          this._ws.send(
+            JSON.stringify({
+              id: msgId,
+              type: 'camera/webrtc/offer',
+              entity_id: this._activeIntercom.camera,
+              offer: offerSdp,
+            }),
+          );
         } else if (msg.type === 'auth_invalid') {
-          clearTimeout(timeout); settled = true; reject(new Error('Authentication failed'));
+          clearTimeout(timeout);
+          settled = true;
+          reject(new Error('Authentication failed'));
         } else if (msg.type === 'result' && !msg.success) {
-          clearTimeout(timeout); settled = true; reject(new Error(msg.error?.message || 'Offer rejected'));
+          clearTimeout(timeout);
+          settled = true;
+          reject(new Error(msg.error?.message || 'Offer rejected'));
         } else if (msg.type === 'event') {
           const evt = msg.event;
           if (evt.type === 'session') {
@@ -1236,12 +1356,30 @@ class BticinoIntercomCard extends HTMLElement {
             try {
               await this._pc.setRemoteDescription({ type: 'answer', sdp: evt.answer });
               clearTimeout(timeout);
-              if (!settled) { settled = true; resolve(); }
-            } catch (err) { clearTimeout(timeout); if (!settled) { settled = true; reject(err); } }
+              if (!settled) {
+                settled = true;
+                resolve();
+              }
+            } catch (err) {
+              clearTimeout(timeout);
+              if (!settled) {
+                settled = true;
+                reject(err);
+              }
+            }
           } else if (evt.type === 'candidate' && evt.candidate) {
-            try { await this._pc.addIceCandidate({ candidate: evt.candidate.candidate, sdpMLineIndex: evt.candidate.sdp_m_line_index ?? evt.candidate.sdpMLineIndex ?? 0 }); } catch (_) {}
+            try {
+              await this._pc.addIceCandidate({
+                candidate: evt.candidate.candidate,
+                sdpMLineIndex: evt.candidate.sdp_m_line_index ?? evt.candidate.sdpMLineIndex ?? 0,
+              });
+            } catch (_) {}
           } else if (evt.type === 'error') {
-            clearTimeout(timeout); if (!settled) { settled = true; reject(new Error(evt.message || 'Signaling error')); }
+            clearTimeout(timeout);
+            if (!settled) {
+              settled = true;
+              reject(new Error(evt.message || 'Signaling error'));
+            }
           }
         }
       };
@@ -1252,7 +1390,15 @@ class BticinoIntercomCard extends HTMLElement {
 
   _sendCandidate(msg) {
     this._candidateMsgId++;
-    this._ws.send(JSON.stringify({ id: this._candidateMsgId, type: 'camera/webrtc/candidate', entity_id: this._activeIntercom.camera, session_id: this._sessionId, candidate: msg }));
+    this._ws.send(
+      JSON.stringify({
+        id: this._candidateMsgId,
+        type: 'camera/webrtc/candidate',
+        entity_id: this._activeIntercom.camera,
+        session_id: this._sessionId,
+        candidate: msg,
+      }),
+    );
   }
 
   _flushLocalCandidates() {
@@ -1266,19 +1412,49 @@ class BticinoIntercomCard extends HTMLElement {
   _scheduleReconnect() {
     if (!this._wantPlay || this._reconnectTimer) return;
     this._reconnectCount++;
-    if (this._reconnectCount > this._maxRetries) { this._showError('Connection lost after multiple retries'); return; }
+    if (this._reconnectCount > this._maxRetries) {
+      this._showError('Connection lost after multiple retries');
+      return;
+    }
     this._setState(STATE.RECONNECTING, `Reconnecting... (${this._reconnectCount}/${this._maxRetries})`);
-    this._reconnectTimer = setTimeout(() => { this._reconnectTimer = null; if (this._wantPlay) this._connect(); }, 2000);
+    this._reconnectTimer = setTimeout(() => {
+      this._reconnectTimer = null;
+      if (this._wantPlay) this._connect();
+    }, 2000);
   }
 
   // ========== Cleanup ==========
 
   _closeConnection() {
     this._stopMic();
-    if (this._signalingTimeout) { clearTimeout(this._signalingTimeout); this._signalingTimeout = null; }
-    if (this._pc) { this._pc.ontrack = null; this._pc.onconnectionstatechange = null; this._pc.onicecandidate = null; try { this._pc.close(); } catch (_) {} this._pc = null; }
-    if (this._ws) { this._ws.onmessage = null; this._ws.onerror = null; this._ws.onclose = null; try { this._ws.close(); } catch (_) {} this._ws = null; }
-    if (this._oscillator) { try { this._oscillator.stop(); } catch (_) {} this._oscillator = null; }
+    if (this._signalingTimeout) {
+      clearTimeout(this._signalingTimeout);
+      this._signalingTimeout = null;
+    }
+    if (this._pc) {
+      this._pc.ontrack = null;
+      this._pc.onconnectionstatechange = null;
+      this._pc.onicecandidate = null;
+      try {
+        this._pc.close();
+      } catch (_) {}
+      this._pc = null;
+    }
+    if (this._ws) {
+      this._ws.onmessage = null;
+      this._ws.onerror = null;
+      this._ws.onclose = null;
+      try {
+        this._ws.close();
+      } catch (_) {}
+      this._ws = null;
+    }
+    if (this._oscillator) {
+      try {
+        this._oscillator.stop();
+      } catch (_) {}
+      this._oscillator = null;
+    }
     this._silenceTrack = null;
     this._silenceStream = null;
     this._remoteStream = null;
@@ -1287,10 +1463,18 @@ class BticinoIntercomCard extends HTMLElement {
   }
 
   _cleanup() {
-    if (this._reconnectTimer) { clearTimeout(this._reconnectTimer); this._reconnectTimer = null; }
+    if (this._reconnectTimer) {
+      clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
+    }
     this._resetControlsTimer();
     this._closeConnection();
-    if (this._audioCtx) { try { this._audioCtx.close(); } catch (_) {} this._audioCtx = null; }
+    if (this._audioCtx) {
+      try {
+        this._audioCtx.close();
+      } catch (_) {}
+      this._audioCtx = null;
+    }
   }
 
   // ========== History ==========
@@ -1300,7 +1484,7 @@ class BticinoIntercomCard extends HTMLElement {
     if (!camera) return null;
     const entityReg = this._hass?.entities?.[camera];
     if (!entityReg?.device_id) return null;
-    const device = Object.values(this._hass.devices || {}).find(d => d.id === entityReg.device_id);
+    const device = Object.values(this._hass.devices || {}).find((d) => d.id === entityReg.device_id);
     return device?.config_entries?.[0] || null;
   }
 
@@ -1313,31 +1497,38 @@ class BticinoIntercomCard extends HTMLElement {
     list.innerHTML = '<div class="history-loading"><ha-icon icon="mdi:loading"></ha-icon> Loading...</div>';
 
     const entryId = this._getConfigEntryId();
-    if (!entryId) { list.innerHTML = '<div class="history-empty">No config entry found</div>'; return; }
+    if (!entryId) {
+      list.innerHTML = '<div class="history-empty">No config entry found</div>';
+      return;
+    }
 
     try {
       const entry = await this._hass.callWS({
         type: 'media_source/browse_media',
-        media_content_id: `media-source://bticino_intercom/${entryId}`
+        media_content_id: `media-source://bticino_intercom/${entryId}`,
       });
       let allEvents = [];
-      for (const module of (entry.children || [])) {
+      for (const module of entry.children || []) {
         const mod = await this._hass.callWS({
           type: 'media_source/browse_media',
-          media_content_id: module.media_content_id
+          media_content_id: module.media_content_id,
         });
-        allEvents.push(...(mod.children || []).map(e => ({ ...e, moduleName: module.title })));
+        allEvents.push(...(mod.children || []).map((e) => ({ ...e, moduleName: module.title })));
       }
       allEvents.sort((a, b) => (b.title || '').localeCompare(a.title || ''));
-      const thumbPaths = allEvents.map(e => e.thumbnail).filter(Boolean);
+      const thumbPaths = allEvents.map((e) => e.thumbnail).filter(Boolean);
       const signedMap = {};
       for (const p of thumbPaths) {
         try {
           const { path: signed } = await this._hass.callWS({ type: 'auth/sign_path', path: p, expires: 300 });
           signedMap[p] = signed;
-        } catch (_) { /* skip */ }
+        } catch (_) {
+          /* skip */
+        }
       }
-      allEvents.forEach(e => { if (e.thumbnail) e._signedThumb = signedMap[e.thumbnail] || ''; });
+      allEvents.forEach((e) => {
+        if (e.thumbnail) e._signedThumb = signedMap[e.thumbnail] || '';
+      });
       this._historyEvents = allEvents;
       this._renderHistoryList(allEvents, entryId);
     } catch (e) {
@@ -1347,21 +1538,29 @@ class BticinoIntercomCard extends HTMLElement {
 
   _renderHistoryList(events, entryId) {
     const list = this.shadowRoot.getElementById('history-list');
-    if (!events.length) { list.innerHTML = '<div class="history-empty">No call history</div>'; return; }
+    if (!events.length) {
+      list.innerHTML = '<div class="history-empty">No call history</div>';
+      return;
+    }
 
     const EVENT_LABELS = { incoming_call: 'Missed', answered_elsewhere: 'Answered', terminated: 'Rejected' };
-    const EVENT_ICONS = { incoming_call: 'mdi:phone-missed', answered_elsewhere: 'mdi:phone-in-talk', terminated: 'mdi:phone-hangup' };
+    const EVENT_ICONS = {
+      incoming_call: 'mdi:phone-missed',
+      answered_elsewhere: 'mdi:phone-in-talk',
+      terminated: 'mdi:phone-hangup',
+    };
 
-    list.innerHTML = events.map((ev, i) => {
-      const m = ev.title?.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}) — (.+?) \((\w+)\)$/);
-      const date = m?.[1] || '';
-      const time = m?.[2] || '';
-      const module = m?.[3] || ev.moduleName || '';
-      const type = m?.[4] || 'incoming_call';
-      const label = EVENT_LABELS[type] || type;
-      const icon = EVENT_ICONS[type] || 'mdi:phone';
-      const thumb = ev._signedThumb || '';
-      return `<div class="history-item" data-history-idx="${i}">
+    list.innerHTML = events
+      .map((ev, i) => {
+        const m = ev.title?.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}) — (.+?) \((\w+)\)$/);
+        const date = m?.[1] || '';
+        const time = m?.[2] || '';
+        const module = m?.[3] || ev.moduleName || '';
+        const type = m?.[4] || 'incoming_call';
+        const label = EVENT_LABELS[type] || type;
+        const icon = EVENT_ICONS[type] || 'mdi:phone';
+        const thumb = ev._signedThumb || '';
+        return `<div class="history-item" data-history-idx="${i}">
         ${thumb ? `<img class="history-thumb" src="${thumb}" alt="" loading="lazy" />` : ''}
         <div class="history-info">
           <div class="history-time">${time} <span style="opacity:0.5;font-size:11px">${date}</span></div>
@@ -1369,9 +1568,10 @@ class BticinoIntercomCard extends HTMLElement {
         </div>
         <div class="history-badge ${type}">${label}</div>
       </div>`;
-    }).join('');
+      })
+      .join('');
 
-    list.querySelectorAll('.history-item').forEach(item => {
+    list.querySelectorAll('.history-item').forEach((item) => {
       item.addEventListener('click', () => {
         const idx = parseInt(item.dataset.historyIdx, 10);
         this._openHistoryDetail(events[idx], entryId, idx);
@@ -1391,7 +1591,11 @@ class BticinoIntercomCard extends HTMLElement {
 
     const m = event.title?.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}) — (.+?) \((\w+)\)$/);
     const EVENT_LABELS = { incoming_call: 'Missed', answered_elsewhere: 'Answered', terminated: 'Rejected' };
-    const EVENT_ICONS = { incoming_call: 'mdi:phone-missed', answered_elsewhere: 'mdi:phone-in-talk', terminated: 'mdi:phone-hangup' };
+    const EVENT_ICONS = {
+      incoming_call: 'mdi:phone-missed',
+      answered_elsewhere: 'mdi:phone-in-talk',
+      terminated: 'mdi:phone-hangup',
+    };
     const type = m?.[4] || 'incoming_call';
     const label = EVENT_LABELS[type] || type;
     const icon = EVENT_ICONS[type] || 'mdi:phone';
@@ -1405,7 +1609,9 @@ class BticinoIntercomCard extends HTMLElement {
     } catch (_) {
       img.src = event._signedThumb || '';
     }
-    img.onerror = () => { if (event._signedThumb) img.src = event._signedThumb; };
+    img.onerror = () => {
+      if (event._signedThumb) img.src = event._signedThumb;
+    };
     title.textContent = m ? `${m[2]} ${m[1]}` : 'Detail';
     bar.innerHTML = `
       <div class="detail-info">
@@ -1446,13 +1652,13 @@ class BticinoIntercomCard extends HTMLElement {
     if (this._callEventUnsub || !this._hass?.connection) return;
     this._callEventUnsub = this._hass.connection.subscribeEvents(
       (event) => this._handleCallEvent(event),
-      'bticino_intercom_call'
+      'bticino_intercom_call',
     );
   }
 
   _unsubscribeCallEvents() {
     if (this._callEventUnsub) {
-      this._callEventUnsub.then(unsub => unsub());
+      this._callEventUnsub.then((unsub) => unsub());
       this._callEventUnsub = null;
     }
   }
@@ -1461,7 +1667,7 @@ class BticinoIntercomCard extends HTMLElement {
     const data = event.data;
 
     if (data.type === 'ring') {
-      const cameras = this._config?.intercoms?.map(ic => ic.camera) || [];
+      const cameras = this._config?.intercoms?.map((ic) => ic.camera) || [];
       if (data.camera_entity_id && !cameras.includes(data.camera_entity_id)) return;
       this._ringSessionId = data.session_id;
       this._showRingOverlay(data);
@@ -1487,13 +1693,11 @@ class BticinoIntercomCard extends HTMLElement {
     const answerCamera = params.get('answer');
     if (!answerCamera || !this._config) return;
 
-    const camIdx = this._config.intercoms.findIndex(ic => ic.camera === answerCamera);
+    const camIdx = this._config.intercoms.findIndex((ic) => ic.camera === answerCamera);
     if (camIdx < 0) return;
 
     params.delete('answer');
-    const newUrl = params.toString()
-      ? `${window.location.pathname}?${params}`
-      : window.location.pathname;
+    const newUrl = params.toString() ? `${window.location.pathname}?${params}` : window.location.pathname;
     history.replaceState(null, '', newUrl);
 
     if (camIdx !== this._activeIndex) {
@@ -1506,7 +1710,10 @@ class BticinoIntercomCard extends HTMLElement {
 
   _clearRingState() {
     this._stopRingtone();
-    if (this._missedCallTimer) { clearTimeout(this._missedCallTimer); this._missedCallTimer = null; }
+    if (this._missedCallTimer) {
+      clearTimeout(this._missedCallTimer);
+      this._missedCallTimer = null;
+    }
     this.shadowRoot?.querySelector('ha-card')?.classList.remove('ringing');
     this.shadowRoot?.getElementById('ring-snapshot')?.remove();
     this._restoreActionBar();
@@ -1556,7 +1763,7 @@ class BticinoIntercomCard extends HTMLElement {
   }
 
   _showRingOverlay(eventData) {
-    const camIdx = this._config.intercoms.findIndex(ic => ic.camera === eventData.camera_entity_id);
+    const camIdx = this._config.intercoms.findIndex((ic) => ic.camera === eventData.camera_entity_id);
     if (camIdx >= 0 && camIdx !== this._activeIndex) {
       this._activeIndex = camIdx;
     }
@@ -1594,7 +1801,8 @@ class BticinoIntercomCard extends HTMLElement {
     videoArea.prepend(snapshotDiv);
 
     if (imageUrl) {
-      this._hass.callWS({ type: 'auth/sign_path', path: imageUrl, expires: 60 })
+      this._hass
+        .callWS({ type: 'auth/sign_path', path: imageUrl, expires: 60 })
         .then(({ path }) => {
           const img = document.createElement('img');
           img.src = path;
@@ -1636,7 +1844,7 @@ class BticinoIntercomCard extends HTMLElement {
     if (!bar || !this._savedActionBarHTML) return;
     bar.innerHTML = this._savedActionBarHTML;
     this._savedActionBarHTML = null;
-    bar.querySelectorAll('.action-btn[data-action-idx]').forEach(btn => {
+    bar.querySelectorAll('.action-btn[data-action-idx]').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         this._executeAction(parseInt(btn.dataset.actionIdx, 10), btn);
@@ -1646,7 +1854,7 @@ class BticinoIntercomCard extends HTMLElement {
   }
 
   _openDoorDuringRing() {
-    const lockAction = this._activeIntercom.actions.find(a => a.entity?.startsWith('lock.'));
+    const lockAction = this._activeIntercom.actions.find((a) => a.entity?.startsWith('lock.'));
     if (lockAction && this._hass) {
       const [domain, service] = (lockAction.service || 'lock.unlock').split('.');
       this._hass.callService(domain, service, lockAction.service_data || {}, { entity_id: lockAction.entity });
@@ -1792,11 +2000,11 @@ class BticinoIntercomCardEditor extends HTMLElement {
       auto_mic: config.auto_mic ?? true,
       ignore_ssl_warning: config.ignore_ssl_warning ?? false,
       max_actions: config.max_actions ?? 4,
-      intercoms: (config.intercoms || []).map(ic => ({
+      intercoms: (config.intercoms || []).map((ic) => ({
         name: ic.name || '',
         camera: ic.camera || '',
         icon: ic.icon || '',
-        actions: (ic.actions || []).map(a => ({
+        actions: (ic.actions || []).map((a) => ({
           entity: a.entity || '',
           service: a.service || '',
           icon: a.icon || '',
@@ -1815,14 +2023,18 @@ class BticinoIntercomCardEditor extends HTMLElement {
     if (cfg.auto_mic === true) delete cfg.auto_mic;
     if (cfg.ignore_ssl_warning === false) delete cfg.ignore_ssl_warning;
     if (cfg.max_actions === 4) delete cfg.max_actions;
-    cfg.intercoms = cfg.intercoms.map(ic => {
-      const out = { name: ic.name, camera: ic.camera, actions: ic.actions.map(a => {
-        const ao = { entity: a.entity, service: a.service };
-        if (a.icon) ao.icon = a.icon;
-        if (a.label) ao.label = a.label;
-        if (a.service_data) ao.service_data = a.service_data;
-        return ao;
-      })};
+    cfg.intercoms = cfg.intercoms.map((ic) => {
+      const out = {
+        name: ic.name,
+        camera: ic.camera,
+        actions: ic.actions.map((a) => {
+          const ao = { entity: a.entity, service: a.service };
+          if (a.icon) ao.icon = a.icon;
+          if (a.label) ao.label = a.label;
+          if (a.service_data) ao.service_data = a.service_data;
+          return ao;
+        }),
+      };
       if (ic.icon) out.icon = ic.icon;
       if (!out.actions.length) delete out.actions;
       return out;
@@ -1890,7 +2102,9 @@ class BticinoIntercomCardEditor extends HTMLElement {
   _renderIntercoms() {
     const container = this.shadowRoot.getElementById('ed-intercoms');
     if (!container) return;
-    container.innerHTML = this._config.intercoms.map((ic, i) => `
+    container.innerHTML = this._config.intercoms
+      .map(
+        (ic, i) => `
       <div class="intercom-card" data-ic-idx="${i}">
         <div class="intercom-header">
           <span>Intercom ${i + 1}</span>
@@ -1915,7 +2129,9 @@ class BticinoIntercomCardEditor extends HTMLElement {
           <button class="add-btn" data-add-action="${i}">+ Add action</button>
         </div>
       </div>
-    `).join('');
+    `,
+      )
+      .join('');
 
     this._setIntercomProperties();
     this._ensureEntityPicker().then(() => this._createEntityPickers());
@@ -1979,7 +2195,7 @@ class BticinoIntercomCardEditor extends HTMLElement {
   _setIntercomProperties() {
     this._config.intercoms.forEach((ic, i) => {
       // Intercom fields
-      this.shadowRoot.querySelectorAll(`[data-ic-field][data-ic-idx="${i}"]`).forEach(el => {
+      this.shadowRoot.querySelectorAll(`[data-ic-field][data-ic-idx="${i}"]`).forEach((el) => {
         const field = el.dataset.icField;
         if (el.tagName === 'HA-ENTITY-PICKER') {
           el.hass = this._hass;
@@ -1991,7 +2207,7 @@ class BticinoIntercomCardEditor extends HTMLElement {
       });
       // Action fields
       ic.actions.forEach((a, j) => {
-        this.shadowRoot.querySelectorAll(`[data-act-field][data-ic-idx="${i}"][data-act-idx="${j}"]`).forEach(el => {
+        this.shadowRoot.querySelectorAll(`[data-act-field][data-ic-idx="${i}"][data-act-idx="${j}"]`).forEach((el) => {
           const field = el.dataset.actField;
           if (el.tagName === 'HA-ENTITY-PICKER') {
             el.hass = this._hass;
@@ -2039,7 +2255,7 @@ class BticinoIntercomCardEditor extends HTMLElement {
 
   _bindIntercomEvents() {
     // Toggle actions collapse
-    this.shadowRoot.querySelectorAll('[data-toggle-actions]').forEach(btn => {
+    this.shadowRoot.querySelectorAll('[data-toggle-actions]').forEach((btn) => {
       btn.onclick = () => {
         const idx = btn.dataset.toggleActions;
         const body = this.shadowRoot.getElementById(`ed-actions-body-${idx}`);
@@ -2050,7 +2266,7 @@ class BticinoIntercomCardEditor extends HTMLElement {
     });
 
     // Move intercom
-    this.shadowRoot.querySelectorAll('[data-move-ic]').forEach(btn => {
+    this.shadowRoot.querySelectorAll('[data-move-ic]').forEach((btn) => {
       btn.onclick = () => {
         const [idx, dir] = btn.dataset.moveIc.split('-');
         const from = parseInt(idx, 10);
@@ -2064,7 +2280,7 @@ class BticinoIntercomCardEditor extends HTMLElement {
     });
 
     // Remove intercom
-    this.shadowRoot.querySelectorAll('[data-remove-ic]').forEach(btn => {
+    this.shadowRoot.querySelectorAll('[data-remove-ic]').forEach((btn) => {
       btn.onclick = () => {
         this._config.intercoms.splice(parseInt(btn.dataset.removeIc, 10), 1);
         this._renderIntercoms();
@@ -2074,7 +2290,7 @@ class BticinoIntercomCardEditor extends HTMLElement {
     });
 
     // Intercom fields
-    this.shadowRoot.querySelectorAll('[data-ic-field]').forEach(el => {
+    this.shadowRoot.querySelectorAll('[data-ic-field]').forEach((el) => {
       const handler = (e) => {
         const idx = parseInt(el.dataset.icIdx, 10);
         const field = el.dataset.icField;
@@ -2086,7 +2302,7 @@ class BticinoIntercomCardEditor extends HTMLElement {
     });
 
     // Add action
-    this.shadowRoot.querySelectorAll('[data-add-action]').forEach(btn => {
+    this.shadowRoot.querySelectorAll('[data-add-action]').forEach((btn) => {
       btn.onclick = () => {
         const icIdx = parseInt(btn.dataset.addAction, 10);
         this._config.intercoms[icIdx].actions.push({ entity: '', service: '', icon: '', label: '' });
@@ -2096,7 +2312,7 @@ class BticinoIntercomCardEditor extends HTMLElement {
     });
 
     // Move action
-    this.shadowRoot.querySelectorAll('[data-move-action]').forEach(btn => {
+    this.shadowRoot.querySelectorAll('[data-move-action]').forEach((btn) => {
       btn.onclick = () => {
         const [icIdx, actIdx, dir] = btn.dataset.moveAction.split('-');
         const ic = parseInt(icIdx, 10);
@@ -2111,7 +2327,7 @@ class BticinoIntercomCardEditor extends HTMLElement {
     });
 
     // Remove action
-    this.shadowRoot.querySelectorAll('[data-remove-action]').forEach(btn => {
+    this.shadowRoot.querySelectorAll('[data-remove-action]').forEach((btn) => {
       btn.onclick = () => {
         const [icIdx, actIdx] = btn.dataset.removeAction.split('-').map(Number);
         this._config.intercoms[icIdx].actions.splice(actIdx, 1);
@@ -2122,7 +2338,7 @@ class BticinoIntercomCardEditor extends HTMLElement {
     });
 
     // Action fields
-    this.shadowRoot.querySelectorAll('[data-act-field]').forEach(el => {
+    this.shadowRoot.querySelectorAll('[data-act-field]').forEach((el) => {
       const handler = (e) => {
         const icIdx = parseInt(el.dataset.icIdx, 10);
         const actIdx = parseInt(el.dataset.actIdx, 10);

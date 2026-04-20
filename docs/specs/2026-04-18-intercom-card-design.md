@@ -66,7 +66,7 @@ The card is not streaming and no call is active.
 
 The user clicked play to view the camera feed.
 
-**Main area**: 
+**Main area**:
 - With camera: live WebRTC video (with AudioContext silence track for mic activation)
 - Without camera: animated audio equalizer/soundwave GIF
 
@@ -101,7 +101,7 @@ Someone rings the doorbell. The card detects via `call_sensor` entity going to `
 
 **Action bar**: HIDDEN during incoming call to focus on call actions.
 
-**Accessing other actions during call**: 
+**Accessing other actions during call**:
 - Mobile: swipe up from bottom reveals action bar
 - Desktop: small overflow "..." button in corner
 

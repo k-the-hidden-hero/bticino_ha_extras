@@ -163,7 +163,7 @@ Make action buttons actually call HA services when clicked.
 - [ ] **Step 1: Implement action button clicks**
 
 When an action button is clicked:
-- Call `this._hass.callService(domain, service, serviceData, {entity_id})` 
+- Call `this._hass.callService(domain, service, serviceData, {entity_id})`
   - Parse domain/service from config `service` field (e.g., "lock.unlock" → domain="lock", service="unlock")
   - `entity_id` from config `entity` field
 - Visual feedback: button briefly highlights (pulse animation, 300ms)

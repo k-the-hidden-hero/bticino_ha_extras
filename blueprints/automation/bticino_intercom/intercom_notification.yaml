@@ -23,7 +23,7 @@ blueprint:
     camera_entity:
       name: Live video camera (optional)
       description: The WebRTC camera entity to open when "Answer" is tapped
-      default: ""
+      default: ''
       selector:
         entity:
           domain: camera
@@ -39,7 +39,7 @@ trigger:
 
   - platform: state
     entity_id: !input lock_entity
-    to: "locked"
+    to: 'locked'
     id: call_ended
 
   # Listen for notification actions
@@ -70,7 +70,7 @@ action:
         sequence:
           - service: !input notify_service
             data:
-              title: "Citofono"
+              title: 'Citofono'
               message: >
                 {{ trigger.event.data.name | default('Qualcuno al citofono') }}
               data:
@@ -85,11 +85,11 @@ action:
                 importance: high
                 actions:
                   - action: BTICINO_ANSWER
-                    title: "Rispondi"
+                    title: 'Rispondi'
                   - action: BTICINO_OPEN_DOOR
-                    title: "Apri porta"
+                    title: 'Apri porta'
                   - action: BTICINO_REJECT
-                    title: "Rifiuta"
+                    title: 'Rifiuta'
                     destructive: true
 
           # Wait briefly for snapshot to arrive, then update notification
@@ -106,12 +106,12 @@ action:
 
           - service: !input notify_service
             data:
-              title: "Citofono"
+              title: 'Citofono'
               message: >
                 {{ trigger.event.data.name | default('Qualcuno al citofono') }}
               data:
                 tag: bticino_call_active
-                image: "{{ snapshot_url }}"
+                image: '{{ snapshot_url }}'
                 push:
                   interruption-level: critical
                   sound:
@@ -122,11 +122,11 @@ action:
                 importance: high
                 actions:
                   - action: BTICINO_ANSWER
-                    title: "Rispondi"
+                    title: 'Rispondi'
                   - action: BTICINO_OPEN_DOOR
-                    title: "Apri porta"
+                    title: 'Apri porta'
                   - action: BTICINO_REJECT
-                    title: "Rifiuta"
+                    title: 'Rifiuta'
                     destructive: true
 
       # --- Answer: open camera ---
