@@ -651,6 +651,7 @@ class BticinoIntercomCard extends HTMLElement {
     this._boundDocClick = this._onDocumentClick.bind(this);
     this._callEventUnsub = null;
     this._ringSessionId = null;
+    this._ringtoneAudio = null;
   }
 
   get _activeIntercom() {
@@ -707,6 +708,7 @@ class BticinoIntercomCard extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this._stopRingtone();
     this._cleanup();
     this._unsubscribeCallEvents();
     document.removeEventListener('click', this._boundDocClick);
@@ -1561,12 +1563,30 @@ class BticinoIntercomCard extends HTMLElement {
   // ========== Ring overlay ==========
 
   _clearRingState() {
+    this._stopRingtone();
     this.shadowRoot?.querySelector('ha-card')?.classList.remove('ringing');
     this.shadowRoot?.getElementById('ring-snapshot')?.remove();
     this.shadowRoot?.getElementById('ring-overlay')?.classList.remove('open');
     this._restoreActionBar();
     this._updateTabStates();
     this._ringData = null;
+  }
+
+  _playRingtone() {
+    this._stopRingtone();
+    try {
+      this._ringtoneAudio = new Audio('/local/doorbell.wav');
+      this._ringtoneAudio.loop = true;
+      this._ringtoneAudio.play().catch(() => {});
+    } catch (_) {}
+  }
+
+  _stopRingtone() {
+    if (this._ringtoneAudio) {
+      this._ringtoneAudio.pause();
+      this._ringtoneAudio.currentTime = 0;
+      this._ringtoneAudio = null;
+    }
   }
 
   _answerIncomingCall() {
@@ -1638,6 +1658,7 @@ class BticinoIntercomCard extends HTMLElement {
     }
 
     this._showRingActions();
+    this._playRingtone();
   }
 
   _showRingActions() {
