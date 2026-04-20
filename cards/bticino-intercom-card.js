@@ -233,6 +233,7 @@ const CARD_STYLES = `
   }
   .media-wrapper > .video-area {
     overflow: hidden;
+    min-height: 0;
   }
   ha-card.expanded .media-wrapper {
     grid-template-rows: 1fr;
