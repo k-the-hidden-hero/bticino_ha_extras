@@ -911,13 +911,14 @@ class BticinoIntercomCard extends HTMLElement {
   _setState(state, label) {
     this._state = state;
     const pill = this.shadowRoot?.getElementById('status-pill');
-    if (!pill) return;
-    const labels = {
-      [STATE.IDLE]: 'Ready', [STATE.CONNECTING]: 'Connecting...',
-      [STATE.LIVE]: 'LIVE', [STATE.RECONNECTING]: 'Reconnecting...', [STATE.ERROR]: 'Error',
-    };
-    pill.textContent = label || labels[state] || state;
-    pill.className = `status-pill ${state === STATE.IDLE ? 'ready' : state}`;
+    if (pill) {
+      const labels = {
+        [STATE.IDLE]: 'Ready', [STATE.CONNECTING]: 'Connecting...',
+        [STATE.LIVE]: 'LIVE', [STATE.RECONNECTING]: 'Reconnecting...', [STATE.ERROR]: 'Error',
+      };
+      pill.textContent = label || labels[state] || state;
+      pill.className = `status-pill ${state === STATE.IDLE ? 'ready' : state}`;
+    }
 
     if (state === STATE.LIVE) {
       this.shadowRoot?.getElementById('connecting-overlay')?.classList.remove('visible');
