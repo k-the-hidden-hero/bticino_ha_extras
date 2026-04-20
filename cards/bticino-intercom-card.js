@@ -1115,6 +1115,7 @@ class BticinoIntercomCard extends HTMLElement {
   _hangUp() {
     this._wantPlay = false;
     this._playing = false;
+    this._clearRingState();
     this._hideControls();
     this._cleanup();
     const video = this.shadowRoot?.getElementById('video');
