@@ -14,7 +14,11 @@ Blueprints, Lovelace cards, and companion resources for the [BTicino Intercom](h
 
 | Card | Description |
 |------|-------------|
-| **BTicino Intercom Card** | Live video with real audio from BTicino intercom cameras. Solves the audio problem that HA's built-in player cannot (the device requires a real outbound audio track to activate its microphone). |
+| **BTicino Intercom Card** | Compact intercom card with live WebRTC video, two-way audio, multi-intercom tabs, call history, and incoming call notifications with ringtone. |
+
+![Idle State](docs/images/card-idle.png)
+![Live State](docs/images/card-live.png)
+![Call History](docs/images/card-history.png)
 
 ## Installation
 
@@ -30,7 +34,7 @@ Blueprints, Lovelace cards, and companion resources for the [BTicino Intercom](h
 
 Copy the `blueprints/` folder contents into your Home Assistant `config/blueprints/` directory.
 
-For the Lovelace card, copy `cards/bticino-intercom-card.js` to your `config/www/` directory, then add it as a resource:
+For the Lovelace card, copy `dist/bticino-intercom-card.js` to your `config/www/` directory, then add it as a resource:
 
 1. Go to **Settings -> Dashboards -> Resources**
 2. Click **Add Resource**
@@ -51,27 +55,41 @@ Add the card to any dashboard:
 
 ```yaml
 type: custom:bticino-intercom-card
-entity: camera.bticino_intercom_casella_citofono_strada
-poster_entity: camera.bticino_intercom_casella_last_event_vignette  # optional
-title: Citofono Strada  # optional, defaults to entity friendly name
+intercoms:
+  - name: Front Door
+    camera: camera.bticino_intercom_front_door
+    actions:
+      - entity: lock.front_gate
+        service: lock.unlock
+      - entity: lock.main_door
+        service: lock.unlock
+  - name: Side Entrance
+    camera: camera.bticino_intercom_side_entrance
+    actions:
+      - entity: lock.side_gate
+        service: lock.unlock
 ```
 
 **Configuration options:**
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `entity` | Yes | Camera entity from the BTicino Intercom integration |
-| `poster_entity` | No | Entity to use for the poster image (e.g., last event snapshot camera) |
-| `title` | No | Card title (defaults to the entity's friendly name) |
+| `intercoms` | Yes | Array of intercom configurations |
+| `intercoms[].name` | Yes | Display name for the intercom tab |
+| `intercoms[].camera` | Yes | Camera entity from the BTicino Intercom integration |
+| `intercoms[].actions` | No | Quick action buttons (entity + service) |
+| `max_actions` | No | Max visible actions before overflow menu (default: 4) |
+| `auto_mic` | No | Auto-enable microphone on call start (default: true) |
 
-**Controls:**
+**Features:**
 
-- **Play/Stop** -- click the video area or the play button to start/stop the stream
-- **Mute/Unmute** -- toggle audio playback
-- **Microphone** -- enable two-way audio (uses your device's microphone)
-- **Fullscreen** -- expand the video to fill the screen
-
-The card does not auto-connect on dashboard load to save device resources. The BTicino device terminates WebRTC sessions after ~30 seconds of inactivity; the card auto-reconnects transparently as long as the stream is active.
+- **Compact idle** -- minimal footprint with intercom name and "Chiama" button
+- **Multi-intercom tabs** -- switch between intercoms via tabs or swipe
+- **Live video** -- WebRTC with real audio (Chrome/Chromium only)
+- **Two-way audio** -- microphone toggle for talking to visitors
+- **Call history** -- browse past calls with snapshots
+- **Incoming call** -- ringtone, snapshot preview, Answer/Open/Reject actions
+- **Quick actions** -- open doors, toggle lights while on a call
 
 ### Intercom Notification Blueprint
 
