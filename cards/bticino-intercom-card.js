@@ -364,25 +364,30 @@ const CARD_STYLES = `
 
   .action-bar {
     display: flex; align-items: stretch; justify-content: center;
-    gap: 2px; padding: 10px 12px 12px; position: relative;
+    gap: 6px; padding: 10px 12px 12px; position: relative;
   }
   .action-btn {
     flex: 1;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 4px; padding: 10px 6px 8px; border: none; border-radius: 10px;
-    background: rgba(255,255,255,0.06); cursor: pointer;
+    gap: 5px; padding: 12px 6px 10px; border: none; border-radius: 12px;
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    cursor: pointer;
     color: var(--bti-text-secondary);
     transition: background 0.15s, color 0.15s, transform 0.1s;
     position: relative; overflow: hidden;
   }
   .action-bar.compact .action-btn { max-width: 100px; }
-  .action-btn:hover { background: rgba(255,255,255,0.12); color: var(--bti-text); }
+  .action-btn:hover { background: rgba(255,255,255,0.1); color: var(--bti-text); }
   .action-btn:active { transform: scale(0.95); }
-  .action-btn ha-icon { --mdc-icon-size: 22px; flex-shrink: 0; }
+  .action-btn ha-icon { --mdc-icon-size: 20px; flex-shrink: 0; opacity: 0.7; }
+  .action-btn:hover ha-icon { opacity: 1; }
   .action-btn .action-label {
     font-size: 10px; font-weight: 500; line-height: 1.2; text-align: center;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+    opacity: 0.7;
   }
+  .action-btn:hover .action-label { opacity: 1; }
 
   .action-btn.active-lock { background: rgba(76,175,80,0.18); color: #66bb6a; }
   .action-btn.active-light { background: rgba(255,235,59,0.15); color: #ffee58; }
@@ -423,12 +428,23 @@ const CARD_STYLES = `
   }
   .history-btn:hover { color: var(--bti-text); background: rgba(255,255,255,0.08); }
   .history-btn ha-icon { --mdc-icon-size: 20px; }
+  ha-card {
+    transition: min-height 0.35s ease;
+  }
+  ha-card.history-open { min-height: 70vh; }
+  ha-card.history-open .content-row { display: none; }
+  ha-card.history-open .action-bar { display: none; }
+  ha-card.history-open .swipe-dots { display: none; }
+  ha-card.history-open .tab-bar { display: none; }
+
   .history-overlay {
     position: absolute; inset: 0; z-index: 20;
-    background: var(--bti-bg); display: none; flex-direction: column;
+    background: var(--bti-bg); display: flex; flex-direction: column;
     border-radius: var(--bti-radius); overflow: hidden;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s ease;
   }
-  .history-overlay.open { display: flex; }
+  .history-overlay.open { opacity: 1; pointer-events: auto; }
   .history-header {
     display: flex; align-items: center; padding: 12px 16px 8px;
     border-bottom: 1px solid var(--bti-divider);
@@ -474,10 +490,12 @@ const CARD_STYLES = `
   .history-badge.terminated { background: rgba(244,67,54,0.2); color: #ef5350; }
   .history-detail {
     position: absolute; inset: 0; z-index: 21;
-    background: var(--bti-bg); display: none; flex-direction: column;
+    background: var(--bti-bg); display: flex; flex-direction: column;
     border-radius: var(--bti-radius); overflow: hidden;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s ease;
   }
-  .history-detail.open { display: flex; }
+  .history-detail.open { opacity: 1; pointer-events: auto; }
   .history-detail-body {
     flex: 1; display: flex; align-items: center; position: relative; overflow: hidden;
   }
@@ -1290,6 +1308,7 @@ class BticinoIntercomCard extends HTMLElement {
     const overlay = this.shadowRoot.getElementById('history-overlay');
     const list = this.shadowRoot.getElementById('history-list');
     if (!overlay || !list) return;
+    this.shadowRoot?.querySelector('ha-card')?.classList.add('history-open');
     overlay.classList.add('open');
     list.innerHTML = '<div class="history-loading"><ha-icon icon="mdi:loading"></ha-icon> Loading...</div>';
 
@@ -1412,6 +1431,7 @@ class BticinoIntercomCard extends HTMLElement {
   }
 
   _closeHistory() {
+    this.shadowRoot?.querySelector('ha-card')?.classList.remove('history-open');
     this.shadowRoot.getElementById('history-overlay')?.classList.remove('open');
     this._closeHistoryDetail();
   }
