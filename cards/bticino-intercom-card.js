@@ -92,22 +92,6 @@ const CARD_STYLES = `
     position: relative;
   }
 
-  .title-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 16px 8px;
-  }
-  .title-bar .title {
-    font-size: 15px;
-    font-weight: 500;
-    color: var(--bti-text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0;
-    flex: 1;
-  }
   .status-pill {
     flex-shrink: 0;
     margin-left: 10px;
@@ -128,30 +112,37 @@ const CARD_STYLES = `
 
   .tab-bar {
     display: flex;
-    gap: 4px;
-    padding: 0 12px 8px;
+    border-bottom: 1px solid var(--bti-divider);
   }
   .tab-bar.hidden { display: none; }
   .tab {
     flex: 1;
     display: flex; align-items: center; justify-content: center; gap: 6px;
-    padding: 8px 0;
+    padding: 12px 0;
     border: none;
-    border-radius: 8px;
-    background: rgba(255,255,255,0.06);
+    border-bottom: 2px solid transparent;
+    background: none;
     color: var(--bti-text-secondary);
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 500;
     font-family: inherit;
     cursor: pointer;
-    transition: background 0.15s, color 0.15s;
+    transition: color 0.15s, border-color 0.15s;
   }
-  .tab ha-icon { --mdc-icon-size: 20px; flex-shrink: 0; }
-  .tab:hover { background: rgba(255,255,255,0.12); color: var(--bti-text); }
+  .tab ha-icon { --mdc-icon-size: 18px; flex-shrink: 0; }
+  .tab:hover { color: var(--bti-text); }
   .tab.active {
-    background: rgba(3,169,244,0.15);
-    color: var(--bti-primary);
+    color: #66bb6a;
+    border-bottom-color: #66bb6a;
     font-weight: 600;
+  }
+  .tab.ring {
+    color: #ff9800;
+    border-bottom-color: #ff9800;
+  }
+  .tab.live {
+    color: #ef5350;
+    border-bottom-color: #ef5350;
   }
 
   .warning-banner {
@@ -365,9 +356,8 @@ const CARD_STYLES = `
   .vc-btn.hangup svg { width: 20px; height: 20px; fill: #fff; }
 
   .swipe-dots {
-    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
-    display: flex; align-items: center; gap: 6px;
-    z-index: 3; pointer-events: none;
+    display: flex; align-items: center; justify-content: center;
+    gap: 6px; padding: 8px 0;
   }
   .swipe-dots.hidden { display: none; }
   .swipe-dot {
@@ -686,7 +676,6 @@ class BticinoIntercomCard extends HTMLElement {
   // ========== Rendering ==========
 
   _render() {
-    const title = this._config.title || 'Intercom';
     const intercoms = this._config.intercoms;
     const showTabs = intercoms.length > 1;
     const actions = this._activeIntercom.actions;
@@ -701,11 +690,6 @@ class BticinoIntercomCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>${CARD_STYLES}</style>
       <ha-card>
-        <div class="title-bar">
-          <div class="title">${this._esc(title)}</div>
-          <button class="history-btn" id="history-btn" title="Call history"><ha-icon icon="mdi:history"></ha-icon></button>
-          <div class="status-pill ready" id="status-pill">Ready</div>
-        </div>
         <div class="tab-bar${showTabs ? '' : ' hidden'}" id="tab-bar">
           ${intercoms.map((ic, i) => `<button class="tab${i === this._activeIndex ? ' active' : ''}" data-tab-idx="${i}">${ic.icon ? `<ha-icon icon="${this._esc(ic.icon)}"></ha-icon>` : ''}${this._esc(ic.name)}</button>`).join('')}
         </div>
@@ -728,6 +712,7 @@ class BticinoIntercomCard extends HTMLElement {
           <div class="content-info">
             <div class="content-name">${this._esc(this._activeIntercom.name)}</div>
           </div>
+          <button class="history-btn" id="history-btn" title="Call history"><ha-icon icon="mdi:history"></ha-icon></button>
           <button class="call-pill" id="call-pill"><ha-icon icon="mdi:phone"></ha-icon> Chiama</button>
         </div>
         <div class="video-area" id="video-area">
@@ -757,9 +742,6 @@ class BticinoIntercomCard extends HTMLElement {
               <button class="vc-btn" id="vc-fullscreen" title="Fullscreen"><ha-icon icon="mdi:fullscreen"></ha-icon></button>
             </div>
           </div>
-          <div class="swipe-dots${showTabs ? '' : ' hidden'}" id="swipe-dots">
-            ${intercoms.map((_, i) => `<div class="swipe-dot${i === this._activeIndex ? ' active' : ''}"></div>`).join('')}
-          </div>
           <div class="ring-overlay" id="ring-overlay">
             <div class="ring-preview" id="ring-preview">
               <div class="ring-placeholder"><ha-icon icon="mdi:doorbell-video" style="--mdc-icon-size:64px;opacity:0.3"></ha-icon></div>
@@ -781,6 +763,9 @@ class BticinoIntercomCard extends HTMLElement {
           ${visibleActions.map((a, i) => this._renderActionBtn(a, i)).join('')}
           ${hasOverflow ? `<button class="action-btn" id="overflow-btn" title="More"><ha-icon icon="mdi:dots-vertical"></ha-icon><span class="action-label">...</span></button>` : ''}
           ${hasOverflow ? `<div class="overflow-popup" id="overflow-popup">${overflowActions.map((a, i) => this._renderOverflowItem(a, maxActions + i)).join('')}</div>` : ''}
+        </div>
+        <div class="swipe-dots${showTabs ? '' : ' hidden'}" id="swipe-dots">
+          ${intercoms.map((_, i) => `<div class="swipe-dot${i === this._activeIndex ? ' active' : ''}"></div>`).join('')}
         </div>
         <div class="history-overlay" id="history-overlay">
           <div class="history-header">
@@ -838,6 +823,7 @@ class BticinoIntercomCard extends HTMLElement {
     videoArea?.addEventListener('mouseenter', () => this._showControls());
     videoArea?.addEventListener('mouseleave', () => this._hideControlsDelayed());
     this._bindSwipe(videoArea);
+    this._bindSwipe($('content-row'));
 
     $('vc-hangup')?.addEventListener('click', (e) => { e.stopPropagation(); this._hangUp(); });
     $('vc-volume')?.addEventListener('click', (e) => { e.stopPropagation(); this._toggleMute(); });
@@ -936,6 +922,21 @@ class BticinoIntercomCard extends HTMLElement {
     if (state === STATE.LIVE) {
       this.shadowRoot?.getElementById('connecting-overlay')?.classList.remove('visible');
     }
+
+    this._updateTabStates();
+  }
+
+  _updateTabStates() {
+    const tabs = this.shadowRoot?.querySelectorAll('.tab');
+    if (!tabs) return;
+    tabs.forEach((tab, i) => {
+      tab.classList.remove('ring', 'live');
+      if (i === this._activeIndex) {
+        if (this._state === STATE.LIVE || this._state === STATE.CONNECTING || this._state === STATE.RECONNECTING) {
+          tab.classList.add('live');
+        }
+      }
+    });
   }
 
   _showError(message) {
