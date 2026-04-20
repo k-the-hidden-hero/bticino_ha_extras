@@ -38,7 +38,7 @@
  * @license MIT
  */
 
-const CARD_VERSION = '0.1.5';
+const CARD_VERSION = '0.2.0';
 
 const DOMAIN_ICONS = {
   lock: 'mdi:lock', light: 'mdi:lightbulb', switch: 'mdi:toggle-switch',
@@ -223,6 +223,38 @@ const CARD_STYLES = `
     font-size: 15px; font-weight: 600; color: var(--bti-text); opacity: 0.4;
     letter-spacing: 0.5px;
   }
+
+  .content-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 16px;
+  }
+  .content-icon {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .content-icon ha-icon { --mdc-icon-size: 20px; opacity: 0.5; }
+  .content-info { flex: 1; min-width: 0; }
+  .content-name {
+    font-size: 15px; font-weight: 600; color: var(--bti-text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .content-subtitle {
+    font-size: 12px; color: var(--bti-text-secondary); margin-top: 2px;
+  }
+  .call-pill {
+    background: #4caf50; color: white; border: none; border-radius: 20px;
+    padding: 8px 20px; font-size: 13px; font-weight: 600; font-family: inherit;
+    cursor: pointer; display: flex; align-items: center; gap: 6px;
+    flex-shrink: 0; transition: background 0.15s, transform 0.1s;
+  }
+  .call-pill:hover { background: #43a047; }
+  .call-pill:active { transform: scale(0.95); }
+  .call-pill ha-icon { --mdc-icon-size: 16px; }
+
+  ha-card:not(.expanded) .video-area { display: none; }
+  ha-card.expanded .content-row { display: none; }
 
   .error-overlay {
     position: absolute; inset: 0;
@@ -691,6 +723,13 @@ class BticinoIntercomCard extends HTMLElement {
           <button class="dismiss-btn" id="dismiss-ssl">Ignore</button>
         </div>
         ` : ''}
+        <div class="content-row" id="content-row">
+          <div class="content-icon"><ha-icon icon="mdi:doorbell-video"></ha-icon></div>
+          <div class="content-info">
+            <div class="content-name">${this._esc(this._activeIntercom.name)}</div>
+          </div>
+          <button class="call-pill" id="call-pill"><ha-icon icon="mdi:phone"></ha-icon> Chiama</button>
+        </div>
         <div class="video-area" id="video-area">
           <video id="video" autoplay playsinline></video>
           <div class="idle-overlay" id="idle-overlay"><ha-icon icon="mdi:doorbell-video" style="--mdc-icon-size:36px;opacity:0.25"></ha-icon><div class="idle-name">${this._esc(this._activeIntercom.name)}</div></div>
@@ -792,6 +831,7 @@ class BticinoIntercomCard extends HTMLElement {
   _bindEvents() {
     const $ = (id) => this.shadowRoot.getElementById(id);
     $('call-overlay')?.addEventListener('click', () => this._startCall());
+    $('call-pill')?.addEventListener('click', () => this._startCall());
     $('error-dismiss')?.addEventListener('click', (e) => { e.stopPropagation(); this._dismissError(); });
 
     const videoArea = $('video-area');
@@ -1000,6 +1040,7 @@ class BticinoIntercomCard extends HTMLElement {
 
   async _startCall() {
     if (this._playing) return;
+    this.shadowRoot?.querySelector('ha-card')?.classList.add('expanded');
     this._wantPlay = true;
     this._playing = true;
     this._reconnectCount = 0;
@@ -1034,6 +1075,7 @@ class BticinoIntercomCard extends HTMLElement {
     this.shadowRoot?.getElementById('idle-overlay')?.classList.remove('hidden');
     this.shadowRoot?.getElementById('call-overlay')?.classList.remove('hidden');
     this._updateIdleOverlay();
+    this.shadowRoot?.querySelector('ha-card')?.classList.remove('expanded');
     this._setState(STATE.IDLE);
   }
 
@@ -1438,9 +1480,11 @@ class BticinoIntercomCard extends HTMLElement {
       const ringOverlay = this.shadowRoot?.getElementById('ring-overlay');
       if (ringOverlay?.classList.contains('open')) {
         this._showMissedCall();
+        this._collapseIfIdle();
       }
       if (this._state === STATE.LIVE) {
         this._hangUp();
+        this._collapseIfIdle();
       }
     }
   }
@@ -1480,13 +1524,16 @@ class BticinoIntercomCard extends HTMLElement {
     if (entryId && this._hass) {
       this._hass.callService('bticino_intercom', 'reject_call', { entry_id: entryId });
     }
+    this._collapseIfIdle();
   }
 
   _dismissIncomingCall() {
     this.shadowRoot?.getElementById('ring-overlay')?.classList.remove('open');
+    this._collapseIfIdle();
   }
 
   _showRingOverlay(eventData) {
+    this.shadowRoot?.querySelector('ha-card')?.classList.add('expanded');
     const overlay = this.shadowRoot?.getElementById('ring-overlay');
     const preview = this.shadowRoot?.getElementById('ring-preview');
     const nameEl = this.shadowRoot?.getElementById('ring-name');
@@ -1517,6 +1564,12 @@ class BticinoIntercomCard extends HTMLElement {
     if (!banner) return;
     banner.classList.add('open');
     setTimeout(() => banner.classList.remove('open'), 5000);
+  }
+
+  _collapseIfIdle() {
+    if (!this._playing) {
+      this.shadowRoot?.querySelector('ha-card')?.classList.remove('expanded');
+    }
   }
 
   // ========== Helpers ==========
