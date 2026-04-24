@@ -31,6 +31,10 @@
  *     - name: Back Door
  *       camera: camera.back_door
  *       actions: []
+ *   call_home:
+ *     camera: camera.intercom_entity
+ *     name: Call Home (optional, auto-translated)
+ *     icon: mdi:home-assistant (optional)
  *   max_actions: 4
  *   auto_mic: true
  *   ignore_ssl_warning: false
@@ -38,7 +42,139 @@
  * @license MIT
  */
 
-const CARD_VERSION = '0.2.0';
+const CARD_VERSION = '0.3.0';
+
+// ---------------------------------------------------------------------------
+// i18n
+// ---------------------------------------------------------------------------
+
+const TRANSLATIONS = {
+  en: {
+    call: 'Call',
+    call_home: 'Call Home',
+    connecting: 'Connecting...',
+    someone_at_door: 'Someone at the door',
+    answer: 'Answer',
+    open: 'Open',
+    reject: 'Reject',
+    missed_call: '\u{1F4DE} Missed call',
+    call_history: 'Call History',
+    dismiss: 'Dismiss',
+  },
+  it: {
+    call: 'Chiama',
+    call_home: 'Chiama Casa',
+    connecting: 'Connessione in corso...',
+    someone_at_door: 'Qualcuno alla porta',
+    answer: 'Rispondi',
+    open: 'Apri',
+    reject: 'Rifiuta',
+    missed_call: '\u{1F4DE} Chiamata persa',
+    call_history: 'Cronologia Chiamate',
+    dismiss: 'Chiudi',
+  },
+  fr: {
+    call: 'Appeler',
+    call_home: 'Appeler Maison',
+    connecting: 'Connexion en cours...',
+    someone_at_door: 'Quelqu’un à la porte',
+    answer: 'Répondre',
+    open: 'Ouvrir',
+    reject: 'Refuser',
+    missed_call: '\u{1F4DE} Appel manqué',
+    call_history: 'Historique des appels',
+    dismiss: 'Fermer',
+  },
+  es: {
+    call: 'Llamar',
+    call_home: 'Llamar a Casa',
+    connecting: 'Conectando...',
+    someone_at_door: 'Alguien en la puerta',
+    answer: 'Responder',
+    open: 'Abrir',
+    reject: 'Rechazar',
+    missed_call: '\u{1F4DE} Llamada perdida',
+    call_history: 'Historial de llamadas',
+    dismiss: 'Cerrar',
+  },
+  de: {
+    call: 'Anrufen',
+    call_home: 'Zuhause anrufen',
+    connecting: 'Verbindung wird hergestellt...',
+    someone_at_door: 'Jemand an der Tür',
+    answer: 'Annehmen',
+    open: 'Öffnen',
+    reject: 'Ablehnen',
+    missed_call: '\u{1F4DE} Verpasster Anruf',
+    call_history: 'Anrufverlauf',
+    dismiss: 'Schließen',
+  },
+  pt: {
+    call: 'Ligar',
+    call_home: 'Ligar para Casa',
+    connecting: 'Conectando...',
+    someone_at_door: 'Alguém na porta',
+    answer: 'Atender',
+    open: 'Abrir',
+    reject: 'Rejeitar',
+    missed_call: '\u{1F4DE} Chamada perdida',
+    call_history: 'Histórico de chamadas',
+    dismiss: 'Fechar',
+  },
+  nl: {
+    call: 'Bellen',
+    call_home: 'Huis bellen',
+    connecting: 'Verbinden...',
+    someone_at_door: 'Iemand aan de deur',
+    answer: 'Beantwoorden',
+    open: 'Openen',
+    reject: 'Weigeren',
+    missed_call: '\u{1F4DE} Gemiste oproep',
+    call_history: 'Oproepgeschiedenis',
+    dismiss: 'Sluiten',
+  },
+  tr: {
+    call: 'Ara',
+    call_home: 'Evi Ara',
+    connecting: 'Bağlanıyor...',
+    someone_at_door: 'Kapıda biri var',
+    answer: 'Yanıtla',
+    open: 'Aç',
+    reject: 'Reddet',
+    missed_call: '\u{1F4DE} Cevapsız arama',
+    call_history: 'Arama geçmişi',
+    dismiss: 'Kapat',
+  },
+  el: {
+    call: 'Κλήση',
+    call_home: 'Κλήση σπίτι',
+    connecting: 'Σύνδεση...',
+    someone_at_door: 'Κάποιος στην πόρτα',
+    answer: 'Απάντηση',
+    open: 'Άνοιγμα',
+    reject: 'Απόρριψη',
+    missed_call: '\u{1F4DE} Αναπάντητη',
+    call_history: 'Ιστορικό κλήσεων',
+    dismiss: 'Κλείσιμο',
+  },
+  ar: {
+    call: 'اتصال',
+    call_home: 'اتصل بالمنزل',
+    connecting: 'جاري الاتصال...',
+    someone_at_door: 'شخص عند الباب',
+    answer: 'رد',
+    open: 'افتح',
+    reject: 'رفض',
+    missed_call: '\u{1F4DE} مكالمة فائتة',
+    call_history: 'سجل المكالمات',
+    dismiss: 'إغلاق',
+  },
+};
+
+function _t(key, lang) {
+  const l = (lang || 'en').split('-')[0];
+  return TRANSLATIONS[l]?.[key] || TRANSLATIONS.en[key] || key;
+}
 
 const DOMAIN_ICONS = {
   lock: 'mdi:lock',
@@ -621,6 +757,7 @@ class BticinoIntercomCard extends HTMLElement {
     this._ringData = null;
     this._savedActionBarHTML = null;
     this._missedCallTimer = null;
+    this._lang = 'en';
   }
 
   get _activeIntercom() {
@@ -630,6 +767,7 @@ class BticinoIntercomCard extends HTMLElement {
   set hass(hass) {
     const prev = this._hass;
     this._hass = hass;
+    this._lang = hass?.language || 'en';
     if (!this._callEventUnsub && hass?.connection) this._subscribeCallEvents();
     if (!prev && hass && this._config) this._render();
     this._updateIdleOverlay();
@@ -643,13 +781,27 @@ class BticinoIntercomCard extends HTMLElement {
     for (const ic of config.intercoms) {
       if (!ic.name || !ic.camera) throw new Error('Each intercom requires name and camera');
     }
+    const intercoms = config.intercoms.map((ic) => ({
+      name: ic.name,
+      camera: ic.camera,
+      icon: ic.icon || null,
+      actions: ic.actions || [],
+      call_home: false,
+    }));
+
+    // Add "Call Home" tab if configured
+    if (config.call_home?.camera) {
+      intercoms.push({
+        name: config.call_home.name || _t('call_home', this._lang),
+        camera: config.call_home.camera,
+        icon: config.call_home.icon || 'mdi:home-assistant',
+        actions: config.call_home.actions || [],
+        call_home: true,
+      });
+    }
+
     this._config = {
-      intercoms: config.intercoms.map((ic) => ({
-        name: ic.name,
-        camera: ic.camera,
-        icon: ic.icon || null,
-        actions: ic.actions || [],
-      })),
+      intercoms,
       max_actions: config.max_actions ?? 4,
       auto_mic: config.auto_mic ?? true,
       ignore_ssl_warning: config.ignore_ssl_warning ?? false,
@@ -736,7 +888,7 @@ class BticinoIntercomCard extends HTMLElement {
             <div class="content-name">${this._esc(this._activeIntercom.name)}</div>
           </div>
           <button class="history-btn" id="history-btn" title="Call history"><ha-icon icon="mdi:history"></ha-icon></button>
-          <button class="call-pill" id="call-pill"><ha-icon icon="mdi:phone"></ha-icon> Chiama</button>
+          <button class="call-pill" id="call-pill"><ha-icon icon="${this._activeIntercom.call_home ? 'mdi:home-assistant' : 'mdi:phone'}"></ha-icon> ${_t(this._activeIntercom.call_home ? 'call_home' : 'call', this._lang)}</button>
         </div>
         <div class="media-wrapper">
           <div class="video-area" id="video-area">
@@ -749,7 +901,7 @@ class BticinoIntercomCard extends HTMLElement {
               <div class="ring"></div>
               <div class="ring-center">${ICON_PHONE}</div>
             </div>
-            <div class="connecting-text">Connessione in corso...</div>
+            <div class="connecting-text">${_t('connecting', this._lang)}</div>
           </div>
           <div class="error-overlay" id="error-overlay">
             <svg class="error-icon" viewBox="0 0 24 24"><path d="M13,13H11V7H13M13,17H11V15H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg>
@@ -778,7 +930,7 @@ class BticinoIntercomCard extends HTMLElement {
         </div>
         <div class="history-overlay" id="history-overlay">
           <div class="history-header">
-            <div class="title">Call History</div>
+            <div class="title">${_t('call_history', this._lang)}</div>
             <button class="history-close" id="history-close"><ha-icon icon="mdi:close"></ha-icon></button>
           </div>
           <div class="history-list" id="history-list">
@@ -1792,7 +1944,7 @@ class BticinoIntercomCard extends HTMLElement {
       <div class="ring-gradient"></div>
       <div class="ring-label">
         <div>
-          <div class="ring-label-text">Qualcuno alla porta</div>
+          <div class="ring-label-text">${_t('someone_at_door', this._lang)}</div>
           <div class="ring-label-sub">${this._esc(moduleName)}</div>
         </div>
         <div class="ring-badge">● RING</div>
@@ -1824,15 +1976,15 @@ class BticinoIntercomCard extends HTMLElement {
     bar.innerHTML = `
       <button class="action-btn ring-action answer" id="ring-answer">
         <ha-icon icon="mdi:phone"></ha-icon>
-        <span class="action-label">Rispondi</span>
+        <span class="action-label">${_t('answer', this._lang)}</span>
       </button>
       <button class="action-btn ring-action open-door" id="ring-open">
         <ha-icon icon="mdi:door-open"></ha-icon>
-        <span class="action-label">Apri</span>
+        <span class="action-label">${_t('open', this._lang)}</span>
       </button>
       <button class="action-btn ring-action reject" id="ring-reject">
         <ha-icon icon="mdi:phone-hangup"></ha-icon>
-        <span class="action-label">Rifiuta</span>
+        <span class="action-label">${_t('reject', this._lang)}</span>
       </button>
     `;
     bar.querySelector('#ring-answer')?.addEventListener('click', () => this._answerIncomingCall());
@@ -1866,7 +2018,7 @@ class BticinoIntercomCard extends HTMLElement {
     const nameEl = this.shadowRoot?.querySelector('.content-name');
     if (nameEl) {
       const original = nameEl.textContent;
-      nameEl.textContent = '\u{1F4DE} Chiamata persa';
+      nameEl.textContent = _t('missed_call', this._lang);
       nameEl.style.color = '#ffa726';
       this._missedCallTimer = setTimeout(() => {
         nameEl.textContent = original;
