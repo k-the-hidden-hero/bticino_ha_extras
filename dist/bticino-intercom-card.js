@@ -31,10 +31,6 @@
  *     - name: Back Door
  *       camera: camera.back_door
  *       actions: []
- *   call_home:
- *     camera: camera.intercom_entity
- *     name: Call Home (optional, auto-translated)
- *     icon: mdi:home-assistant (optional)
  *   max_actions: 4
  *   auto_mic: true
  *   ignore_ssl_warning: false
@@ -45,13 +41,12 @@
 const CARD_VERSION = '0.3.0';
 
 // ---------------------------------------------------------------------------
-// i18n
+// i18n — covers all BTicino intercom markets
 // ---------------------------------------------------------------------------
 
 const TRANSLATIONS = {
   en: {
     call: 'Call',
-    call_home: 'Call Home',
     connecting: 'Connecting...',
     someone_at_door: 'Someone at the door',
     answer: 'Answer',
@@ -63,7 +58,6 @@ const TRANSLATIONS = {
   },
   it: {
     call: 'Chiama',
-    call_home: 'Chiama Casa',
     connecting: 'Connessione in corso...',
     someone_at_door: 'Qualcuno alla porta',
     answer: 'Rispondi',
@@ -75,7 +69,6 @@ const TRANSLATIONS = {
   },
   fr: {
     call: 'Appeler',
-    call_home: 'Appeler Maison',
     connecting: 'Connexion en cours...',
     someone_at_door: 'Quelqu’un à la porte',
     answer: 'Répondre',
@@ -87,7 +80,6 @@ const TRANSLATIONS = {
   },
   es: {
     call: 'Llamar',
-    call_home: 'Llamar a Casa',
     connecting: 'Conectando...',
     someone_at_door: 'Alguien en la puerta',
     answer: 'Responder',
@@ -99,7 +91,6 @@ const TRANSLATIONS = {
   },
   de: {
     call: 'Anrufen',
-    call_home: 'Zuhause anrufen',
     connecting: 'Verbindung wird hergestellt...',
     someone_at_door: 'Jemand an der Tür',
     answer: 'Annehmen',
@@ -111,7 +102,6 @@ const TRANSLATIONS = {
   },
   pt: {
     call: 'Ligar',
-    call_home: 'Ligar para Casa',
     connecting: 'Conectando...',
     someone_at_door: 'Alguém na porta',
     answer: 'Atender',
@@ -123,7 +113,6 @@ const TRANSLATIONS = {
   },
   nl: {
     call: 'Bellen',
-    call_home: 'Huis bellen',
     connecting: 'Verbinden...',
     someone_at_door: 'Iemand aan de deur',
     answer: 'Beantwoorden',
@@ -135,7 +124,6 @@ const TRANSLATIONS = {
   },
   tr: {
     call: 'Ara',
-    call_home: 'Evi Ara',
     connecting: 'Bağlanıyor...',
     someone_at_door: 'Kapıda biri var',
     answer: 'Yanıtla',
@@ -147,7 +135,6 @@ const TRANSLATIONS = {
   },
   el: {
     call: 'Κλήση',
-    call_home: 'Κλήση σπίτι',
     connecting: 'Σύνδεση...',
     someone_at_door: 'Κάποιος στην πόρτα',
     answer: 'Απάντηση',
@@ -159,7 +146,6 @@ const TRANSLATIONS = {
   },
   ar: {
     call: 'اتصال',
-    call_home: 'اتصل بالمنزل',
     connecting: 'جاري الاتصال...',
     someone_at_door: 'شخص عند الباب',
     answer: 'رد',
@@ -781,27 +767,13 @@ class BticinoIntercomCard extends HTMLElement {
     for (const ic of config.intercoms) {
       if (!ic.name || !ic.camera) throw new Error('Each intercom requires name and camera');
     }
-    const intercoms = config.intercoms.map((ic) => ({
-      name: ic.name,
-      camera: ic.camera,
-      icon: ic.icon || null,
-      actions: ic.actions || [],
-      call_home: false,
-    }));
-
-    // Add "Call Home" tab if configured
-    if (config.call_home?.camera) {
-      intercoms.push({
-        name: config.call_home.name || _t('call_home', this._lang),
-        camera: config.call_home.camera,
-        icon: config.call_home.icon || 'mdi:home-assistant',
-        actions: config.call_home.actions || [],
-        call_home: true,
-      });
-    }
-
     this._config = {
-      intercoms,
+      intercoms: config.intercoms.map((ic) => ({
+        name: ic.name,
+        camera: ic.camera,
+        icon: ic.icon || null,
+        actions: ic.actions || [],
+      })),
       max_actions: config.max_actions ?? 4,
       auto_mic: config.auto_mic ?? true,
       ignore_ssl_warning: config.ignore_ssl_warning ?? false,
@@ -888,7 +860,7 @@ class BticinoIntercomCard extends HTMLElement {
             <div class="content-name">${this._esc(this._activeIntercom.name)}</div>
           </div>
           <button class="history-btn" id="history-btn" title="Call history"><ha-icon icon="mdi:history"></ha-icon></button>
-          <button class="call-pill" id="call-pill"><ha-icon icon="${this._activeIntercom.call_home ? 'mdi:home-assistant' : 'mdi:phone'}"></ha-icon> ${_t(this._activeIntercom.call_home ? 'call_home' : 'call', this._lang)}</button>
+          <button class="call-pill" id="call-pill"><ha-icon icon="mdi:phone"></ha-icon> ${_t('call', this._lang)}</button>
         </div>
         <div class="media-wrapper">
           <div class="video-area" id="video-area">
