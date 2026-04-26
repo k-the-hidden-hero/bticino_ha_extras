@@ -313,7 +313,6 @@ const CARD_STYLES = `
     height: 100%;
     object-fit: contain;
     display: block;
-    background: #000;
   }
 
   .idle-overlay {
@@ -1135,6 +1134,21 @@ class BticinoIntercomCard extends HTMLElement {
     } else {
       el.classList.remove('hidden');
     }
+    this._loadPosterBackground();
+  }
+
+  _loadPosterBackground() {
+    const videoArea = this.shadowRoot?.getElementById('video-area');
+    if (!videoArea || !this._hass || !this._activeIntercom?.camera) return;
+    this._hass
+      .callWS({ type: 'auth/sign_path', path: `/api/camera_proxy/${this._activeIntercom.camera}`, expires: 300 })
+      .then(({ path }) => {
+        videoArea.style.backgroundImage = `url(${path})`;
+        videoArea.style.backgroundSize = 'contain';
+        videoArea.style.backgroundPosition = 'center';
+        videoArea.style.backgroundRepeat = 'no-repeat';
+      })
+      .catch(() => {});
   }
 
   _updateActionStates() {
@@ -1232,6 +1246,7 @@ class BticinoIntercomCard extends HTMLElement {
     }
 
     this.shadowRoot?.getElementById('idle-overlay')?.classList.add('hidden');
+    this._loadPosterBackground();
     this.shadowRoot?.getElementById('call-overlay')?.classList.add('hidden');
     this.shadowRoot?.getElementById('connecting-overlay')?.classList.add('visible');
 
@@ -1246,11 +1261,16 @@ class BticinoIntercomCard extends HTMLElement {
     this._hideControls();
     this._cleanup();
     const video = this.shadowRoot?.getElementById('video');
-    if (video) video.srcObject = null;
+    if (video) {
+      video.srcObject = null;
+      video.style.display = 'block';
+    }
     this.shadowRoot?.getElementById('error-overlay')?.classList.remove('visible');
     this.shadowRoot?.getElementById('connecting-overlay')?.classList.remove('visible');
     this.shadowRoot?.getElementById('idle-overlay')?.classList.remove('hidden');
     this.shadowRoot?.getElementById('call-overlay')?.classList.remove('hidden');
+    const videoArea = this.shadowRoot?.getElementById('video-area');
+    if (videoArea) videoArea.style.backgroundImage = '';
     this._updateIdleOverlay();
     this.shadowRoot?.querySelector('ha-card')?.classList.remove('expanded');
     this._setState(STATE.IDLE);
@@ -1372,7 +1392,10 @@ class BticinoIntercomCard extends HTMLElement {
 
       this._pc.ontrack = (e) => {
         this._remoteStream.addTrack(e.track);
+        if (e.track.kind === 'video' && video) video.style.display = 'block';
       };
+      // Hide video element until a video track arrives (voice-only calls stay hidden)
+      if (video) video.style.display = 'none';
 
       this._pc.onconnectionstatechange = () => {
         const state = this._pc?.connectionState;

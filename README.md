@@ -109,6 +109,65 @@ When the doorbell rings:
 - Tap **Open Door** to unlock without answering
 - Tap **Reject** to dismiss
 
+## v2.0 Beta Testing
+
+The custom card is a key part of the v2.0 beta. Here's how to set up for testing.
+
+### Quick setup
+
+1. Download `bticino-intercom-card.js` from the [latest release](https://github.com/k-the-hidden-hero/bticino_ha_extras/releases)
+2. Copy to your HA `config/www/` directory
+3. Add as a resource: **Settings > Dashboards > Resources > Add Resource**
+   - URL: `/local/bticino-intercom-card.js`
+   - Type: **JavaScript Module**
+4. Hard-refresh the browser (`Ctrl+Shift+R`) to clear cache
+5. Add the card to your dashboard (see example below)
+
+### Dashboard example
+
+```yaml
+type: custom:bticino-intercom-card
+intercoms:
+  - name: Citofono
+    camera: camera.bticino_intercom_front_door
+    actions:
+      - entity: lock.front_gate
+        service: lock.unlock
+      - entity: lock.main_door
+        service: lock.unlock
+```
+
+### Browser compatibility
+
+| Browser | Status | Notes |
+|---|---|---|
+| Chrome / Chromium | Supported | Full video + two-way audio |
+| Edge (Chromium) | Supported | Full video + two-way audio |
+| HA Companion (Android) | Supported | Uses Chromium WebView |
+| Safari / iOS | Not supported | Device firmware limitation (hardcoded Chrome RTP payload types) |
+| Firefox | Not supported | Same device firmware limitation |
+| HA Companion (iOS) | Not supported | Uses WebKit (same as Safari) |
+
+> [!IMPORTANT]
+> **Do NOT use AlexxIT's WebRTC integration** or other third-party WebRTC players to display the BTicino camera. They are not compatible with the BTicino signaling protocol and cause `InvalidStateError` crashes, especially on iOS/WebKit. This card is specifically designed for the BTicino intercom's WebRTC implementation.
+
+> [!NOTE]
+> The browser limitation is a BTicino device firmware issue (BNC1 hardcodes Chrome/libwebrtc RTP payload types regardless of SDP negotiation). The official Netatmo app works on all platforms because it bundles the same `libwebrtc` engine as Chrome. See the [Firefox investigation](https://github.com/k-the-hidden-hero/bticino_intercom/blob/main/docs/firefox-webrtc-investigation.md) for the full analysis.
+
+### Updating the card
+
+When a new version is released:
+1. Download the new `bticino-intercom-card.js`
+2. Replace the file in `config/www/`
+3. Hard-refresh the browser (`Ctrl+Shift+R`) — this is required to clear the cached version
+
+### Reporting issues
+
+Please open issues on the [bticino_intercom](https://github.com/k-the-hidden-hero/bticino_intercom/issues) repository (not here) with:
+- Your HA version, browser, integration version
+- The browser console log (F12 > Console) if applicable
+- Steps to reproduce
+
 ## Related Projects
 
 - [bticino_intercom](https://github.com/k-the-hidden-hero/bticino_intercom) — Home Assistant custom integration for BTicino Classe 100X/300X
