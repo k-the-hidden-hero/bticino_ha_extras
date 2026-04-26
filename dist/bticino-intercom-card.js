@@ -1,5 +1,5 @@
 /**
- * BTicino Intercom Card v0.3.0-rc1
+ * BTicino Intercom Card v0.0.1-rc0
  *
  * Custom Lovelace card for BTicino Classe 100X/300X video intercom systems.
  * Supports multiple intercoms with tab switching and swipe gestures.
