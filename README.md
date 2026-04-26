@@ -1,6 +1,12 @@
-# BTicino HA Extras
+# BTicino Intercom Card
 
-Blueprints, Lovelace cards, and companion resources for the [BTicino Intercom](https://github.com/k-the-hidden-hero/bticino_intercom) Home Assistant integration.
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
+[![GitHub Release](https://img.shields.io/github/v/release/k-the-hidden-hero/bticino_ha_extras?include_prereleases)](https://github.com/k-the-hidden-hero/bticino_ha_extras/releases/latest)
+[![CI](https://github.com/k-the-hidden-hero/bticino_ha_extras/actions/workflows/lint.yaml/badge.svg)](https://github.com/k-the-hidden-hero/bticino_ha_extras/actions/workflows/lint.yaml)
+[![GitHub Issues](https://img.shields.io/github/issues/k-the-hidden-hero/bticino_intercom)](https://github.com/k-the-hidden-hero/bticino_intercom/issues)
+[![License](https://img.shields.io/github/license/k-the-hidden-hero/bticino_ha_extras)](LICENSE)
+
+Custom Lovelace card and companion resources for the [BTicino Intercom](https://github.com/k-the-hidden-hero/bticino_intercom) Home Assistant integration. Live WebRTC video with two-way audio, call history, multi-intercom support, and incoming call notifications.
 
 ## What's Included
 
@@ -24,23 +30,37 @@ Blueprints, Lovelace cards, and companion resources for the [BTicino Intercom](h
 
 ### HACS (Recommended)
 
-1. Open HACS → Automation
-2. Click the three dots → Custom repositories
-3. Add `k-the-hidden-hero/bticino_ha_extras` as category **Automation**
-4. Install "BTicino HA Extras"
-5. Restart Home Assistant
+> **Prerequisites:** You need [HACS](https://hacs.xyz/) installed in your Home Assistant. If you don't have it yet, follow the [HACS installation guide](https://hacs.xyz/docs/use/download/download/) first.
+
+**Step 1 — Add the repository to HACS:**
+
+[![Add Repository](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=k-the-hidden-hero&repository=bticino_ha_extras&category=plugin)
+
+Click the button above to add the repository. If the button doesn't work, add it manually:
+
+1. Open **HACS** > **Frontend** > click the **three-dot menu** (top right) > **Custom repositories**
+2. Paste `https://github.com/k-the-hidden-hero/bticino_ha_extras` as the URL
+3. Select **Dashboard** as the category and click **Add**
+
+**Step 2 — Download the card:**
+
+1. In HACS, find **BTicino Intercom Card** in the Frontend list (search if needed)
+2. Click on it, then click **Download** (bottom right)
+3. Select the latest version (enable **"Show beta versions"** for RC releases) and confirm
+4. **Restart Home Assistant**
+
+The card resource is registered automatically by HACS. No manual resource setup needed.
 
 ### Manual
 
-Copy the `blueprints/` folder contents into your Home Assistant `config/blueprints/` directory.
+Copy `dist/bticino-intercom-card.js` to your `config/www/` directory, then add it as a dashboard resource:
 
-For the Lovelace card, copy `dist/bticino-intercom-card.js` to your `config/www/` directory, then add it as a resource:
-
-1. Go to **Settings -> Dashboards -> Resources**
+1. Go to **Settings > Dashboards > Resources**
 2. Click **Add Resource**
 3. URL: `/local/bticino-intercom-card.js`
 4. Type: **JavaScript Module**
 5. Click **Create**
+6. Hard-refresh the browser (`Ctrl+Shift+R`)
 
 ## Requirements
 
