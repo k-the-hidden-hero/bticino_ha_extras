@@ -1,0 +1,56 @@
+name: Create GitHub Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --save-dev eslint
+
+      - name: Run ESLint
+        run: npx eslint dist/
+
+      - name: Run Prettier check
+        run: npx prettier --check "dist/**/*.js" "*.json" "*.yaml" ".github/**/*.yaml"
+
+      - name: HACS validation
+        uses: hacs/action@main
+        with:
+          category: plugin
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          if [[ "$VERSION" == *-dev* ]] || [[ "$VERSION" == *-alpha* ]] || [[ "$VERSION" == *-beta* ]] || [[ "$VERSION" == *-rc* ]]; then
+            echo "PRERELEASE=true" >> $GITHUB_ENV
+          else
+            echo "PRERELEASE=false" >> $GITHUB_ENV
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ env.VERSION }}
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ env.PRERELEASE == 'true' }}
+          files: |
+            dist/bticino-intercom-card.js
