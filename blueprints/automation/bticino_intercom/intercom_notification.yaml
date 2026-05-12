@@ -8,11 +8,15 @@ blueprint:
   author: k-the-hidden-hero
   source_url: https://github.com/k-the-hidden-hero/bticino_ha_extras/blob/main/blueprints/automation/bticino_intercom/intercom_notification.yaml
   input:
-    notify_service:
-      name: Notification service
-      description: The mobile app notification service to use (e.g. notify.mobile_app_iphone_andrea)
+    notify_device:
+      name: Mobile device
+      description: >
+        The mobile device to send the notification to. Pick from the list of
+        Home Assistant Companion devices already paired with this HA instance.
       selector:
-        text:
+        device:
+          filter:
+            - integration: mobile_app
     lock_entity:
       name: Door lock
       description: The lock entity to unlock when "Open Door" is tapped
@@ -41,11 +45,50 @@ blueprint:
           domain: camera
           integration: bticino_intercom
 
+    # --- Localization (override the defaults to translate the notification) ---
+    notification_title:
+      name: Notification title
+      description: Title shown on the push notification.
+      default: 'Doorbell'
+      selector:
+        text:
+    notification_message_default:
+      name: Default notification message
+      description: >
+        Message body when the incoming call event does not provide a name
+        (otherwise the event name is used).
+      default: 'Someone is at the door'
+      selector:
+        text:
+    answer_label:
+      name: 'Answer button label'
+      description: Label of the "Answer" action button on the notification.
+      default: 'Answer'
+      selector:
+        text:
+    open_door_label:
+      name: 'Open door button label'
+      description: Label of the "Open door" action button on the notification.
+      default: 'Open door'
+      selector:
+        text:
+    reject_label:
+      name: 'Reject button label'
+      description: Label of the "Reject" action button on the notification.
+      default: 'Reject'
+      selector:
+        text:
+
 mode: single
 max_exceeded: silent
 
 variables:
   snapshot_camera_entity: !input snapshot_camera
+  notification_title_text: !input notification_title
+  notification_message_default_text: !input notification_message_default
+  answer_label_text: !input answer_label
+  open_door_label_text: !input open_door_label
+  reject_label_text: !input reject_label
 
 trigger:
   - platform: event
@@ -83,29 +126,30 @@ action:
           - condition: trigger
             id: call_event
         sequence:
-          - service: !input notify_service
+          - domain: mobile_app
+            type: notify
+            device_id: !input notify_device
+            title: '{{ notification_title_text }}'
+            message: >
+              {{ trigger.event.data.name | default(notification_message_default_text) }}
             data:
-              title: 'Citofono'
-              message: >
-                {{ trigger.event.data.name | default('Qualcuno al citofono') }}
-              data:
-                tag: bticino_call_active
-                push:
-                  interruption-level: critical
-                  sound:
-                    name: default
-                    critical: 1
-                    volume: 1.0
-                channel: alarm_stream
-                importance: high
-                actions:
-                  - action: BTICINO_ANSWER
-                    title: 'Rispondi'
-                  - action: BTICINO_OPEN_DOOR
-                    title: 'Apri porta'
-                  - action: BTICINO_REJECT
-                    title: 'Rifiuta'
-                    destructive: true
+              tag: bticino_call_active
+              push:
+                interruption-level: critical
+                sound:
+                  name: default
+                  critical: 1
+                  volume: 1.0
+              channel: alarm_stream
+              importance: high
+              actions:
+                - action: BTICINO_ANSWER
+                  title: '{{ answer_label_text }}'
+                - action: BTICINO_OPEN_DOOR
+                  title: '{{ open_door_label_text }}'
+                - action: BTICINO_REJECT
+                  title: '{{ reject_label_text }}'
+                  destructive: true
 
           # Wait briefly for snapshot to arrive, then update notification
           - delay:
@@ -122,41 +166,43 @@ action:
           - condition: template
             value_template: "{{ snapshot_url != '' }}"
 
-          - service: !input notify_service
+          - domain: mobile_app
+            type: notify
+            device_id: !input notify_device
+            title: '{{ notification_title_text }}'
+            message: >
+              {{ trigger.event.data.name | default(notification_message_default_text) }}
             data:
-              title: 'Citofono'
-              message: >
-                {{ trigger.event.data.name | default('Qualcuno al citofono') }}
-              data:
-                tag: bticino_call_active
-                image: '{{ snapshot_url }}'
-                push:
-                  interruption-level: critical
-                  sound:
-                    name: default
-                    critical: 1
-                    volume: 0.0
-                channel: alarm_stream
-                importance: high
-                actions:
-                  - action: BTICINO_ANSWER
-                    title: 'Rispondi'
-                  - action: BTICINO_OPEN_DOOR
-                    title: 'Apri porta'
-                  - action: BTICINO_REJECT
-                    title: 'Rifiuta'
-                    destructive: true
+              tag: bticino_call_active
+              image: '{{ snapshot_url }}'
+              push:
+                interruption-level: critical
+                sound:
+                  name: default
+                  critical: 1
+                  volume: 0.0
+              channel: alarm_stream
+              importance: high
+              actions:
+                - action: BTICINO_ANSWER
+                  title: '{{ answer_label_text }}'
+                - action: BTICINO_OPEN_DOOR
+                  title: '{{ open_door_label_text }}'
+                - action: BTICINO_REJECT
+                  title: '{{ reject_label_text }}'
+                  destructive: true
 
       # --- Answer: open camera ---
       - conditions:
           - condition: trigger
             id: action_answer
         sequence:
-          - service: !input notify_service
+          - domain: mobile_app
+            type: notify
+            device_id: !input notify_device
+            message: clear_notification
             data:
-              message: clear_notification
-              data:
-                tag: bticino_call_active
+              tag: bticino_call_active
 
       # --- Open door ---
       - conditions:
@@ -167,19 +213,21 @@ action:
             target:
               entity_id: !input lock_entity
 
-          - service: !input notify_service
+          - domain: mobile_app
+            type: notify
+            device_id: !input notify_device
+            message: clear_notification
             data:
-              message: clear_notification
-              data:
-                tag: bticino_call_active
+              tag: bticino_call_active
 
       # --- Reject: dismiss ---
       - conditions:
           - condition: trigger
             id: action_reject
         sequence:
-          - service: !input notify_service
+          - domain: mobile_app
+            type: notify
+            device_id: !input notify_device
+            message: clear_notification
             data:
-              message: clear_notification
-              data:
-                tag: bticino_call_active
+              tag: bticino_call_active
