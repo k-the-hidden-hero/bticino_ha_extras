@@ -10,23 +10,23 @@ A single, modular Lovelace card that provides a complete intercom experience: li
 type: custom:bticino-intercom-card
 intercoms:
   - name: Citofono Strada
-    camera: camera.bticino_intercom_casella_citofono_strada
-    poster: camera.bticino_intercom_casella_last_event_vignette
-    call_sensor: binary_sensor.bticino_intercom_casella_citofono_strada
+    camera: camera.bticino_intercom_myhome_citofono_strada
+    poster: camera.bticino_intercom_myhome_last_event_vignette
+    call_sensor: binary_sensor.bticino_intercom_myhome_citofono_strada
     actions:
-      - entity: lock.bticino_intercom_casella_porta_esterna
+      - entity: lock.bticino_intercom_myhome_porta_esterna
         icon: mdi:gate
         label: Porta Est.
         service: lock.unlock
-      - entity: light.bticino_intercom_casella_luci_scale
+      - entity: light.bticino_intercom_myhome_luci_scale
         icon: mdi:stairs
         label: Luci
         service: light.turn_on
   - name: Citofono Ingresso
     # no camera — audio-only intercom
-    call_sensor: binary_sensor.bticino_intercom_casella_citofono_ingresso
+    call_sensor: binary_sensor.bticino_intercom_myhome_citofono_ingresso
     actions:
-      - entity: lock.bticino_intercom_casella_porta_interna
+      - entity: lock.bticino_intercom_myhome_porta_interna
         icon: mdi:door
         label: Porta Int.
         service: lock.unlock

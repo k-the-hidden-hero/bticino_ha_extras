@@ -714,20 +714,20 @@ type: custom:bticino-intercom-card
 title: Intercom
 intercoms:
   - name: Strada
-    camera: camera.bticino_intercom_casella_citofono_strada
+    camera: camera.bticino_intercom_myhome_citofono_strada
     actions:
-      - entity: lock.bticino_intercom_casella_porta_esterna
+      - entity: lock.bticino_intercom_myhome_porta_esterna
         icon: mdi:gate
         label: Cancello
         service: lock.unlock
-      - entity: light.bticino_intercom_casella_luci_scale
+      - entity: light.bticino_intercom_myhome_luci_scale
         icon: mdi:lightbulb
         label: Luci Scale
         service: light.turn_on
   - name: Ingresso
-    camera: camera.bticino_intercom_casella_citofono_ingresso
+    camera: camera.bticino_intercom_myhome_citofono_ingresso
     actions:
-      - entity: lock.bticino_intercom_casella_porta_esterna
+      - entity: lock.bticino_intercom_myhome_porta_esterna
         icon: mdi:gate
         label: Cancello
         service: lock.unlock

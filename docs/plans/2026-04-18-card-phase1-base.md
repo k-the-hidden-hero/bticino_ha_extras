@@ -26,15 +26,15 @@
 
 ```yaml
 type: custom:bticino-intercom-card
-camera: camera.bticino_intercom_casella_citofono_strada
-poster: camera.bticino_intercom_casella_last_event_vignette
+camera: camera.bticino_intercom_myhome_citofono_strada
+poster: camera.bticino_intercom_myhome_last_event_vignette
 title: Citofono Strada
 actions:
-  - entity: lock.bticino_intercom_casella_porta_esterna
+  - entity: lock.bticino_intercom_myhome_porta_esterna
     icon: mdi:gate
     label: Porta Est.
     service: lock.unlock
-  - entity: light.bticino_intercom_casella_luci_scale
+  - entity: light.bticino_intercom_myhome_luci_scale
     icon: mdi:lightbulb
     label: Luci
     service: light.toggle

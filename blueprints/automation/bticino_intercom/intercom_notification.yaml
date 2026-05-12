@@ -28,9 +28,24 @@ blueprint:
         entity:
           domain: camera
           integration: bticino_intercom
+    snapshot_camera:
+      name: Snapshot camera (optional)
+      description: >
+        The camera entity that holds the snapshot from the incoming call (e.g.
+        camera.bticino_intercom_<your_home>_last_event_snapshot). When set, a
+        thumbnail is attached to the updated notification. Leave empty to send
+        the notification without an image.
+      default: ''
+      selector:
+        entity:
+          domain: camera
+          integration: bticino_intercom
 
 mode: single
 max_exceeded: silent
+
+variables:
+  snapshot_camera_entity: !input snapshot_camera
 
 trigger:
   - platform: event
@@ -96,10 +111,13 @@ action:
           - delay:
               seconds: 3
 
-          # Check if snapshot is available and update notification
+          # Check if snapshot is available and update notification.
+          # Skip silently when no snapshot camera was configured.
           - variables:
               snapshot_url: >
-                {{ state_attr('camera.bticino_intercom_casella_last_event_snapshot', 'image_url') | default('') }}
+                {% if snapshot_camera_entity %}
+                {{- state_attr(snapshot_camera_entity, 'image_url') | default('') -}}
+                {% endif %}
 
           - condition: template
             value_template: "{{ snapshot_url != '' }}"
