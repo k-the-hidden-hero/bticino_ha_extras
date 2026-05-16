@@ -45,6 +45,37 @@ blueprint:
           domain: camera
           integration: bticino_intercom
 
+    # --- Notification behaviour ---
+    silent_urgent:
+      name: Silent urgent mode
+      description: >
+        When OFF (default), the notification rings loudly on the alarm
+        stream channel and bypasses Do Not Disturb — matches the previous
+        blueprint behaviour.
+
+        When ON, the notification still bypasses Do Not Disturb and shows
+        on the lock screen, but plays NO sound. Vibration follows the
+        pattern below. Useful when the phone is always on silent and the
+        user wants the doorbell to buzz, not ring.
+
+        iOS: switches `interruption-level` from `critical` to
+        `time-sensitive`. Android: switches the channel from
+        `alarm_stream` to a silent high-importance channel
+        (`bticino_doorbell_silent`) created on first delivery.
+      default: false
+      selector:
+        boolean:
+    vibration_pattern:
+      name: Vibration pattern
+      description: >
+        Comma-separated milliseconds (off, on, off, on, ...). Only used when
+        Silent urgent mode is ON. The default mimics an intermittent
+        phone-call buzz for ~7 seconds per notification — increase the
+        repetitions to extend it. Empty string disables vibration.
+      default: '0, 1000, 500, 1000, 500, 1000, 500, 1000'
+      selector:
+        text:
+
     # --- Localization (override the defaults to translate the notification) ---
     notification_title:
       name: Notification title
@@ -89,6 +120,8 @@ variables:
   answer_label_text: !input answer_label
   open_door_label_text: !input open_door_label
   reject_label_text: !input reject_label
+  silent_urgent_value: !input silent_urgent
+  vibration_pattern_value: !input vibration_pattern
 
 trigger:
   - platform: event
@@ -134,14 +167,12 @@ action:
               {{ trigger.event.data.name | default(notification_message_default_text) }}
             data:
               tag: bticino_call_active
-              push:
-                interruption-level: critical
-                sound:
-                  name: default
-                  critical: 1
-                  volume: 1.0
-              channel: alarm_stream
+              channel: "{{ 'bticino_doorbell_silent' if silent_urgent_value else 'alarm_stream' }}"
               importance: high
+              push: >-
+                {{- {'interruption-level': 'time-sensitive'} if silent_urgent_value
+                else {'interruption-level': 'critical', 'sound': {'name': 'default', 'critical': 1, 'volume': 1.0}} -}}
+              vibrationPattern: "{{ vibration_pattern_value if silent_urgent_value else '' }}"
               actions:
                 - action: BTICINO_ANSWER
                   title: '{{ answer_label_text }}'
@@ -175,14 +206,13 @@ action:
             data:
               tag: bticino_call_active
               image: '{{ snapshot_url }}'
-              push:
-                interruption-level: critical
-                sound:
-                  name: default
-                  critical: 1
-                  volume: 0.0
-              channel: alarm_stream
+              channel: "{{ 'bticino_doorbell_silent' if silent_urgent_value else 'alarm_stream' }}"
               importance: high
+              # No vibration / sound on the update — the initial notification
+              # already started ringing. This call only refreshes the image.
+              push: >-
+                {{- {'interruption-level': 'time-sensitive'} if silent_urgent_value
+                else {'interruption-level': 'critical', 'sound': {'name': 'default', 'critical': 1, 'volume': 0.0}} -}}
               actions:
                 - action: BTICINO_ANSWER
                   title: '{{ answer_label_text }}'
