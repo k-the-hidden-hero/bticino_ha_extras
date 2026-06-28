@@ -1,7 +1,7 @@
 # BTicino Intercom Card
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
-[![GitHub Release](https://img.shields.io/github/v/release/k-the-hidden-hero/bticino_ha_extras?include_prereleases)](https://github.com/k-the-hidden-hero/bticino_ha_extras/releases/latest)
+[![GitHub Release](https://img.shields.io/github/v/release/k-the-hidden-hero/bticino_ha_extras)](https://github.com/k-the-hidden-hero/bticino_ha_extras/releases/latest)
 [![CI](https://github.com/k-the-hidden-hero/bticino_ha_extras/actions/workflows/lint.yaml/badge.svg)](https://github.com/k-the-hidden-hero/bticino_ha_extras/actions/workflows/lint.yaml)
 [![GitHub Issues](https://img.shields.io/github/issues/k-the-hidden-hero/bticino_intercom)](https://github.com/k-the-hidden-hero/bticino_intercom/issues)
 [![License](https://img.shields.io/github/license/k-the-hidden-hero/bticino_ha_extras)](LICENSE)
@@ -46,12 +46,15 @@ Click the button above to add the repository. If the button doesn't work, add it
 
 1. In HACS, find **BTicino Intercom Card** in the Frontend list (search if needed)
 2. Click on it, then click **Download** (bottom right)
-3. Select the latest version (enable **"Show beta versions"** for RC releases) and confirm
+3. Select the latest version and confirm
 4. **Restart Home Assistant**
 
-The card resource is registered automatically by HACS. No manual resource setup needed.
+HACS registers the card resource automatically — no manual resource setup needed. New
+versions are offered straight from HACS: just **Update** and hard-refresh the browser.
 
-### Manual
+### Manual (without HACS)
+
+> Only needed if you don't use HACS. HACS is the recommended path and handles updates for you.
 
 Copy `dist/bticino-intercom-card.js` to your `config/www/` directory, then add it as a dashboard resource:
 
@@ -129,35 +132,7 @@ When the doorbell rings:
 - Tap **Open Door** to unlock without answering
 - Tap **Reject** to dismiss
 
-## v2.0 Beta Testing
-
-The custom card is a key part of the v2.0 beta. Here's how to set up for testing.
-
-### Quick setup
-
-1. Download `bticino-intercom-card.js` from the [latest release](https://github.com/k-the-hidden-hero/bticino_ha_extras/releases)
-2. Copy to your HA `config/www/` directory
-3. Add as a resource: **Settings > Dashboards > Resources > Add Resource**
-   - URL: `/local/bticino-intercom-card.js`
-   - Type: **JavaScript Module**
-4. Hard-refresh the browser (`Ctrl+Shift+R`) to clear cache
-5. Add the card to your dashboard (see example below)
-
-### Dashboard example
-
-```yaml
-type: custom:bticino-intercom-card
-intercoms:
-  - name: Citofono
-    camera: camera.bticino_intercom_front_door
-    actions:
-      - entity: lock.front_gate
-        service: lock.unlock
-      - entity: lock.main_door
-        service: lock.unlock
-```
-
-### Browser compatibility
+## Browser Compatibility
 
 | Browser | Status | Notes |
 |---|---|---|
@@ -174,19 +149,33 @@ intercoms:
 > [!NOTE]
 > The browser limitation is a BTicino device firmware issue (BNC1 hardcodes Chrome/libwebrtc RTP payload types regardless of SDP negotiation). The official Netatmo app works on all platforms because it bundles the same `libwebrtc` engine as Chrome. See the [Firefox investigation](https://github.com/k-the-hidden-hero/bticino_intercom/blob/main/docs/firefox-webrtc-investigation.md) for the full analysis.
 
-### Updating the card
+## Updating
 
-When a new version is released:
-1. Download the new `bticino-intercom-card.js`
-2. Replace the file in `config/www/`
-3. Hard-refresh the browser (`Ctrl+Shift+R`) — this is required to clear the cached version
+When a new version is released, open **HACS**, find **BTicino Intercom Card**, click
+**Update**, then hard-refresh the browser (`Ctrl+Shift+R`) to clear the cached version.
+(Manual installs: replace `bticino-intercom-card.js` in `config/www/` and hard-refresh.)
 
-### Reporting issues
+## Reporting Issues
 
 Please open issues on the [bticino_intercom](https://github.com/k-the-hidden-hero/bticino_intercom/issues) repository (not here) with:
 - Your HA version, browser, integration version
 - The browser console log (F12 > Console) if applicable
 - Steps to reproduce
+
+## Development
+
+The card is a single self-contained file (`dist/bticino-intercom-card.js`) — there is no
+build step. A small regression suite drives the real editor element in a headless DOM
+(happy-dom) to guard against config-editor regressions:
+
+```bash
+npm install
+npm test
+```
+
+Versioning follows Home Assistant-style CalVer (`YYYY.M.MICRO`). Releases are cut by
+pushing a `v*` tag, which the release workflow validates (ESLint, Prettier, HACS) and
+publishes with the card asset attached.
 
 ## Related Projects
 
