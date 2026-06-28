@@ -37,4 +37,14 @@ export default [
       'no-eval': 'error',
     },
   },
+  {
+    files: ['test/**/*.js'],
+    languageOptions: {
+      globals: {
+        process: 'readonly',
+        structuredClone: 'readonly',
+        globalThis: 'readonly',
+      },
+    },
+  },
 ];
