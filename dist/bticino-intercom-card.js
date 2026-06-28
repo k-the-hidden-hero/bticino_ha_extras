@@ -38,7 +38,7 @@
  * @license MIT
  */
 
-const CARD_VERSION = '0.3.0';
+const CARD_VERSION = '2026.6.0';
 
 // ---------------------------------------------------------------------------
 // i18n — covers all BTicino intercom markets
@@ -2321,6 +2321,13 @@ class BticinoIntercomCardEditor extends HTMLElement {
         picker.allowCustomEntity = true;
         picker.dataset.icField = 'camera';
         picker.dataset.icIdx = String(i);
+        // Pickers are created asynchronously, after _bindIntercomEvents() has
+        // already run, so the global [data-ic-field] listener never reaches them.
+        // Bind here or the camera selection is silently dropped (see issue #60).
+        picker.addEventListener('value-changed', (e) => {
+          this._config.intercoms[i].camera = e.detail?.value ?? '';
+          this._fire();
+        });
         cameraRow.appendChild(picker);
       }
       ic.actions.forEach((a, j) => {
@@ -2334,6 +2341,11 @@ class BticinoIntercomCardEditor extends HTMLElement {
           picker.dataset.actField = 'entity';
           picker.dataset.icIdx = String(i);
           picker.dataset.actIdx = String(j);
+          // Same async-binding gap as the camera picker above (issue #60).
+          picker.addEventListener('value-changed', (e) => {
+            this._config.intercoms[i].actions[j].entity = e.detail?.value ?? '';
+            this._fire();
+          });
           actionRow.appendChild(picker);
         }
       });

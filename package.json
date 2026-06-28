@@ -1,0 +1,12 @@
+{
+  "name": "bticino-ha-extras",
+  "version": "2026.6.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "happy-dom": "^20.0.0"
+  }
+}
