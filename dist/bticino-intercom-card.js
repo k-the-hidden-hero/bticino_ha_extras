@@ -616,7 +616,9 @@ const CARD_STYLES = `
     font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px;
   }
   .history-badge.incoming_call { background: rgba(255,152,0,0.2); color: #ffa726; }
+  .history-badge.missed_call { background: rgba(255,152,0,0.2); color: #ffa726; }
   .history-badge.answered_elsewhere { background: rgba(76,175,80,0.2); color: #66bb6a; }
+  .history-badge.accepted_call { background: rgba(76,175,80,0.2); color: #66bb6a; }
   .history-badge.terminated { background: rgba(244,67,54,0.2); color: #ef5350; }
   .history-detail {
     position: absolute; inset: 0; z-index: 21;
@@ -1691,10 +1693,20 @@ class BticinoIntercomCard extends HTMLElement {
       return;
     }
 
-    const EVENT_LABELS = { incoming_call: 'Missed', answered_elsewhere: 'Answered', terminated: 'Rejected' };
+    // incoming_call is a record the integration never closed (still ringing,
+    // or HA restarted mid-call); missed_call is an explicitly missed one.
+    const EVENT_LABELS = {
+      incoming_call: 'Missed',
+      missed_call: 'Missed',
+      answered_elsewhere: 'Answered',
+      accepted_call: 'Answered',
+      terminated: 'Rejected',
+    };
     const EVENT_ICONS = {
       incoming_call: 'mdi:phone-missed',
+      missed_call: 'mdi:phone-missed',
       answered_elsewhere: 'mdi:phone-in-talk',
+      accepted_call: 'mdi:phone-in-talk',
       terminated: 'mdi:phone-hangup',
     };
 
@@ -1738,10 +1750,20 @@ class BticinoIntercomCard extends HTMLElement {
     this._detailEntryId = entryId;
 
     const m = event.title?.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}) — (.+?) \((\w+)\)$/);
-    const EVENT_LABELS = { incoming_call: 'Missed', answered_elsewhere: 'Answered', terminated: 'Rejected' };
+    // incoming_call is a record the integration never closed (still ringing,
+    // or HA restarted mid-call); missed_call is an explicitly missed one.
+    const EVENT_LABELS = {
+      incoming_call: 'Missed',
+      missed_call: 'Missed',
+      answered_elsewhere: 'Answered',
+      accepted_call: 'Answered',
+      terminated: 'Rejected',
+    };
     const EVENT_ICONS = {
       incoming_call: 'mdi:phone-missed',
+      missed_call: 'mdi:phone-missed',
       answered_elsewhere: 'mdi:phone-in-talk',
+      accepted_call: 'mdi:phone-in-talk',
       terminated: 'mdi:phone-hangup',
     };
     const type = m?.[4] || 'incoming_call';
