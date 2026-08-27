@@ -95,3 +95,69 @@ test('changing an action entity picker persists via config-changed (issue #60)',
   const cfg = events.at(-1);
   assert.equal(cfg.intercoms[0].actions[0].entity, 'lock.new_lock');
 });
+
+// ---- Call Home ------------------------------------------------------------------
+// The indoor monitor is a separate, voice-only camera entity. The card dials it
+// through a second button, so the editor needs its own picker and the config has
+// to round-trip the extra key.
+
+test('call home picker is created in the editor', async () => {
+  const editor = await makeEditor();
+  const picker = editor.shadowRoot.querySelector('[data-ic-field="call_home"]');
+  assert.ok(picker, 'call_home ha-entity-picker should be present in the editor');
+});
+
+test('choosing a call home camera persists via config-changed', async () => {
+  const editor = await makeEditor();
+  const events = captureConfigChanged(editor);
+  const picker = editor.shadowRoot.querySelector('[data-ic-field="call_home"]');
+
+  fireValueChanged(picker, 'camera.intercom_call_home');
+
+  assert.equal(events.length, 1);
+  assert.equal(events[0].intercoms[0].call_home, 'camera.intercom_call_home');
+});
+
+test('call home is omitted from the config when left empty', async () => {
+  const editor = await makeEditor();
+  const events = captureConfigChanged(editor);
+  const cam = editor.shadowRoot.querySelector('[data-ic-field="camera"]');
+
+  fireValueChanged(cam, 'camera.new_one');
+
+  assert.equal(Object.hasOwn(events[0].intercoms[0], 'call_home'), false);
+});
+
+test('the card shows one call button without call_home and two with it', async () => {
+  const card = document.createElement('bticino-intercom-card');
+  document.body.appendChild(card);
+  card.hass = { language: 'it', states: {}, entities: {}, devices: {}, callWS: async () => ({}) };
+
+  card.setConfig(structuredClone(BASE_CONFIG));
+  assert.ok(card.shadowRoot.getElementById('call-pill'), 'the entrance button is always present');
+  assert.equal(card.shadowRoot.getElementById('call-home-pill'), null);
+
+  const withHome = structuredClone(BASE_CONFIG);
+  withHome.intercoms[0].call_home = 'camera.intercom_call_home';
+  card.setConfig(withHome);
+
+  const homePill = card.shadowRoot.getElementById('call-home-pill');
+  assert.ok(homePill, 'the call home button appears once call_home is configured');
+  assert.match(homePill.textContent, /Casa/);
+  assert.match(card.shadowRoot.getElementById('call-pill').textContent, /Esterno/);
+});
+
+test('call home negotiates audio only, the entrance keeps video', async () => {
+  const card = document.createElement('bticino-intercom-card');
+  const withHome = structuredClone(BASE_CONFIG);
+  withHome.intercoms[0].call_home = 'camera.intercom_call_home';
+  card.setConfig(withHome);
+
+  card._callTarget = 'home';
+  assert.equal(card._callEntity, 'camera.intercom_call_home');
+  assert.equal(card._callWantsVideo, false);
+
+  card._callTarget = 'external';
+  assert.equal(card._callEntity, 'camera.old_one');
+  assert.equal(card._callWantsVideo, true);
+});
