@@ -23,6 +23,10 @@
  *   intercoms:
  *     - name: Front Door
  *       camera: camera.front_door
+ *       # Optional: voice-only camera that rings the indoor monitor. When set,
+ *       # the card shows two buttons — "Entrance" (audio + video) and
+ *       # "Home" (audio only) — instead of a single "Call".
+ *       call_home: camera.front_door_call_home
  *       actions:
  *         - entity: lock.entity_id
  *           icon: mdi:gate
@@ -47,6 +51,8 @@ const CARD_VERSION = '2026.6.0';
 const TRANSLATIONS = {
   en: {
     call: 'Call',
+    call_home: 'Home',
+    call_external: 'Entrance',
     connecting: 'Connecting...',
     someone_at_door: 'Someone at the door',
     answer: 'Answer',
@@ -58,6 +64,8 @@ const TRANSLATIONS = {
   },
   it: {
     call: 'Chiama',
+    call_home: 'Casa',
+    call_external: 'Esterno',
     connecting: 'Connessione in corso...',
     someone_at_door: 'Qualcuno alla porta',
     answer: 'Rispondi',
@@ -69,6 +77,8 @@ const TRANSLATIONS = {
   },
   fr: {
     call: 'Appeler',
+    call_home: 'Maison',
+    call_external: 'Platine',
     connecting: 'Connexion en cours...',
     someone_at_door: 'Quelqu’un à la porte',
     answer: 'Répondre',
@@ -80,6 +90,8 @@ const TRANSLATIONS = {
   },
   es: {
     call: 'Llamar',
+    call_home: 'Casa',
+    call_external: 'Placa',
     connecting: 'Conectando...',
     someone_at_door: 'Alguien en la puerta',
     answer: 'Responder',
@@ -91,6 +103,8 @@ const TRANSLATIONS = {
   },
   de: {
     call: 'Anrufen',
+    call_home: 'Zuhause',
+    call_external: 'Türstation',
     connecting: 'Verbindung wird hergestellt...',
     someone_at_door: 'Jemand an der Tür',
     answer: 'Annehmen',
@@ -102,6 +116,8 @@ const TRANSLATIONS = {
   },
   pt: {
     call: 'Ligar',
+    call_home: 'Casa',
+    call_external: 'Botoneira',
     connecting: 'Conectando...',
     someone_at_door: 'Alguém na porta',
     answer: 'Atender',
@@ -113,6 +129,8 @@ const TRANSLATIONS = {
   },
   nl: {
     call: 'Bellen',
+    call_home: 'Thuis',
+    call_external: 'Buitenpost',
     connecting: 'Verbinden...',
     someone_at_door: 'Iemand aan de deur',
     answer: 'Beantwoorden',
@@ -124,6 +142,8 @@ const TRANSLATIONS = {
   },
   tr: {
     call: 'Ara',
+    call_home: 'Ev',
+    call_external: 'Kapı paneli',
     connecting: 'Bağlanıyor...',
     someone_at_door: 'Kapıda biri var',
     answer: 'Yanıtla',
@@ -135,6 +155,8 @@ const TRANSLATIONS = {
   },
   el: {
     call: 'Κλήση',
+    call_home: 'Σπίτι',
+    call_external: 'Εξωτερική',
     connecting: 'Σύνδεση...',
     someone_at_door: 'Κάποιος στην πόρτα',
     answer: 'Απάντηση',
@@ -146,6 +168,8 @@ const TRANSLATIONS = {
   },
   ar: {
     call: 'اتصال',
+    call_home: 'المنزل',
+    call_external: 'البوابة',
     connecting: 'جاري الاتصال...',
     someone_at_door: 'شخص عند الباب',
     answer: 'رد',
@@ -352,6 +376,8 @@ const CARD_STYLES = `
     flex-shrink: 0; transition: background 0.15s, transform 0.1s;
   }
   .call-pill:hover { background: #43a047; }
+  .call-pill.home { background: #1e88e5; }
+  .call-pill.home:hover { background: #1976d2; }
   .call-pill:active { transform: scale(0.95); }
   .call-pill ha-icon { --mdc-icon-size: 16px; }
 
@@ -743,10 +769,23 @@ class BticinoIntercomCard extends HTMLElement {
     this._savedActionBarHTML = null;
     this._missedCallTimer = null;
     this._lang = 'en';
+    // 'external' = entrance panel (audio + video), 'home' = indoor monitor (audio only)
+    this._callTarget = 'external';
   }
 
   get _activeIntercom() {
     return this._config.intercoms[this._activeIndex];
+  }
+
+  /** Camera entity the current call runs through. */
+  get _callEntity() {
+    const ic = this._activeIntercom;
+    return this._callTarget === 'home' && ic?.call_home ? ic.call_home : ic?.camera;
+  }
+
+  /** Call Home reaches the indoor monitor, which has no camera. */
+  get _callWantsVideo() {
+    return !(this._callTarget === 'home' && this._activeIntercom?.call_home);
   }
 
   set hass(hass) {
@@ -770,6 +809,9 @@ class BticinoIntercomCard extends HTMLElement {
       intercoms: config.intercoms.map((ic) => ({
         name: ic.name,
         camera: ic.camera,
+        // Optional voice-only camera that dials the indoor monitor. When set,
+        // the card offers a second call button alongside the entrance one.
+        call_home: ic.call_home || null,
         icon: ic.icon || null,
         actions: ic.actions || [],
       })),
@@ -859,7 +901,12 @@ class BticinoIntercomCard extends HTMLElement {
             <div class="content-name">${this._esc(this._activeIntercom.name)}</div>
           </div>
           <button class="history-btn" id="history-btn" title="Call history"><ha-icon icon="mdi:history"></ha-icon></button>
-          <button class="call-pill" id="call-pill"><ha-icon icon="mdi:phone"></ha-icon> ${_t('call', this._lang)}</button>
+          ${
+            this._activeIntercom.call_home
+              ? `<button class="call-pill" id="call-pill"><ha-icon icon="mdi:doorbell-video"></ha-icon> ${_t('call_external', this._lang)}</button>
+          <button class="call-pill home" id="call-home-pill"><ha-icon icon="mdi:home-outline"></ha-icon> ${_t('call_home', this._lang)}</button>`
+              : `<button class="call-pill" id="call-pill"><ha-icon icon="mdi:phone"></ha-icon> ${_t('call', this._lang)}</button>`
+          }
         </div>
         <div class="media-wrapper">
           <div class="video-area" id="video-area">
@@ -948,7 +995,8 @@ class BticinoIntercomCard extends HTMLElement {
   _bindEvents() {
     const $ = (id) => this.shadowRoot.getElementById(id);
     $('call-overlay')?.addEventListener('click', () => this._startCall());
-    $('call-pill')?.addEventListener('click', () => this._startCall());
+    $('call-pill')?.addEventListener('click', () => this._startCall('external'));
+    $('call-home-pill')?.addEventListener('click', () => this._startCall('home'));
     $('error-dismiss')?.addEventListener('click', (e) => {
       e.stopPropagation();
       this._dismissError();
@@ -1228,8 +1276,10 @@ class BticinoIntercomCard extends HTMLElement {
 
   // ========== Call / Hang Up ==========
 
-  async _startCall() {
+  async _startCall(target = 'external') {
     if (this._playing) return;
+    // Kept on the instance so a reconnect redials the same target.
+    this._callTarget = this._activeIntercom?.call_home ? target : 'external';
     this.shadowRoot?.querySelector('ha-card')?.classList.add('expanded');
     this._wantPlay = true;
     this._playing = true;
@@ -1360,7 +1410,7 @@ class BticinoIntercomCard extends HTMLElement {
       try {
         const config = await this._hass.callWS({
           type: 'camera/webrtc/get_client_config',
-          entity_id: this._activeIntercom.camera,
+          entity_id: this._callEntity,
         });
         if (config?.configuration?.iceServers?.length) {
           iceServers = config.configuration.iceServers
@@ -1380,7 +1430,9 @@ class BticinoIntercomCard extends HTMLElement {
         direction: 'sendrecv',
         streams: [this._silenceStream],
       });
-      this._pc.addTransceiver('video', { direction: 'recvonly' });
+      // The indoor monitor has no camera; offering video to it only earns a
+      // rejected m-section back, so Call Home negotiates audio alone.
+      if (this._callWantsVideo) this._pc.addTransceiver('video', { direction: 'recvonly' });
       if (micTrack) {
         this._micSender = this._pc.getSenders().find((s) => s.track?.kind === 'audio');
         this._micActive = true;
@@ -1483,7 +1535,7 @@ class BticinoIntercomCard extends HTMLElement {
             JSON.stringify({
               id: msgId,
               type: 'camera/webrtc/offer',
-              entity_id: this._activeIntercom.camera,
+              entity_id: this._callEntity,
               offer: offerSdp,
             }),
           );
@@ -1542,7 +1594,7 @@ class BticinoIntercomCard extends HTMLElement {
       JSON.stringify({
         id: this._candidateMsgId,
         type: 'camera/webrtc/candidate',
-        entity_id: this._activeIntercom.camera,
+        entity_id: this._callEntity,
         session_id: this._sessionId,
         candidate: msg,
       }),
@@ -2151,6 +2203,7 @@ class BticinoIntercomCardEditor extends HTMLElement {
       intercoms: (config.intercoms || []).map((ic) => ({
         name: ic.name || '',
         camera: ic.camera || '',
+        call_home: ic.call_home || '',
         icon: ic.icon || '',
         actions: (ic.actions || []).map((a) => ({
           entity: a.entity || '',
@@ -2183,6 +2236,7 @@ class BticinoIntercomCardEditor extends HTMLElement {
           return ao;
         }),
       };
+      if (ic.call_home) out.call_home = ic.call_home;
       if (ic.icon) out.icon = ic.icon;
       if (!out.actions.length) delete out.actions;
       return out;
@@ -2267,6 +2321,7 @@ class BticinoIntercomCardEditor extends HTMLElement {
           <ha-icon-picker label="Icon (optional)" data-ic-field="icon" data-ic-idx="${i}"></ha-icon-picker>
         </div>
         <div class="row" id="ed-camera-row-${i}"></div>
+        <div class="row" id="ed-callhome-row-${i}"></div>
         <button class="actions-toggle" data-toggle-actions="${i}">
           <span class="arrow">&#9660;</span> Actions (${ic.actions.length})
         </button>
@@ -2329,6 +2384,23 @@ class BticinoIntercomCardEditor extends HTMLElement {
           this._fire();
         });
         cameraRow.appendChild(picker);
+      }
+      const callHomeRow = this.shadowRoot.getElementById(`ed-callhome-row-${i}`);
+      if (callHomeRow) {
+        const picker = document.createElement('ha-entity-picker');
+        picker.label = 'Call Home camera (optional)';
+        picker.hass = this._hass;
+        picker.value = ic.call_home || '';
+        picker.includeDomains = ['camera'];
+        picker.allowCustomEntity = true;
+        picker.dataset.icField = 'call_home';
+        picker.dataset.icIdx = String(i);
+        // Bound here for the same reason as the camera picker above (issue #60).
+        picker.addEventListener('value-changed', (e) => {
+          this._config.intercoms[i].call_home = e.detail?.value ?? '';
+          this._fire();
+        });
+        callHomeRow.appendChild(picker);
       }
       ic.actions.forEach((a, j) => {
         const actionRow = this.shadowRoot.getElementById(`ed-action-entity-row-${i}-${j}`);
@@ -2405,7 +2477,7 @@ class BticinoIntercomCardEditor extends HTMLElement {
 
     // Add intercom
     $('ed-add-intercom')?.addEventListener('click', () => {
-      this._config.intercoms.push({ name: '', camera: '', icon: '', actions: [] });
+      this._config.intercoms.push({ name: '', camera: '', call_home: '', icon: '', actions: [] });
       this._renderIntercoms();
       this._bindIntercomEvents();
     });
