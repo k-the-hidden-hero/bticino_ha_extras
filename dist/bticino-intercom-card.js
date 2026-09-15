@@ -38,7 +38,7 @@
  * @license MIT
  */
 
-const CARD_VERSION = '2026.6.0';
+const CARD_VERSION = '2026.9.0';
 
 // ---------------------------------------------------------------------------
 // i18n — covers all BTicino intercom markets
