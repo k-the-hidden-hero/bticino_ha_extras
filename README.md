@@ -81,6 +81,7 @@ type: custom:bticino-intercom-card
 intercoms:
   - name: Front Door
     camera: camera.bticino_intercom_front_door
+    call_home: camera.bticino_intercom_call_home
     actions:
       - entity: lock.front_gate
         service: lock.unlock
@@ -100,6 +101,7 @@ intercoms:
 | `intercoms` | Yes | Array of intercom configurations |
 | `intercoms[].name` | Yes | Display name for the intercom tab |
 | `intercoms[].camera` | Yes | Camera entity from the BTicino Intercom integration |
+| `intercoms[].call_home` | No | Voice-only camera that rings the indoor monitor. When set, the single **Call** button becomes **Entrance** (audio + video) and **Home** (audio only) |
 | `intercoms[].actions` | No | Quick action buttons (entity + service) |
 | `max_actions` | No | Max visible actions before overflow menu (default: 4) |
 | `auto_mic` | No | Auto-enable microphone on call start (default: true) |
@@ -107,6 +109,7 @@ intercoms:
 **Features:**
 
 - **Compact idle** -- minimal footprint with intercom name and "Chiama" button
+- **Call Home** -- with `call_home` set, a second button dials the indoor monitor instead of the entrance panel. That target has no camera, so the call is negotiated audio-only (no video transceiver is offered)
 - **Multi-intercom tabs** -- switch between intercoms via tabs or swipe
 - **Live video** -- WebRTC with real audio (Chrome/Chromium only)
 - **Two-way audio** -- microphone toggle for talking to visitors
