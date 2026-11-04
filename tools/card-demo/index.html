@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BTicino 100X - simulator</title>
+<style>
+:root {
+  --primary-text-color: #212121; --secondary-text-color: #727272; --disabled-text-color: #bdbdbd;
+  --text-primary-color: #ffffff; --divider-color: rgba(0,0,0,.12); --disabled-color: #bdbdbd;
+  --card-background-color: #ffffff; --ha-card-background: #ffffff;
+  --primary-background-color: #fafafa; --secondary-background-color: #e5e5e5;
+  --primary-color: #03a9f4; --accent-color: #ff9800;
+  --blue-color: #2196f3; --red-color: #f44336; --green-color: #4caf50; --amber-color: #ffc107;
+  --orange-color: #ff9800; --purple-color: #9c27b0; --teal-color: #009688; --grey-color: #9e9e9e;
+  --info-color: #039be5; --warning-color: #ffa600; --error-color: #db4437; --success-color: #43a047;
+  --state-icon-color: #44739e; --state-inactive-color: #9e9e9e; --state-unavailable-color: #bdbdbd;
+  --ha-card-border-radius: 12px; --ha-card-border-width: 1px; --ha-card-border-color: var(--divider-color);
+  --ha-font-family-body: Roboto, Noto, sans-serif;
+  --ha-font-size-xs: 10px; --ha-font-size-s: 12px; --ha-font-size-m: 14px; --ha-font-size-l: 16px;
+  --ha-font-size-xl: 20px; --ha-font-size-2xl: 24px; --ha-font-size-3xl: 28px;
+  --ha-font-weight-normal: 400; --ha-font-weight-medium: 500; --ha-font-weight-bold: 700;
+  --ha-space-1: 4px; --ha-space-2: 8px; --ha-space-3: 12px; --ha-space-4: 16px;
+  --ha-border-radius-sm: 4px; --ha-border-radius-md: 8px; --ha-border-radius-lg: 12px;
+  --ha-border-radius-2xl: 20px; --ha-border-radius-3xl: 24px; --ha-border-radius-pill: 9999px;
+  --ha-border-radius-circle: 50%;
+  --mdc-icon-size: 24px;
+}
+html[data-theme="dark"] {
+  --primary-text-color: #e1e1e1; --secondary-text-color: #9b9b9b; --disabled-text-color: #6f6f6f;
+  --divider-color: rgba(225,225,225,.12); --disabled-color: #464646;
+  --card-background-color: #1c1c1c; --ha-card-background: #1c1c1c;
+  --primary-background-color: #111111; --secondary-background-color: #282828;
+  --state-unavailable-color: #6f6f6f;
+}
+body {
+  margin: 0; padding: 20px; background: var(--primary-background-color);
+  color: var(--primary-text-color); font-family: var(--ha-font-family-body);
+  display: grid; grid-template-columns: minmax(320px, 1fr) 300px; gap: 20px; align-items: start;
+}
+@media (max-width: 760px) { body { grid-template-columns: 1fr; } }
+h2 { font-size: 13px; font-weight: 500; color: var(--secondary-text-color); margin: 18px 0 8px; }
+h2:first-of-type { margin-top: 0; }
+.cards { min-width: 0; }
+.cards > div { max-width: 460px; }
+.panel {
+  position: sticky; top: 20px; background: var(--card-background-color);
+  border: 1px solid var(--divider-color); border-radius: 12px; padding: 14px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.panel h3 { margin: 0; font-size: 13px; font-weight: 500; }
+.state { font-size: 13px; padding: 8px 10px; border-radius: 8px; background: var(--secondary-background-color); }
+.state b { font-weight: 600; }
+.row { display: flex; flex-wrap: wrap; gap: 6px; }
+button.sim {
+  flex: 1 1 auto; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--divider-color);
+  background: var(--card-background-color); color: var(--primary-text-color);
+  cursor: pointer; font: inherit; font-size: 12px;
+}
+button.sim:hover { background: var(--secondary-background-color); }
+button.sim:disabled { opacity: .4; cursor: not-allowed; }
+button.sim.go { border-color: var(--primary-color); color: var(--primary-color); }
+.log {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; line-height: 1.5;
+  background: var(--secondary-background-color); border-radius: 8px; padding: 8px;
+  height: 220px; overflow-y: auto; white-space: pre-wrap;
+}
+.log div { color: var(--secondary-text-color); }
+.log div span { color: var(--primary-text-color); }
+</style>
+</head>
+<body>
+<div class="cards">
+  <h2>panel</h2><div id="g1"></div>
+  <h2>panel - citofono grande (220px)</h2><div id="g2"></div>
+  <h2>device</h2><div id="g3"></div>
+  <h2>compact</h2><div id="g4"></div>
+</div>
+
+<div class="panel">
+  <h3>Intercom simulator</h3>
+  <div class="state" id="state"></div>
+  <div class="row">
+    <button class="sim go" id="btn-ring">Ring the doorbell</button>
+  </div>
+  <div class="row">
+    <button class="sim" id="btn-answer">Answer at the monitor</button>
+    <button class="sim" id="btn-visitor">Visitor hangs up</button>
+  </div>
+  <div class="row">
+    <button class="sim" id="btn-notify">Notification: tap Answer</button>
+  </div>
+  <div class="row">
+    <button class="sim" id="btn-offline">Go offline</button>
+    <button class="sim" id="btn-clear">Clear history</button>
+  </div>
+  <div class="row">
+    <button class="sim" onclick="setTheme('light')">Light</button>
+    <button class="sim" onclick="setTheme('dark')">Dark</button>
+    <button class="sim" onclick="setLang('it')">IT</button>
+    <button class="sim" onclick="setLang('en')">EN</button>
+  </div>
+  <h3>Log</h3>
+  <div class="log" id="log"></div>
+</div>
+
+<script type="module">
+import * as mdi from "https://cdn.jsdelivr.net/npm/@mdi/js@7.4.47/mdi.js";
+
+/* ---------------------------------------------- stand-ins for HA elements */
+
+const toCamel = (name) => "mdi" + name.replace("mdi:", "-").replace(/-([a-z0-9])/g, (m, c) => c.toUpperCase());
+customElements.define("ha-icon", class extends HTMLElement {
+  static get observedAttributes() { return ["icon"]; }
+  connectedCallback() { this._draw(); }
+  attributeChangedCallback() { this._draw(); }
+  _draw() {
+    const path = mdi[toCamel(this.getAttribute("icon") || "")] || "";
+    this.innerHTML = `<svg viewBox="0 0 24 24" style="width:var(--mdc-icon-size,24px);height:var(--mdc-icon-size,24px);display:block"><path fill="currentColor" d="${path}"/></svg>`;
+  }
+});
+customElements.define("ha-card", class extends HTMLElement {
+  connectedCallback() {
+    this.style.cssText = "display:block;background:var(--ha-card-background,var(--card-background-color));"
+      + "border-radius:var(--ha-card-border-radius,12px);border:var(--ha-card-border-width,1px) solid var(--ha-card-border-color,var(--divider-color));";
+  }
+});
+customElements.define("home-assistant", class extends HTMLElement {});
+
+/* ------------------------------------------------------ the fake intercom */
+
+const DEVICE = "dev1";
+const ENTRY = "e1";
+const MODULE = "Front door";
+
+const shot = (hue) => "data:image/svg+xml;utf8," + encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">`
+  + `<stop offset="0" stop-color="hsl(${hue},30%,38%)"/><stop offset="1" stop-color="hsl(${hue},25%,16%)"/></linearGradient></defs>`
+  + `<rect width="320" height="240" fill="url(#g)"/><rect x="96" y="40" width="128" height="200" rx="6" fill="hsl(${hue},20%,24%)"/>`
+  + `<circle cx="160" cy="112" r="30" fill="hsl(${hue},18%,52%)"/><rect x="128" y="150" width="64" height="90" rx="26" fill="hsl(${hue},18%,46%)"/></svg>`);
+
+const minutesAgo = (m) => Math.floor((Date.now() - m * 60000) / 1000);
+
+const sim = {
+  ringing: false,
+  talking: false,
+  offline: false,
+  lockOpen: false,
+  light: false,
+  lastCallTs: minutesAgo(38),
+  snapshot: shot(205),
+  // a log long enough to need scrolling in the dialog
+  calls: Array.from({ length: 16 }, (_, i) => ({
+    event_id: `h${i}`,
+    module_name: i % 3 === 2 ? "Gate" : MODULE,
+    timestamp: minutesAgo(38 + i * 340),
+    answered: i % 3 !== 1,
+    event_type: i % 3 !== 1 ? "answered_elsewhere" : "terminated",
+    snapshot: shot((i * 47) % 360),
+    vignette: shot((i * 47) % 360),
+  })),
+  open: null,      // the call being handled right now
+  timers: {},
+};
+
+function log(message) {
+  const line = document.createElement("div");
+  const now = new Date().toLocaleTimeString("en-GB");
+  line.innerHTML = `${now}  <span>${message}</span>`;
+  const box = document.getElementById("log");
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+function clearTimer(name) {
+  if (sim.timers[name]) { clearTimeout(sim.timers[name]); delete sim.timers[name]; }
+}
+
+function ring() {
+  if (sim.ringing || sim.talking) return;
+  const hue = Math.floor(Math.random() * 360);
+  sim.ringing = true;
+  sim.snapshot = shot(hue);
+  sim.lastCallTs = Math.floor(Date.now() / 1000);
+  sim.open = {
+    event_id: `c${Date.now()}`, module_name: MODULE, timestamp: sim.lastCallTs,
+    answered: null, event_type: "incoming_call", snapshot: sim.snapshot, vignette: sim.snapshot,
+  };
+  sim.calls.unshift(sim.open);
+  log("doorbell: incoming call from " + MODULE);
+  clearTimer("ring");
+  sim.timers.ring = setTimeout(() => endCall(false, "nobody answered"), 30000);
+  publish();
+}
+
+function answerAtMonitor() {
+  if (!sim.ringing) return;
+  clearTimer("ring");
+  sim.ringing = false;
+  sim.talking = true;
+  log("answered at the indoor monitor");
+  publish();
+}
+
+function endCall(answered, why) {
+  clearTimer("ring");
+  if (!sim.ringing && !sim.talking) return;
+  sim.ringing = false;
+  sim.talking = false;
+  if (sim.open) {
+    sim.open.answered = answered;
+    sim.open.event_type = answered ? "answered_elsewhere" : "terminated";
+    sim.open = null;
+  }
+  log(`call closed: ${answered ? "answered" : "missed"} (${why})`);
+  publish();
+}
+
+function openDoor() {
+  sim.lockOpen = true;
+  log("lock: released");
+  publish();
+  clearTimer("lock");
+  sim.timers.lock = setTimeout(() => {
+    sim.lockOpen = false;
+    log("lock: closed again");
+    publish();
+  }, 3000);
+}
+
+function toggleLight() {
+  sim.light = !sim.light;
+  log(`stair light: ${sim.light ? "on" : "off"}`);
+  publish();
+  clearTimer("light");
+  if (sim.light) {
+    sim.timers.light = setTimeout(() => {
+      sim.light = false;
+      log("stair light: switched off automatically");
+      publish();
+    }, 10000);
+  }
+}
+
+/* ------------------------------------------------------------ hass object */
+
+let theme = "light";
+let language = "en";
+
+function buildStates() {
+  const off = sim.offline;
+  const put = (entity_id, state, attributes = {}) =>
+    [entity_id, { entity_id, state: off ? "unavailable" : state, attributes, last_changed: new Date().toISOString() }];
+  const answered = sim.calls.filter((c) => c.answered === true).length;
+  const missed = sim.calls.filter((c) => c.answered === false).length;
+  return Object.fromEntries([
+    put("lock.bticino_porta_esterna", sim.lockOpen ? "open" : "locked",
+      { friendly_name: "Street door", supported_features: 1, device_class: "lock" }),
+    put("light.bticino_luce_scale", sim.light ? "on" : "off", { friendly_name: "Stair light", supported_features: 0 }),
+    put("binary_sensor.bticino_chiamata", sim.ringing ? "on" : "off", { friendly_name: MODULE, device_class: "sound" }),
+    put("binary_sensor.bticino_bridge_busy", sim.talking ? "on" : "off", { friendly_name: "Bridge Busy", device_class: "occupancy" }),
+    put("camera.bticino_last_event_snapshot", "idle",
+      { friendly_name: "Last Event Snapshot", supported_features: 0, entity_picture: sim.snapshot,
+        event_time_iso: new Date(sim.lastCallTs * 1000).toISOString() }),
+    put("camera.bticino_ingresso", "idle", { friendly_name: MODULE, supported_features: 2 }),
+    put("camera.bticino_call_home", "idle", { friendly_name: "Call Home", supported_features: 2, icon: "mdi:phone-classic" }),
+    put("sensor.bticino_last_call_timestamp", new Date(sim.lastCallTs * 1000).toISOString(),
+      { friendly_name: "Last Call Timestamp", device_class: "timestamp" }),
+    put("sensor.bticino_calls", String(answered + missed), { friendly_name: "Calls", answered, missed, state_class: "measurement" }),
+    put("sensor.bticino_last_event_type", sim.ringing ? "incoming_call" : "missed_call", { friendly_name: "Last Event Type" }),
+    put("sensor.bticino_bridge_wifi_strength", "-62",
+      { friendly_name: "Bridge WiFi Strength", device_class: "signal_strength", unit_of_measurement: "dBm" }),
+    put("sensor.bticino_bridge_websocket_status", "connected",
+      { friendly_name: "Bridge WebSocket Status", device_class: "enum", options: ["connected", "disconnected"] }),
+    put("event.bticino_doorbell", new Date(sim.lastCallTs * 1000).toISOString(),
+      { friendly_name: "Doorbell", device_class: "doorbell", event_types: ["ring"] }),
+  ]);
+}
+
+const entities = Object.fromEntries(
+  Object.keys(buildStates()).map((id) => [id, {
+    entity_id: id, device_id: DEVICE, platform: "bticino_intercom",
+    entity_category: /bridge_(busy|wifi|websocket)/.test(id) ? "diagnostic" : null,
+  }]),
+);
+
+function makeHass() {
+  return {
+    states: buildStates(),
+    entities,
+    devices: { [DEVICE]: { id: DEVICE, name: "BTicino Intercom - Home", name_by_user: "Front door",
+      model: "BNC1", manufacturer: "BTicino", config_entries: [ENTRY] } },
+    areas: {},
+    language,
+    locale: { language, number_format: "language", time_format: "language", time_zone: "local" },
+    themes: { darkMode: theme === "dark" },
+    config: { time_zone: "Europe/Rome", version: "2026.10.1" },
+    user: { name: "Demo", is_admin: true },
+    formatEntityState: (st) => `${st.state}${st.attributes.unit_of_measurement ? " " + st.attributes.unit_of_measurement : ""}`,
+    callService: async (domain, service, data) => {
+      if (domain === "lock") openDoor();
+      else if (domain === "light") toggleLight();
+      else if (domain === "bticino_intercom" && service === "reject_call") endCall(false, "rejected from the card");
+      else log(`service ${domain}.${service} ${JSON.stringify(data || {})}`);
+    },
+    callWS: async (msg) => {
+      if (msg.type === "bticino_intercom/history") return { events: sim.calls.slice(0, msg.limit || 50) };
+      throw new Error(`command not simulated: ${msg.type}`);
+    },
+  };
+}
+
+/* ------------------------------------------- a call that does not need HA */
+
+/** A moving picture, so the live view has a real video track to show. */
+function fakeCameraStream() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 640;
+  canvas.height = 480;
+  const ctx = canvas.getContext("2d");
+  let frame = 0;
+  const draw = () => {
+    frame += 1;
+    ctx.fillStyle = "#101820";
+    ctx.fillRect(0, 0, 640, 480);
+    ctx.fillStyle = "#1d2a36";
+    ctx.fillRect(220, 60, 200, 420);
+    const bob = Math.sin(frame / 12) * 6;
+    ctx.fillStyle = "#4a6b84";
+    ctx.beginPath();
+    ctx.arc(320, 200 + bob, 48, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(266, 266 + bob, 108, 214);
+    ctx.fillStyle = "#8fa6b8";
+    ctx.font = "16px sans-serif";
+    // kept at the top, clear of the card's own overlay at the bottom
+    ctx.fillText("SIMULATION 640x480", 16, 30);
+    ctx.fillText(new Date().toLocaleTimeString("en-GB"), 540, 30);
+  };
+  const timer = setInterval(draw, 100);
+  draw();
+  const stream = canvas.captureStream(10);
+  return { stream, stop: () => clearInterval(timer) };
+}
+
+class FakeSession {
+  constructor({ entityId, wantsVideo, onState }) {
+    this.entityId = entityId;
+    this.wantsVideo = wantsVideo;
+    this.onState = onState;
+    this.state = "connecting";
+    this.micActive = false;
+    this.error = null;
+    this.stream = new MediaStream();
+  }
+  async start() {
+    log(`WebRTC call to ${this.entityId} (${this.wantsVideo ? "audio and video" : "audio only"})`);
+    this.onState(this);
+    this._timer = setTimeout(() => {
+      if (this.wantsVideo) {
+        this._camera = fakeCameraStream();
+        this.stream = this._camera.stream;
+      }
+      this.state = "live";
+      this.micActive = true;
+      log("call connected, microphone live");
+      this.onState(this);
+    }, 1200);
+  }
+  async setMic(on) {
+    this.micActive = on;
+    log(`microphone ${on ? "on" : "off"}`);
+    this.onState(this);
+  }
+  stop() {
+    clearTimeout(this._timer);
+    this._camera?.stop();
+    this.state = "closed";
+    this.micActive = false;
+    log("call closed");
+    this.onState(this);
+  }
+}
+
+/* ------------------------------------------------------------------ boot */
+
+const cards = [];
+
+/** What the phone does: open the dashboard with ?answer=<camera>. */
+const NOTIFICATION_KEY = "bt-sim-notification";
+function openFromNotification(camera) {
+  sessionStorage.setItem(NOTIFICATION_KEY, JSON.stringify({ camera, at: Date.now() }));
+  const params = new URLSearchParams(location.search);
+  params.set("answer", camera);
+  location.href = `${location.pathname}?${params}`;
+}
+
+function publish() {
+  const hass = makeHass();
+  for (const card of cards) card.hass = hass;
+  renderState();
+}
+
+function renderState() {
+  const where = sim.ringing ? "Incoming call" : sim.talking ? "In a call" : "Idle";
+  document.getElementById("state").innerHTML =
+    `<b>${where}</b><br>lock ${sim.lockOpen ? "released" : "closed"} - light ${sim.light ? "on" : "off"}`
+    + ` - ${sim.offline ? "offline" : "online"}<br>${sim.calls.length} calls in the log`;
+  document.getElementById("btn-ring").disabled = sim.ringing || sim.talking || sim.offline;
+  document.getElementById("btn-answer").disabled = !sim.ringing;
+  document.getElementById("btn-visitor").disabled = !sim.ringing && !sim.talking;
+  document.getElementById("btn-offline").textContent = sim.offline ? "Back online" : "Go offline";
+}
+
+async function boot() {
+  await import("../../dist/bticino-100x-card.js?v=" + Date.now());
+  await customElements.whenDefined("bticino-100x-card");
+
+  // The simulator has no Home Assistant behind it, so the card's real WebRTC
+  // session is swapped for one that just works, to show the whole flow.
+  const CardClass = customElements.get("bticino-100x-card");
+  CardClass.prototype._startStream = function (entityId, mode) {
+    this._stopSession();
+    const session = new FakeSession({
+      entityId,
+      wantsVideo: mode === "video",
+      onState: () => { if (this._session === session && this._root) this._syncStream(); },
+    });
+    this._session = session;
+    this._stream = { entityId, mode };
+    this._soundOn = true;
+    session.start();
+    this._sync();
+  };
+
+  const add = (target, config) => {
+    const card = document.createElement("bticino-100x-card");
+    card.setConfig(config);
+    document.getElementById(target).appendChild(card);
+    cards.push(card);
+  };
+  add("g1", { device_id: DEVICE, layout: "panel" });
+  add("g2", { device_id: DEVICE, layout: "panel", device_size: 220, color: "purple" });
+  add("g3", { device_id: DEVICE, layout: "device" });
+  add("g4", { device_id: DEVICE, layout: "compact" });
+
+  document.getElementById("btn-ring").onclick = ring;
+  document.getElementById("btn-answer").onclick = answerAtMonitor;
+  document.getElementById("btn-visitor").onclick = () => endCall(sim.talking, "the visitor hung up");
+  document.getElementById("btn-offline").onclick = () => {
+    sim.offline = !sim.offline;
+    log(sim.offline ? "bridge offline" : "bridge back online");
+    publish();
+  };
+  document.getElementById("btn-clear").onclick = () => {
+    sim.calls = [];
+    log("history cleared");
+    publish();
+  };
+
+  document.getElementById("btn-notify").onclick = () =>
+    openFromNotification("camera.bticino_ingresso");
+
+  log("simulator ready");
+
+  // Arriving from the notification: the bell is ringing and the card, finding
+  // ?answer= in the address, picks the call up without anyone pressing a thing.
+  let arrival = null;
+  try {
+    arrival = JSON.parse(sessionStorage.getItem(NOTIFICATION_KEY) || "null");
+  } catch (err) {
+    arrival = null;
+  }
+  sessionStorage.removeItem(NOTIFICATION_KEY);
+  if (arrival && Date.now() - arrival.at < 60000) {
+    log(`opened from the notification with ?answer=${arrival.camera}`);
+    ring();
+  }
+
+  publish();
+}
+
+window.setTheme = (value) => { theme = value; document.documentElement.dataset.theme = value; publish(); };
+window.setLang = (value) => { language = value; publish(); };
+boot();
+</script>
+</body>
+</html>
