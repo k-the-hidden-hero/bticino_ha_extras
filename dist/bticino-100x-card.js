@@ -1,9 +1,17 @@
 /**
  * BTicino Classe 100X/300X card for Home Assistant.
  *
- * Two layouts, same data:
+ * Four layouts, same data:
  *   layout: panel   - a native tile card with the intercom drawn beside it (default)
  *   layout: device  - the drawing leads, its own keys are the controls
+ *   layout: compact - the tile and its buttons, no drawing
+ *   layout: kiosk   - fills its container (a panel view on a wall tablet, a phone, a
+ *                     View Assist screen): the picture as large as it gets, big
+ *                     controls beside it in landscape and under it in portrait.
+ *                     ?camera=<camera entity> in the address picks the unit to show.
+ *
+ * With more than one external unit, the card answers the one that rang and
+ * offers a unit picker while idle.
  *
  * Every colour comes from a Home Assistant theme token, so the card follows
  * light, dark and custom themes without a single hard-coded value.
@@ -55,6 +63,10 @@ const STRINGS = {
     sound_on: 'Sound on',
     sound_off: 'Sound off',
     browser_warning: 'Chrome or another Chromium browser is needed for audio and video.',
+    mic_denied: 'Microphone blocked',
+    mic_insecure: 'The microphone needs HTTPS',
+    mic_missing: 'No microphone found',
+    unit: 'External unit',
   },
   it: {
     idle: 'A riposo',
@@ -75,7 +87,7 @@ const STRINGS = {
     never: 'Nessuna chiamata',
     recent: 'Chiamate recenti',
     no_device: 'Scegli un citofono BTicino nelle impostazioni della card.',
-    no_entities: 'Nessuna entita BTicino trovata per questo dispositivo.',
+    no_entities: 'Nessuna entità BTicino trovata per questo dispositivo.',
     standby: 'A riposo',
     close: 'Chiudi',
     call_answered: 'Risposta',
@@ -94,6 +106,10 @@ const STRINGS = {
     sound_on: 'Audio acceso',
     sound_off: 'Audio spento',
     browser_warning: 'Per audio e video serve Chrome o un browser Chromium.',
+    mic_denied: 'Microfono bloccato',
+    mic_insecure: 'Il microfono richiede HTTPS',
+    mic_missing: 'Nessun microfono trovato',
+    unit: 'Posto esterno',
   },
   fr: {
     idle: 'Au repos',
@@ -101,24 +117,24 @@ const STRINGS = {
     talking: 'Communication en cours',
     unavailable: 'Indisponible',
     open_door: 'Ouvrir',
-    light: 'Lumiere escalier',
+    light: 'Lumière escalier',
     reject: 'Refuser',
     live: 'Direct',
-    answer: 'Repondre',
+    answer: 'Répondre',
     opening: 'Ouverture',
     door_open: 'Ouverte',
     last_call: 'Dernier appel',
     calls: 'Appels',
-    answered: 'repondus',
-    missed: 'manques',
+    answered: 'répondus',
+    missed: 'manqués',
     never: 'Aucun appel',
-    recent: 'Appels recents',
-    no_device: 'Choisissez un interphone BTicino dans les reglages de la carte.',
-    no_entities: 'Aucune entite BTicino pour cet appareil.',
+    recent: 'Appels récents',
+    no_device: 'Choisissez un interphone BTicino dans les réglages de la carte.',
+    no_entities: 'Aucune entité BTicino pour cet appareil.',
     standby: 'Veille',
     close: 'Fermer',
-    call_answered: 'Repondu',
-    call_missed: 'Manque',
+    call_answered: 'Répondu',
+    call_missed: 'Manqué',
     call_open: 'Appel',
     call_home: 'Appeler la maison',
     show_all: 'Voir tout',
@@ -127,24 +143,28 @@ const STRINGS = {
     hang_up: 'Raccrocher',
     connecting: 'Connexion en cours',
     reconnecting: 'Reconnexion',
-    call_failed: 'Appel echoue',
+    call_failed: 'Appel échoué',
     mic_on: 'Micro actif',
-    mic_off: 'Micro coupe',
+    mic_off: 'Micro coupé',
     sound_on: 'Son actif',
-    sound_off: 'Son coupe',
-    browser_warning: 'Chrome ou un navigateur Chromium est necessaire pour l audio et la video.',
+    sound_off: 'Son coupé',
+    browser_warning: "Chrome ou un navigateur Chromium est nécessaire pour l'audio et la vidéo.",
+    mic_denied: 'Micro bloqué',
+    mic_insecure: 'Le micro nécessite HTTPS',
+    mic_missing: 'Aucun micro trouvé',
+    unit: 'Platine de rue',
   },
   de: {
     idle: 'Bereit',
     ringing: 'Eingehender Anruf',
-    talking: 'Gespraech laeuft',
-    unavailable: 'Nicht verfuegbar',
-    open_door: 'Oeffnen',
+    talking: 'Gespräch läuft',
+    unavailable: 'Nicht verfügbar',
+    open_door: 'Öffnen',
     light: 'Treppenlicht',
     reject: 'Ablehnen',
     live: 'Live',
     answer: 'Annehmen',
-    opening: 'Oeffnet',
+    opening: 'Öffnet',
     door_open: 'Offen',
     last_call: 'Letzter Anruf',
     calls: 'Anrufe',
@@ -152,10 +172,10 @@ const STRINGS = {
     missed: 'verpasst',
     never: 'Noch keine Anrufe',
     recent: 'Letzte Anrufe',
-    no_device: 'Waehle in den Karteneinstellungen eine BTicino Sprechanlage.',
-    no_entities: 'Keine BTicino Entitaeten fuer dieses Geraet.',
+    no_device: 'Wähle in den Karteneinstellungen eine BTicino-Sprechanlage.',
+    no_entities: 'Keine BTicino-Entitäten für dieses Gerät.',
     standby: 'Standby',
-    close: 'Schliessen',
+    close: 'Schließen',
     call_answered: 'Angenommen',
     call_missed: 'Verpasst',
     call_open: 'Anruf',
@@ -171,7 +191,11 @@ const STRINGS = {
     mic_off: 'Mikrofon aus',
     sound_on: 'Ton an',
     sound_off: 'Ton aus',
-    browser_warning: 'Fuer Ton und Bild wird Chrome oder ein Chromium-Browser benoetigt.',
+    browser_warning: 'Für Ton und Bild wird Chrome oder ein Chromium-Browser benötigt.',
+    mic_denied: 'Mikrofon blockiert',
+    mic_insecure: 'Das Mikrofon erfordert HTTPS',
+    mic_missing: 'Kein Mikrofon gefunden',
+    unit: 'Außenstation',
   },
   es: {
     idle: 'En reposo',
@@ -185,7 +209,7 @@ const STRINGS = {
     answer: 'Responder',
     opening: 'Abriendo',
     door_open: 'Abierta',
-    last_call: 'Ultima llamada',
+    last_call: 'Última llamada',
     calls: 'Llamadas',
     answered: 'contestadas',
     missed: 'perdidas',
@@ -206,11 +230,15 @@ const STRINGS = {
     connecting: 'Conectando',
     reconnecting: 'Reconectando',
     call_failed: 'Llamada fallida',
-    mic_on: 'Microfono activado',
-    mic_off: 'Microfono apagado',
+    mic_on: 'Micrófono activado',
+    mic_off: 'Micrófono apagado',
     sound_on: 'Sonido activado',
     sound_off: 'Sonido apagado',
-    browser_warning: 'Para audio y video hace falta Chrome u otro navegador Chromium.',
+    browser_warning: 'Para audio y vídeo hace falta Chrome u otro navegador Chromium.',
+    mic_denied: 'Micrófono bloqueado',
+    mic_insecure: 'El micrófono requiere HTTPS',
+    mic_missing: 'No se encontró ningún micrófono',
+    unit: 'Placa exterior',
   },
 };
 
@@ -235,6 +263,7 @@ const EDITOR_LABELS = {
     layout_panel: 'Panel - a small drawing above the card',
     layout_device: 'Device - the drawing is the card',
     layout_compact: 'Compact - no drawing',
+    layout_kiosk: 'Kiosk - fills the screen, for wall tablets',
     device_size: 'Drawing size',
   },
   it: {
@@ -249,15 +278,62 @@ const EDITOR_LABELS = {
     show_history: 'Mostra le chiamate recenti',
     auto_answer: 'Rispondi dai link delle notifiche',
     appearance: 'Aspetto',
-    entities: 'Entita',
+    entities: 'Entità',
     camera_entity: 'Telecamera live',
     snapshot_entity: 'Telecamera istantanee',
     lock_entity: 'Serratura',
     light_entity: 'Luce scale',
     layout_panel: 'Pannello - disegno piccolo sopra la card',
-    layout_device: 'Dispositivo - il disegno e la card',
+    layout_device: 'Dispositivo - il disegno è la card',
     layout_compact: 'Compatta - senza disegno',
+    layout_kiosk: 'Kiosk - a tutto schermo, per tablet a parete',
     device_size: 'Dimensione del citofono',
+  },
+  de: {
+    device_id: 'Sprechanlage',
+    name: 'Name',
+    icon: 'Symbol',
+    color: 'Farbe',
+    layout: 'Layout',
+
+    show_badges: 'Badges anzeigen',
+    show_controls: 'Tasten anzeigen',
+    show_history: 'Letzte Anrufe anzeigen',
+    auto_answer: 'Über Links aus Benachrichtigungen annehmen',
+    appearance: 'Darstellung',
+    entities: 'Entitäten',
+    camera_entity: 'Live-Kamera',
+    snapshot_entity: 'Schnappschuss-Kamera',
+    lock_entity: 'Türschloss',
+    light_entity: 'Treppenlicht',
+    layout_panel: 'Panel - eine kleine Zeichnung über der Karte',
+    layout_device: 'Gerät - die Zeichnung ist die Karte',
+    layout_compact: 'Kompakt - ohne Zeichnung',
+    layout_kiosk: 'Kiosk - füllt den Bildschirm, für Wandtablets',
+    device_size: 'Größe der Zeichnung',
+  },
+  fr: {
+    device_id: 'Interphone',
+    name: 'Nom',
+    icon: 'Icône',
+    color: 'Couleur',
+    layout: 'Disposition',
+
+    show_badges: 'Afficher les badges',
+    show_controls: 'Afficher les boutons',
+    show_history: 'Afficher les appels récents',
+    auto_answer: 'Répondre depuis les liens des notifications',
+    appearance: 'Apparence',
+    entities: 'Entités',
+    camera_entity: 'Caméra en direct',
+    snapshot_entity: 'Caméra des instantanés',
+    lock_entity: 'Serrure',
+    light_entity: 'Lumière escalier',
+    layout_panel: 'Panneau - un petit dessin au-dessus de la carte',
+    layout_device: 'Appareil - le dessin est la carte',
+    layout_compact: 'Compacte - sans dessin',
+    layout_kiosk: 'Kiosque - plein écran, pour tablettes murales',
+    device_size: 'Taille du dessin',
   },
 };
 
@@ -399,6 +475,16 @@ function fireEvent(node, type, detail) {
   node.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
 }
 
+/** Undo a subscribeEvents, which may already be gone with its connection. */
+function stopSubscription(unsub) {
+  if (typeof unsub !== 'function') return;
+  try {
+    Promise.resolve(unsub()).catch(() => {});
+  } catch {
+    /* the connection closed first */
+  }
+}
+
 /* ----------------------------------------------------------- the call ---- */
 
 const CALL_STATE = {
@@ -420,6 +506,12 @@ const isChromium = () => {
   if (/Edg\/|Chrome\/|CriOS/i.test(ua) && !/OPR\//i.test(ua)) return true;
   return !/Safari/i.test(ua);
 };
+
+/** Why the microphone is not live, in a word the card can translate. */
+const MIC_ERROR = { DENIED: 'denied', INSECURE: 'insecure', MISSING: 'missing' };
+const micErrorOf = (err) =>
+  err?.name === 'NotFoundError' || err?.name === 'OverconstrainedError' ? MIC_ERROR.MISSING : MIC_ERROR.DENIED;
+const micUsable = () => !!(window.isSecureContext && navigator.mediaDevices?.getUserMedia);
 
 /**
  * One WebRTC call with the intercom.
@@ -447,6 +539,8 @@ class BticinoCallSession {
     this.stream = new MediaStream();
     this.state = CALL_STATE.CONNECTING;
     this.micActive = false;
+    /** null, or one of MIC_ERROR: the call goes on with silence either way. */
+    this.micError = null;
     this.error = null;
     this._wanted = true;
     this._reconnects = 0;
@@ -463,12 +557,16 @@ class BticinoCallSession {
   async start() {
     this._audioCtx = new AudioContext();
     // Asking once up front means the first words are not lost to a prompt.
-    if (window.isSecureContext && navigator.mediaDevices?.getUserMedia) {
+    if (micUsable()) {
       try {
         this._micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      } catch {
+        this.micError = null;
+      } catch (err) {
         this._micStream = null;
+        this.micError = micErrorOf(err);
       }
+    } else {
+      this.micError = MIC_ERROR.INSECURE;
     }
     await this._connect();
   }
@@ -668,8 +766,9 @@ class BticinoCallSession {
   async setMic(on) {
     if (on === this.micActive) return;
     if (on) {
-      if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
-        this._set(this.state, 'microphone needs https');
+      if (!micUsable()) {
+        this.micError = MIC_ERROR.INSECURE;
+        this.onState(this);
         return;
       }
       try {
@@ -682,8 +781,11 @@ class BticinoCallSession {
           this._micSender = sender;
         }
         this.micActive = true;
-      } catch {
+        this.micError = null;
+      } catch (err) {
+        // the call carries on with silence, and the card says why
         this.micActive = false;
+        this.micError = micErrorOf(err);
       }
     } else {
       if (this._micSender && this._silenceTrack) await this._micSender.replaceTrack(this._silenceTrack);
@@ -777,6 +879,7 @@ function resolveEntities(hass, deviceId) {
     locks: [],
     lights: [],
     doorbells: [],
+    doorbellEvents: [],
     liveCameras: [],
     busy: null,
     event: null,
@@ -790,14 +893,18 @@ function resolveEntities(hass, deviceId) {
     all: [],
   };
 
+  // the modules that have a doorbell, hidden ones included: those are the external units
+  const doorbellModules = new Set();
+
   for (const entry of Object.values(hass.entities || {})) {
     if (entry.platform !== DOMAIN) continue;
     if (deviceId && entry.device_id !== deviceId) continue;
-    if (entry.hidden) continue;
     const id = entry.entity_id;
     const stateObj = hass.states[id];
     if (!stateObj) continue;
     if (stateObj.attributes.restored) continue;
+    if (isDoorbell(id, stateObj) && stateObj.attributes.module_id) doorbellModules.add(stateObj.attributes.module_id);
+    if (entry.hidden) continue;
     found.all.push(id);
 
     const domain = id.split('.')[0];
@@ -814,6 +921,7 @@ function resolveEntities(hass, deviceId) {
         break;
       case 'event':
         found.event = found.event || id;
+        if (isDoorbell(id, stateObj)) found.doorbellEvents.push(id);
         break;
       case 'binary_sensor':
         if (deviceClass === 'sound') found.doorbells.push(id);
@@ -837,7 +945,29 @@ function resolveEntities(hass, deviceId) {
         break;
     }
   }
+
+  // Since the integration names the module behind each camera, a live camera is
+  // an external unit only if a doorbell shares its module. Call Home carries the
+  // bridge's id, which no doorbell does, so a Call Home whose icon was changed in
+  // the UI is still not taken for an entrance.
+  if (doorbellModules.size) {
+    const units = [];
+    for (const id of found.liveCameras) {
+      const moduleId = hass.states[id]?.attributes.module_id;
+      if (!moduleId || doorbellModules.has(moduleId)) units.push(id);
+      else found.callHome = found.callHome || id;
+    }
+    found.liveCameras = units;
+  }
   return found;
+}
+
+/** A doorbell sensor or doorbell event, the two entities each external unit has. */
+function isDoorbell(id, stateObj) {
+  const deviceClass = stateObj.attributes.device_class;
+  if (id.startsWith('binary_sensor.')) return deviceClass === 'sound';
+  if (id.startsWith('event.')) return !deviceClass || deviceClass === 'doorbell';
+  return false;
 }
 
 /** Override an automatic pick with one the user set in the config. */
@@ -847,6 +977,57 @@ function applyOverrides(found, config) {
   if (config.lock_entity) found.locks = [].concat(config.lock_entity);
   if (config.light_entity) found.lights = [].concat(config.light_entity);
   return found;
+}
+
+/**
+ * The name of an entity without the device name Home Assistant puts in front
+ * of it, so a unit reads "Gate" rather than "Intercom Gate".
+ */
+function shortName(hass, entityId, deviceNames = []) {
+  const full = hass.states[entityId]?.attributes.friendly_name || entityId || '';
+  for (const prefix of deviceNames) {
+    if (prefix && full.length > prefix.length && full.startsWith(`${prefix} `)) return full.slice(prefix.length + 1);
+  }
+  return full;
+}
+
+/**
+ * One external unit per live camera, with the doorbell sensor and the doorbell
+ * event that belong to it. The integration puts a module_id attribute on all
+ * three; before it did, they still shared the module's name, and a lone unit
+ * owns every doorbell there is.
+ */
+function resolveUnits(hass, found, deviceNames = []) {
+  const attr = (id, key) => hass.states[id]?.attributes?.[key] ?? null;
+  const units = found.liveCameras.map((camera) => ({
+    camera,
+    moduleId: attr(camera, 'module_id'),
+    name: shortName(hass, camera, deviceNames),
+    doorbell: null,
+    event: null,
+  }));
+  const friendly = (id) => attr(id, 'friendly_name');
+  const attach = (id, slot) => {
+    const moduleId = attr(id, 'module_id');
+    const free = units.filter((unit) => !unit[slot]);
+    const unit =
+      (moduleId && free.find((item) => item.moduleId === moduleId)) ||
+      free.find((item) => !(moduleId && item.moduleId) && friendly(id) && friendly(id) === friendly(item.camera)) ||
+      (units.length === 1 && free.length === 1 && !(moduleId && units[0].moduleId) ? free[0] : null);
+    if (!unit) return;
+    unit[slot] = id;
+    if (!unit.moduleId && moduleId) unit.moduleId = moduleId;
+  };
+  for (const id of found.doorbells) attach(id, 'doorbell');
+  for (const id of found.doorbellEvents) attach(id, 'event');
+  return units;
+}
+
+/** An image URL that changes when the picture does, so the browser fetches it again. */
+function freshUrl(url, stamp) {
+  if (!url) return null;
+  if (stamp === undefined || stamp === null || stamp === '' || /^(data|blob):/.test(url)) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}_=${encodeURIComponent(stamp)}`;
 }
 
 /* ------------------------------------------------------- the 100X, in paths */
@@ -935,7 +1116,7 @@ function keyMarkers() {
 function deviceSvg(interactive) {
   const key = (cls, label, inner) =>
     interactive
-      ? `<g class="bt-key ${cls}" data-key="${cls}" role="button" tabindex="0" aria-label="${label}"><rect class="bt-hit" x="-16" y="-14" width="32" height="28" rx="10"/>${inner}</g>`
+      ? `<g class="bt-key ${cls}" data-key="${cls}" role="button" tabindex="0" aria-label="${label}"><rect class="bt-hit" x="-19.5" y="-17" width="39" height="34" rx="10"/>${inner}</g>`
       : `<g class="bt-key ${cls}">${inner}</g>`;
 
   return `
@@ -978,7 +1159,16 @@ const STYLE = `
   --radius: var(--ha-card-features-border-radius, var(--ha-border-radius-lg, 12px));
   /* A powered-off display is dark in any theme; a theme can still override it. */
   --bt-screen: var(--bticino-screen-color, #0d1116);
+  /* white text on these stays above 4.5:1, which the theme's own green and red do not */
+  --bt-success-strong: var(--success-color, #43a047);
+  --bt-success-strong: color-mix(in srgb, var(--success-color, #43a047) 75%, black);
+  --bt-error-strong: var(--error-color, #db4437);
+  --bt-error-strong: color-mix(in srgb, var(--error-color, #db4437) 85%, black);
 }
+/* a kiosk fills whatever holds it: a panel view, a View Assist screen */
+:host([kiosk]) { height: 100%; }
+/* hidden means hidden, whatever display a class gives the element */
+[hidden] { display: none !important; }
 ha-card { height: 100%; overflow: hidden; }
 .card {
   display: flex;
@@ -1000,7 +1190,7 @@ button:disabled { cursor: not-allowed; }
 .head {
   display: flex; align-items: center; gap: 10px;
   /* no extra padding: the header's top edge lines up with the side margins */
-  min-height: 36px; padding: 0;
+  min-height: 44px; padding: 0;
   cursor: pointer; outline: none;
   border-radius: var(--ha-card-border-radius, 12px);
 }
@@ -1099,8 +1289,23 @@ button:disabled { cursor: not-allowed; }
   position: absolute; inset-inline-end: 6px; bottom: 6px; z-index: 2;
   display: flex; gap: 2px;
 }
-.stream-controls .icon-button { width: 36px; height: 36px; color: var(--text-primary-color, #fff); }
-.stream-controls .icon-button.on { color: var(--tile-color); }
+/* over a picture of any brightness: white on a dark disc when off, dark on a
+   white disc when on, so the two states read apart without relying on hue */
+.stream-controls { gap: 6px; }
+.stream-controls .icon-button { width: 44px; height: 44px; color: #fff; background: rgba(0, 0, 0, 0.6); }
+.stream-controls .icon-button.on { color: #111; background: rgba(255, 255, 255, 0.92); }
+/* a refused microphone is a state, not a silence: it shows, and a tap asks again */
+.stream-controls .icon-button.blocked { color: #fff; background: var(--bt-error-strong); }
+.stream-note {
+  position: absolute; inset-inline-start: 10px; top: 10px; z-index: 2; max-width: calc(100% - 20px);
+  display: flex; align-items: center; gap: 6px; padding: 6px 10px; box-sizing: border-box;
+  border-radius: var(--ha-border-radius-pill, 9999px);
+  background: rgba(0, 0, 0, 0.72); color: #fff;
+  font-size: var(--ha-font-size-s, 12px); font-weight: var(--ha-font-weight-medium, 500); line-height: 16px;
+  --mdc-icon-size: 16px;
+}
+.stream-note[hidden] { display: none; }
+.stream-note span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stream-overlay {
   position: absolute; inset: 0; z-index: 1;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
@@ -1127,9 +1332,14 @@ button:disabled { cursor: not-allowed; }
 }
 .stream.audio .stream-video { display: none; }
 .stream.audio .stream-overlay { position: static; color: var(--primary-text-color); }
-.stream.audio .stream-controls .icon-button { color: var(--secondary-text-color); }
-.stream.audio .stream-controls .icon-button.on { color: var(--tile-color); }
+.stream.audio .stream-controls .icon-button { color: var(--secondary-text-color); background: none; }
+.stream.audio .stream-controls .icon-button.on {
+  color: var(--primary-text-color);
+  background: color-mix(in srgb, var(--primary-text-color) 14%, transparent);
+}
+.stream.audio .stream-controls .icon-button.blocked { color: #fff; background: var(--bt-error-strong); }
 .stream.audio .stream-label { display: none; }
+.stream.audio .stream-note { position: static; align-self: center; margin: 0 auto var(--ha-space-3, 12px); }
 
 .device-caption {
   font-size: var(--ha-font-size-xs, 10px); line-height: 1.2; letter-spacing: 0.4px;
@@ -1154,15 +1364,6 @@ button:disabled { cursor: not-allowed; }
 .screen .placeholder span {
   font-size: 9px; letter-spacing: 0.4px; text-transform: uppercase;
 }
-.screen .stamp {
-  position: absolute; left: 0; right: 0; bottom: 0;
-  padding: 3px 4px;
-  font-size: 8px; line-height: 1.1; letter-spacing: 0.2px;
-  color: var(--text-primary-color, #fff);
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.62), transparent);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  text-align: start;
-}
 
 /* --- alert -------------------------------------------------------------- */
 .alert {
@@ -1180,13 +1381,14 @@ button:disabled { cursor: not-allowed; }
 /* --- badges ------------------------------------------------------------- */
 .badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .badge {
-  display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px;
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px;
   box-sizing: border-box; min-width: 0;
-  border-radius: var(--ha-badge-border-radius, 16px);
+  border-radius: var(--ha-border-radius-pill, 9999px);
   border: var(--ha-card-border-width, 1px) solid var(--ha-card-border-color, var(--divider-color, #e0e0e0));
 }
 .badge ha-icon { --mdc-icon-size: 16px; margin-inline-start: -2px; color: var(--badge-color, var(--secondary-text-color)); }
-.badge .label { font-size: var(--ha-font-size-xs, 10px); font-weight: 500; line-height: 11px; letter-spacing: 0.1px; color: var(--secondary-text-color); }
+.badge:focus-visible { outline: 2px solid var(--primary-text-color); outline-offset: 2px; }
+.badge .label { font-size: var(--ha-font-size-xs, 10px); font-weight: 500; line-height: 12px; letter-spacing: 0.1px; color: var(--secondary-text-color); }
 .badge .value { font-size: var(--ha-font-size-s, 12px); font-weight: 500; line-height: 1.2; letter-spacing: 0.1px; color: var(--primary-text-color); white-space: nowrap; }
 .badge .stack { display: flex; flex-direction: column; min-width: 0; }
 
@@ -1194,7 +1396,7 @@ button:disabled { cursor: not-allowed; }
 .features { display: flex; gap: 8px; }
 .button {
   position: relative; overflow: hidden; z-index: 0;
-  flex: 1 1 0; min-width: 0; height: 42px;
+  flex: 1 1 0; min-width: 0; min-height: 44px;
   display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 8px;
   border-radius: var(--radius);
   font-size: var(--ha-font-size-m, 14px); font-weight: var(--ha-font-weight-medium, 500);
@@ -1209,10 +1411,10 @@ button:disabled { cursor: not-allowed; }
 .button.tonal::before { background: var(--tile-color); }
 .button.primary::before { background: var(--tile-color); opacity: 1; }
 .button.primary { color: var(--text-primary-color, #fff); }
-.button.danger::before { background: var(--error-color, #db4437); opacity: 1; }
-.button.danger { color: var(--text-primary-color, #fff); }
-.button.success::before { background: var(--success-color, #43a047); opacity: 1; }
-.button.success { color: var(--text-primary-color, #fff); }
+.button.danger::before { background: var(--bt-error-strong); opacity: 1; }
+.button.danger { color: #fff; }
+.button.success::before { background: var(--bt-success-strong); opacity: 1; }
+.button.success { color: #fff; }
 .button.success.flash { animation: bt-flash var(--ha-animation-duration-slow, 350ms) ease-out 2; }
 /* while it rings, the answer button asks to be pressed */
 .button.calling { animation: bt-breathe 2s ease-in-out infinite; }
@@ -1235,7 +1437,7 @@ button:disabled { cursor: not-allowed; }
 .expander {
   position: relative; overflow: hidden; z-index: 0;
   display: flex; align-items: center; gap: 8px;
-  width: 100%; height: 42px; padding: 0 12px; box-sizing: border-box;
+  width: 100%; min-height: 44px; padding: 0 12px; box-sizing: border-box;
   border-radius: var(--radius); outline: none;
   font-size: var(--ha-font-size-m, 14px); font-weight: var(--ha-font-weight-medium, 500);
   color: var(--primary-text-color); --mdc-icon-size: 20px;
@@ -1265,10 +1467,14 @@ button:disabled { cursor: not-allowed; }
 .show-all {
   position: relative; overflow: hidden;
   display: flex; align-items: center; justify-content: center; gap: 6px;
-  width: 100%; height: 36px; padding: 0 12px; box-sizing: border-box;
+  width: 100%; min-height: 44px; padding: 0 12px; box-sizing: border-box;
   border-radius: var(--radius); outline: none;
   font-size: var(--ha-font-size-m, 14px); font-weight: var(--ha-font-weight-medium, 500);
-  color: var(--primary-color); --mdc-icon-size: 18px;
+  /* the theme's primary colour alone is 2.6:1 on a light card; pulled towards
+     the text colour it stays recognisable and passes in light and dark */
+  color: var(--primary-text-color);
+  color: color-mix(in srgb, var(--primary-color) 60%, var(--primary-text-color));
+  --mdc-icon-size: 18px;
 }
 .show-all::before {
   content: ""; position: absolute; inset: 0; pointer-events: none;
@@ -1276,7 +1482,7 @@ button:disabled { cursor: not-allowed; }
   transition: opacity 120ms ease-in-out;
 }
 .show-all:hover::before { opacity: 0.08; }
-.show-all:focus-visible { box-shadow: 0 0 0 2px var(--primary-color); }
+.show-all:focus-visible { box-shadow: 0 0 0 2px var(--primary-text-color); }
 .show-all > * { position: relative; }
 .call {
   position: relative; overflow: hidden; display: flex; align-items: center; gap: 10px;
@@ -1359,7 +1565,7 @@ dialog[open]::backdrop { opacity: 1; }
 }
 .icon-button {
   position: relative; overflow: hidden; flex: none;
-  width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
   border-radius: var(--ha-border-radius-circle, 50%);
   color: var(--secondary-text-color); --mdc-icon-size: 24px; outline: none;
 }
@@ -1387,6 +1593,148 @@ dialog[open]::backdrop { opacity: 1; }
   @starting-style {
     dialog[open] { transform: translateY(24px); }
   }
+}
+
+/* --- the picture at full width ------------------------------------------ */
+/* While it rings, in every layout, the drawing steps aside for the visitor;
+   in a kiosk the picture is always there. */
+.shot {
+  position: relative; align-self: center; width: 100%; max-width: 480px; min-height: 160px; max-height: 70vh;
+  aspect-ratio: var(--bt-shot-aspect, 4 / 3);
+  border-radius: var(--ha-border-radius-lg, 12px); overflow: hidden;
+  background: var(--bt-screen);
+}
+.shot[hidden] { display: none; }
+.shot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
+.shot img[hidden] { display: none; }
+.shot-empty {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; color: rgba(255, 255, 255, 0.78); --mdc-icon-size: 40px;
+  font-size: var(--ha-font-size-m, 14px);
+}
+.shot-empty[hidden] { display: none; }
+/* text over a picture sits on its own dark plate: 4.5:1 whatever the picture */
+.shot-caption {
+  position: absolute; inset-inline-start: 10px; bottom: 10px; z-index: 1;
+  display: flex; align-items: center; gap: 10px; max-width: calc(100% - 20px); box-sizing: border-box;
+  padding: 8px 14px; border-radius: var(--ha-border-radius-lg, 12px);
+  background: rgba(0, 0, 0, 0.72); color: #fff;
+}
+.shot-caption[hidden] { display: none; }
+.shot-dot { flex: none; width: 10px; height: 10px; border-radius: var(--ha-border-radius-circle, 50%); background: #fff; }
+.shot-dot[hidden] { display: none; }
+.ringing .shot-dot { animation: bt-pulse 1.4s ease-in-out infinite; }
+.shot-text { min-width: 0; display: flex; flex-direction: column; }
+.shot-title, .shot-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shot-title { font-size: var(--ha-font-size-l, 16px); font-weight: var(--ha-font-weight-medium, 500); line-height: 22px; }
+.shot-sub { font-size: var(--ha-font-size-m, 14px); line-height: 18px; }
+.shot-title:empty, .shot-sub:empty { display: none; }
+
+/* --- the unit picker ----------------------------------------------------- */
+.units {
+  position: relative; z-index: 0; display: flex; flex-wrap: wrap; gap: 4px; padding: 4px;
+  border-radius: var(--radius);
+}
+.units::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  border-radius: inherit; background: var(--disabled-color, #bdbdbd); opacity: 0.2;
+}
+.units[hidden] { display: none; }
+.unit {
+  /* as wide as its name, sharing what is left; a name too long wraps the row */
+  flex: 1 1 auto; min-width: 0; min-height: 44px; box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 12px;
+  border: 2px solid transparent; border-radius: calc(var(--radius) - 4px); outline: none;
+  font-size: var(--ha-font-size-m, 14px); font-weight: var(--ha-font-weight-medium, 500);
+  color: var(--primary-text-color); --mdc-icon-size: 18px;
+}
+.unit .text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.unit ha-icon { flex: none; }
+.unit[aria-checked="false"] ha-icon { display: none; }
+/* the chosen one carries a border in the text colour and a tick: no hue needed */
+.unit[aria-checked="true"] { border-color: var(--primary-text-color); background: var(--card-background-color, transparent); }
+.unit:hover:not([aria-checked="true"]) { background: color-mix(in srgb, var(--primary-text-color) 6%, transparent); }
+.unit:focus-visible { outline: 2px solid var(--primary-text-color); outline-offset: 2px; }
+
+/* --- while it rings: three large actions --------------------------------- */
+.features[data-mode="ring"] { flex-wrap: wrap; }
+/* the icon over its word, like a phone's call screen: three fit a phone's width */
+.features[data-mode="ring"] .button {
+  flex: 1 1 88px; flex-direction: column; gap: 4px; min-height: 64px; padding: 8px 6px;
+  font-size: var(--ha-font-size-m, 14px); --mdc-icon-size: 24px;
+}
+.features[data-mode="ring"] .text { display: block; max-width: 100%; }
+
+/* --- kiosk layout --------------------------------------------------------- */
+/* Fills its container. Beside the picture in landscape, under it in portrait:
+   the card measures itself (ResizeObserver, with the viewport as fallback)
+   and sets data-orient, so it needs no container query to work in an older
+   WebView. */
+.card[data-layout="kiosk"] { height: 100%; box-sizing: border-box; min-height: 0; }
+.card[data-layout="kiosk"] .primary { font-size: var(--ha-font-size-l, 16px); }
+.card[data-layout="kiosk"] .secondary { font-size: var(--ha-font-size-m, 14px); line-height: 18px; }
+.card[data-layout="kiosk"] .body {
+  flex: 1 1 auto; min-height: 0;
+  display: grid; gap: var(--ha-space-3, 12px);
+  grid-template-columns: minmax(0, 1fr) minmax(184px, 28%);
+  grid-template-rows: minmax(0, 1fr);
+}
+.card[data-layout="kiosk"] .device-wrap,
+.card[data-layout="kiosk"] .badges,
+.card[data-layout="kiosk"] .expander,
+.card[data-layout="kiosk"] .history { display: none; }
+.card[data-layout="kiosk"] .shot,
+.card[data-layout="kiosk"] .stream {
+  grid-column: 1; grid-row: 1; align-self: stretch;
+  width: 100%; max-width: none; height: 100%; min-height: 160px; max-height: none; aspect-ratio: auto;
+}
+.card[data-layout="kiosk"] .stream { display: flex; flex-direction: column; justify-content: center; }
+.card[data-layout="kiosk"] .shot[hidden],
+.card[data-layout="kiosk"] .stream[hidden] { display: none; }
+.card[data-layout="kiosk"] .stream-video { flex: 1 1 auto; min-height: 0; height: 100%; aspect-ratio: auto; }
+.card[data-layout="kiosk"] .stream-controls { inset-inline-end: 10px; bottom: 10px; gap: 10px; }
+.card[data-layout="kiosk"] .stream-controls .icon-button { width: 56px; height: 56px; --mdc-icon-size: 28px; }
+.card[data-layout="kiosk"] .stream-label,
+.card[data-layout="kiosk"] .stream-note { font-size: var(--ha-font-size-m, 14px); }
+.card[data-layout="kiosk"] .shot-title { font-size: var(--ha-font-size-xl, 20px); line-height: 26px; }
+.card[data-layout="kiosk"] .shot-sub { font-size: var(--ha-font-size-l, 16px); line-height: 22px; }
+.card[data-layout="kiosk"] .content {
+  grid-column: 2; grid-row: 1; min-height: 0; overflow-y: auto;
+  /* centred while it fits; when it scrolls, plain centring would cut the top off */
+  justify-content: flex-start;
+  justify-content: safe center;
+}
+.card[data-layout="kiosk"] .features { flex-direction: column; }
+.card[data-layout="kiosk"] .button {
+  flex: 0 0 auto; min-height: 56px; justify-content: flex-start; gap: 12px; padding: 0 16px;
+  font-size: var(--ha-font-size-l, 16px); --mdc-icon-size: 24px;
+}
+.card[data-layout="kiosk"] .button .text { display: block; }
+.card[data-layout="kiosk"] .features[data-mode="ring"] .button {
+  flex-direction: row; gap: 12px; padding: 0 16px;
+  min-height: 72px; font-size: var(--ha-font-size-xl, 20px); --mdc-icon-size: 28px;
+}
+/* a long word wraps onto a second line rather than losing its end */
+.card[data-layout="kiosk"] .button .text {
+  white-space: normal; line-height: 1.2; text-align: start;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.card[data-layout="kiosk"][data-orient="portrait"] .features[data-mode="ring"] .button .text { text-align: center; }
+.card[data-layout="kiosk"] .unit { min-height: 56px; font-size: var(--ha-font-size-l, 16px); }
+.card[data-layout="kiosk"][data-orient="portrait"] .body {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(200px, 1fr) auto;
+}
+.card[data-layout="kiosk"][data-orient="portrait"] .content { grid-column: 1; grid-row: 2; overflow: visible; }
+.card[data-layout="kiosk"][data-orient="portrait"] .features {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+.card[data-layout="kiosk"][data-orient="portrait"] .features[data-mode="ring"] {
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+}
+.card[data-layout="kiosk"][data-orient="portrait"] .features[data-mode="ring"] .button {
+  flex-direction: column; justify-content: center; gap: 4px; min-height: 88px; padding: 8px;
+  font-size: var(--ha-font-size-l, 16px);
 }
 
 /* --- device layout ------------------------------------------------------ */
@@ -1451,6 +1799,23 @@ const DEVICE_WIDTH = { panel: 140, device: 260 };
 const AUTO_ANSWER_PARAM = 'answer';
 let autoAnswerTaken = false;
 
+/**
+ * ?camera=<camera entity> picks the unit a card shows, without calling it: a
+ * View Assist view opened by the doorbell, or a link to one entrance.
+ */
+const CAMERA_PARAM = 'camera';
+
+const LAYOUTS = ['panel', 'device', 'compact', 'kiosk'];
+
+/**
+ * The integration fires this on the bus when a unit rings and when the call
+ * ends, naming the camera of the unit that rang. Home Assistant lets only
+ * administrators subscribe to it, so the doorbell sensors stay the fallback.
+ */
+const CALL_EVENT = `${DOMAIN}_call`;
+/** How long a ring heard on the bus counts by itself, if no end follows. */
+const RING_TTL = 35000;
+
 /** A door the integration reports as released, whatever word it uses for it. */
 const LOCK_OPEN_STATES = ['unlocked', 'open', 'opening'];
 
@@ -1508,6 +1873,13 @@ class Bticino100xCard extends HTMLElement {
     this._stream = null;
     this._session = null;
     this._soundOn = true;
+    this._units = [];
+    this._allUnits = [];
+    /** The camera of the unit picked while idle; null means the first one. */
+    this._selected = null;
+    /** The last ring heard on the bus: { camera, moduleName, snapshot, at }. */
+    this._ring = null;
+    this._badShots = new Set();
   }
 
   setConfig(config) {
@@ -1516,10 +1888,12 @@ class Bticino100xCard extends HTMLElement {
     // show_device: false was how the drawing used to be turned off
     if (this._config.show_device === false) this._config.layout = 'compact';
     delete this._config.show_device;
-    if (!['panel', 'device', 'compact'].includes(this._config.layout)) this._config.layout = 'panel';
+    if (!LAYOUTS.includes(this._config.layout)) this._config.layout = 'panel';
     this.style.setProperty('--bt-accent', colorVar(this._config.color || 'blue'));
+    this.toggleAttribute('kiosk', this._config.layout === 'kiosk');
     this._root = null; // the layout drives the skeleton, so rebuild it
     this.shadowRoot.innerHTML = '';
+    this._observeSize();
     if (this._hass) this._render();
   }
 
@@ -1535,6 +1909,7 @@ class Bticino100xCard extends HTMLElement {
 
   connectedCallback() {
     this._detached = false;
+    this._observeSize();
     if (this._hass) this._render();
     // Relative times go stale between state updates, so refresh them on a tick.
     this._tick =
@@ -1550,19 +1925,26 @@ class Bticino100xCard extends HTMLElement {
       clearInterval(this._tick);
       this._tick = null;
     }
+    this._unsubscribeCalls();
+    this._unobserveSize();
+    clearTimeout(this._ringTimer);
+    this._ringTimer = null;
+    this._ring = null;
     // a WebRTC session must not outlive the card on screen
     this._stopSession();
     this._stream = null;
   }
 
   getCardSize() {
-    const sizes = { device: 6, panel: 4, compact: 3 };
+    const sizes = { device: 6, panel: 4, compact: 3, kiosk: 8 };
     const base = sizes[this._config?.layout] ?? 4;
     return this._expanded ? base + 2 : base;
   }
 
   getGridOptions() {
-    return this._config?.layout === 'device' ? { columns: 12, min_columns: 6 } : { columns: 12, min_columns: 6 };
+    // a kiosk wants a definite height to fill, the others grow with content
+    if (this._config?.layout === 'kiosk') return { columns: 'full', rows: 8, min_columns: 6, min_rows: 5 };
+    return { columns: 12, min_columns: 6 };
   }
 
   _shouldUpdate(old, hass) {
@@ -1576,13 +1958,25 @@ class Bticino100xCard extends HTMLElement {
 
   _render() {
     const hass = this._hass;
-    if (!hass || !this._config) return;
+    const config = this._config;
+    if (!hass || !config) return;
 
-    const found = applyOverrides(resolveEntities(hass, this._config.device_id), this._config);
+    // a card given only a camera (a View Assist view that knows nothing else)
+    // works out the intercom from it
+    const deviceId = this._deviceId();
+    const found = resolveEntities(hass, deviceId);
+    // the units come from the whole device, so a card held to one camera still
+    // knows when another unit is the one ringing
+    const allUnits = resolveUnits(hass, found, this._deviceNames());
+    applyOverrides(found, config);
     this._found = found;
-    this._watched = found.all.slice();
+    this._allUnits = allUnits;
+    this._units = config.camera_entity ? this._overrideUnits(allUnits) : allUnits;
+    this._watched = [
+      ...new Set([...found.all, ...found.liveCameras, found.snapshot, ...found.locks, ...found.lights]),
+    ].filter(Boolean);
 
-    if (!this._config.device_id && !found.all.length) {
+    if (!deviceId && !found.all.length) {
       this._renderNotice(t(hass, 'no_device'));
       return;
     }
@@ -1591,9 +1985,234 @@ class Bticino100xCard extends HTMLElement {
       return;
     }
 
+    this._applyCameraParam();
+    this._subscribeCalls();
     if (!this._root) this._build();
     this._sync();
     this._maybeAutoAnswer();
+  }
+
+  /** The intercom: the configured one, else the device of camera_entity. */
+  _deviceId() {
+    const config = this._config;
+    if (config.device_id) return config.device_id;
+    return (config.camera_entity && this._hass?.entities?.[config.camera_entity]?.device_id) || null;
+  }
+
+  /** The names Home Assistant may have put in front of the entity names. */
+  _deviceNames() {
+    const device = this._hass?.devices?.[this._deviceId()];
+    return [device?.name_by_user, device?.name].filter(Boolean);
+  }
+
+  /** camera_entity holds the card to one unit, known to the device or not. */
+  _overrideUnits(allUnits) {
+    const camera = this._config.camera_entity;
+    const match = allUnits.filter((unit) => unit.camera === camera);
+    if (match.length) return match;
+    const attrs = this._hass.states[camera]?.attributes || {};
+    return [
+      {
+        camera,
+        moduleId: attrs.module_id ?? null,
+        name: shortName(this._hass, camera, this._deviceNames()),
+        doorbell: null,
+        event: null,
+      },
+    ];
+  }
+
+  /* ---------------------------------------------------- units and ringing */
+
+  /** ?camera= picks the unit; read again only when the address changes. */
+  _applyCameraParam() {
+    if (!this._units.length) return;
+    let wanted = null;
+    try {
+      wanted = new URLSearchParams(window.location.search).get(CAMERA_PARAM);
+    } catch {
+      return;
+    }
+    if (wanted === this._cameraParam) return;
+    this._cameraParam = wanted;
+    if (wanted && this._units.some((unit) => unit.camera === wanted)) this._selected = wanted;
+  }
+
+  _selectedUnit() {
+    return this._units.find((unit) => unit.camera === this._selected) || this._units[0] || null;
+  }
+
+  _selectUnit(camera) {
+    if (!camera || camera === this._selectedUnit()?.camera) return;
+    this._selected = camera;
+    // a live view follows the unit being looked at
+    if (this._stream?.mode === 'video' && this._stream.entityId !== camera) {
+      this._startStream(camera, 'video');
+      return;
+    }
+    if (this._root) this._sync();
+  }
+
+  /** The camera that Answer, View and auto-answer act on right now. */
+  _targetCamera(status = this._status()) {
+    if (status.ringing && status.ringUnit) return status.ringUnit.camera;
+    return this._selectedUnit()?.camera || null;
+  }
+
+  _subscribeCalls() {
+    const connection = this._hass?.connection;
+    if (!this.isConnected || typeof connection?.subscribeEvents !== 'function') return;
+    if (this._callSub?.connection === connection) return;
+    this._unsubscribeCalls();
+    const sub = { connection, unsub: null, closed: false };
+    this._callSub = sub;
+    Promise.resolve()
+      .then(() => connection.subscribeEvents((event) => this._onCallEvent(event), CALL_EVENT))
+      .then((unsub) => {
+        if (sub.closed) stopSubscription(unsub);
+        else sub.unsub = unsub;
+      })
+      .catch(() => {
+        // not an administrator, most likely: the doorbell sensors still say
+        // when it rings, and their module_id says which unit
+      });
+  }
+
+  _unsubscribeCalls() {
+    const sub = this._callSub;
+    this._callSub = null;
+    if (!sub) return;
+    sub.closed = true;
+    stopSubscription(sub.unsub);
+  }
+
+  /** A ring or an end from the integration, for this device or another one. */
+  _onCallEvent(event) {
+    const data = event?.data || {};
+    if (!this._hass || !this._found) return;
+    const unit = this._unitForCall(data);
+    if (!unit && !this._ownsEntry(data.entry_id)) return; // another intercom
+    if (data.type === 'ring') {
+      this._ring = {
+        camera: unit?.camera || null,
+        moduleName: data.module_name || null,
+        snapshot: data.vignette_url || data.snapshot_url || null,
+        at: Date.now(),
+        seenOn: false,
+      };
+      clearTimeout(this._ringTimer);
+      this._ringTimer = setTimeout(() => {
+        this._ringTimer = null;
+        if (this._root) this._sync();
+      }, RING_TTL + 100);
+    } else if (data.type === 'end') {
+      if (!this._ring) return;
+      const sameUnit = !unit || !this._ring.camera || this._ring.camera === unit.camera;
+      if (!sameUnit) return;
+      this._ring = null;
+    } else {
+      return;
+    }
+    if (this._root) this._sync();
+  }
+
+  _unitForCall(data) {
+    const units = this._allUnits;
+    return (
+      (data.camera_entity_id && units.find((unit) => unit.camera === data.camera_entity_id)) ||
+      (data.module_id && units.find((unit) => unit.moduleId === data.module_id)) ||
+      (data.module_name && units.find((unit) => unit.name === data.module_name)) ||
+      null
+    );
+  }
+
+  _ownsEntry(entryId) {
+    const deviceId = this._deviceId();
+    if (!deviceId) return true;
+    const entries = this._hass.devices?.[deviceId]?.config_entries;
+    return !!entryId && Array.isArray(entries) && entries.includes(entryId);
+  }
+
+  /**
+   * Whether this card rings, and which unit does: the one the bus named, else
+   * the one whose doorbell is on, else the only one there is.
+   */
+  _ringState() {
+    const hass = this._hass;
+    const isOn = (id) => hass.states[id]?.state === 'on';
+    const anyOn = this._found.doorbells.some(isOn);
+    let ring = this._ring;
+    if (ring) {
+      if (anyOn) ring.seenOn = true;
+      // the sensor going quiet after it rang is the end, should the bus miss it
+      if (Date.now() - ring.at > RING_TTL || (ring.seenOn && !anyOn)) {
+        this._ring = null;
+        ring = null;
+      }
+    }
+    if (!ring && !anyOn) return { ringing: false, unit: null, ring: null };
+
+    const units = this._allUnits;
+    const unit =
+      (ring?.camera && units.find((item) => item.camera === ring.camera)) ||
+      units.find((item) => item.doorbell && isOn(item.doorbell)) ||
+      (units.length === 1 ? units[0] : null);
+    // a card held to one unit stays quiet while another one rings
+    if (unit && !this._units.some((item) => item.camera === unit.camera)) {
+      return { ringing: false, unit: null, ring: null };
+    }
+    return { ringing: true, unit: unit || null, ring };
+  }
+
+  /* -------------------------------------------------------- kiosk shape */
+
+  /** A kiosk lays out by its own shape: controls beside the picture or under it. */
+  _observeSize() {
+    if (this._config?.layout !== 'kiosk' || !this.isConnected) {
+      this._unobserveSize();
+      return;
+    }
+    if (this._resizeObserver || this._onWindowResize) return;
+    if (typeof window.ResizeObserver === 'function') {
+      this._resizeObserver = new window.ResizeObserver((entries) => {
+        const box = entries[entries.length - 1]?.contentRect;
+        if (box) this._setOrient(box.width, box.height);
+      });
+      this._resizeObserver.observe(this);
+    } else {
+      // an old WebView: the screen's shape is the next best thing
+      this._onWindowResize = () => this._setOrient(window.innerWidth, window.innerHeight);
+      window.addEventListener('resize', this._onWindowResize);
+      this._onWindowResize();
+    }
+  }
+
+  _unobserveSize() {
+    this._resizeObserver?.disconnect();
+    this._resizeObserver = null;
+    if (this._onWindowResize) window.removeEventListener('resize', this._onWindowResize);
+    this._onWindowResize = null;
+  }
+
+  _setOrient(width, height) {
+    if (!width || !height) return;
+    const orient = width >= height ? 'landscape' : 'portrait';
+    if (orient === this._orient) return;
+    // In a container without a height of its own, each shape could measure as
+    // the other one; a few flips in a second means that, so stay put.
+    const now = Date.now();
+    this._flips = (this._flips || []).filter((at) => now - at < 1000);
+    if (this._flips.length >= 4) return;
+    this._flips.push(now);
+    this._orient = orient;
+    if (this._root) this._root.card.dataset.orient = orient;
+  }
+
+  _orientation() {
+    if (this._orient) return this._orient;
+    const width = window.innerWidth || 0;
+    const height = window.innerHeight || 0;
+    return width && height && width < height ? 'portrait' : 'landscape';
   }
 
   _renderNotice(message) {
@@ -1646,7 +2265,6 @@ class Bticino100xCard extends HTMLElement {
     nodes.screenImg.style.display = 'none';
     nodes.standbyText = el('span', { text: t(hass, 'standby') });
     nodes.screenPlaceholder = el('div', { class: 'placeholder' }, [icon('mdi:cctv'), nodes.standbyText]);
-    nodes.screenStamp = el('div', { class: 'stamp' });
     nodes.screen = el(
       'button',
       {
@@ -1654,10 +2272,10 @@ class Bticino100xCard extends HTMLElement {
         type: 'button',
         onclick: (ev) => {
           ev.stopPropagation();
-          this._openMoreInfo(this._found.liveCameras[0] || this._found.snapshot);
+          this._openMoreInfo(this._targetCamera() || this._found.snapshot);
         },
       },
-      [nodes.screenImg, nodes.screenPlaceholder, nodes.screenStamp],
+      [nodes.screenImg, nodes.screenPlaceholder],
     );
 
     nodes.device = el('div', { class: 'device', html: deviceSvg(interactive) });
@@ -1670,8 +2288,27 @@ class Bticino100xCard extends HTMLElement {
     if (interactive) this._wireKeys(nodes.device);
 
     nodes.badges = el('div', { class: 'badges' });
+    nodes.units = el('div', { class: 'units', role: 'radiogroup', onkeydown: (ev) => this._unitKey(ev) });
+    nodes.units.hidden = true;
     nodes.features = el('div', { class: 'features' });
-    nodes.content = el('div', { class: 'content' }, [nodes.badges, nodes.features]);
+    nodes.content = el('div', { class: 'content' }, [nodes.badges, nodes.units, nodes.features]);
+
+    // the visitor at full width: while it rings, and always in a kiosk
+    nodes.shotImg = el('img', { alt: '', decoding: 'async' });
+    nodes.shotImg.hidden = true;
+    nodes.shotImg.addEventListener('load', () => this._applyShotAspect());
+    nodes.shotImg.addEventListener('error', () => this._shotFailed());
+    nodes.shotEmptyText = el('span', { text: t(hass, 'standby') });
+    nodes.shotEmpty = el('div', { class: 'shot-empty' }, [icon('mdi:cctv'), nodes.shotEmptyText]);
+    nodes.shotDot = el('span', { class: 'shot-dot' });
+    nodes.shotTitle = el('div', { class: 'shot-title' });
+    nodes.shotSub = el('div', { class: 'shot-sub' });
+    nodes.shotCaption = el('div', { class: 'shot-caption' }, [
+      nodes.shotDot,
+      el('div', { class: 'shot-text' }, [nodes.shotTitle, nodes.shotSub]),
+    ]);
+    nodes.shot = el('div', { class: 'shot' }, [nodes.shotImg, nodes.shotEmpty, nodes.shotCaption]);
+    nodes.shot.hidden = true;
 
     nodes.video = el('video', { class: 'stream-video', autoplay: '', playsinline: '' });
     nodes.video.muted = false;
@@ -1691,15 +2328,22 @@ class Bticino100xCard extends HTMLElement {
       icon('mdi:volume-high'),
     ]);
     nodes.streamControls = el('div', { class: 'stream-controls' }, [nodes.micButton, nodes.soundButton]);
+    nodes.micNoteText = el('span');
+    nodes.micNote = el('div', { class: 'stream-note', role: 'status' }, [
+      icon('mdi:microphone-off'),
+      nodes.micNoteText,
+    ]);
+    nodes.micNote.hidden = true;
     nodes.stream = el('div', { class: 'stream' }, [
       nodes.video,
       nodes.overlay,
       nodes.streamLabel,
+      nodes.micNote,
       nodes.streamControls,
     ]);
     nodes.stream.hidden = true;
 
-    nodes.body = el('div', { class: 'body' }, [nodes.deviceWrap, nodes.stream, nodes.content]);
+    nodes.body = el('div', { class: 'body' }, [nodes.deviceWrap, nodes.shot, nodes.stream, nodes.content]);
 
     nodes.expander = el(
       'button',
@@ -1759,6 +2403,9 @@ class Bticino100xCard extends HTMLElement {
   _wireKeys(deviceNode) {
     const run = (name) => {
       const found = this._found;
+      const status = this._status();
+      if (!status.reachable && name !== 'bt-hangup') return;
+      const target = this._targetCamera(status);
       switch (name) {
         case 'bt-lock':
           this._openDoor(found.locks[0]);
@@ -1767,11 +2414,8 @@ class Bticino100xCard extends HTMLElement {
           this._toggleLight(found.lights[0]);
           break;
         case 'bt-eye':
-          if (found.liveCameras[0]) this._toggleStream(found.liveCameras[0], 'video');
-          else this._openMoreInfo(found.snapshot);
-          break;
         case 'bt-answer':
-          if (found.liveCameras[0]) this._toggleStream(found.liveCameras[0], 'video');
+          if (target) this._toggleStream(target, 'video');
           else this._openMoreInfo(found.snapshot);
           break;
         case 'bt-hangup':
@@ -1799,10 +2443,16 @@ class Bticino100xCard extends HTMLElement {
   _status() {
     const hass = this._hass;
     const found = this._found;
-    const ringing = found.doorbells.some((id) => hass.states[id]?.state === 'on');
+    const ring = this._ringState();
+    const ringing = ring.ringing;
     const talking = !ringing && hass.states[found.busy]?.state === 'on';
     const reachable = found.all.some((id) => hass.states[id] && hass.states[id].state !== 'unavailable');
-    return { ringing, talking, reachable, active: ringing || talking };
+    return { ringing, ringUnit: ring.unit, ring: ring.ring, talking, reachable, active: ringing || talking };
+  }
+
+  /** Who is at the door, in a word: the unit, else the device. */
+  _ringName(status) {
+    return status.ringUnit?.name || status.ring?.moduleName || this._deviceName();
   }
 
   _primaryEntity() {
@@ -1813,7 +2463,7 @@ class Bticino100xCard extends HTMLElement {
   _deviceName() {
     const hass = this._hass;
     if (this._config.name) return this._config.name;
-    const device = hass.devices?.[this._config.device_id];
+    const device = hass.devices?.[this._deviceId()];
     if (device) return device.name_by_user || device.name;
     const primary = hass.states[this._primaryEntity()];
     return primary?.attributes.friendly_name || 'BTicino';
@@ -1840,6 +2490,7 @@ class Bticino100xCard extends HTMLElement {
     const nodes = this._root;
     const config = this._config;
     const status = this._status();
+    const kiosk = config.layout === 'kiosk';
 
     const classes = ['card'];
     if (status.ringing) classes.push('ringing');
@@ -1847,6 +2498,8 @@ class Bticino100xCard extends HTMLElement {
     if (!status.reachable) classes.push('offline');
     nodes.card.className = classes.join(' ');
     nodes.card.dataset.layout = config.layout;
+    if (kiosk) nodes.card.dataset.orient = this._orientation();
+    else delete nodes.card.dataset.orient;
     const width = Number(config.device_size) || DEVICE_WIDTH[config.layout] || 140;
     nodes.card.style.setProperty('--bt-device-width', `${width}px`);
     nodes.card.style.setProperty(
@@ -1855,7 +2508,9 @@ class Bticino100xCard extends HTMLElement {
         ? 'var(--state-unavailable-color, var(--disabled-color, #bdbdbd))'
         : status.active
           ? 'var(--bt-accent)'
-          : 'var(--state-inactive-color, #9e9e9e)',
+          : // the inactive grey is 2.3:1 on a light card; the secondary text colour
+            // is the same quiet grey family at 4.8:1, and an icon needs 3:1
+            'var(--secondary-text-color, #727272)',
     );
 
     this._syncStrings();
@@ -1874,26 +2529,42 @@ class Bticino100xCard extends HTMLElement {
         : status.talking
           ? t(hass, 'talking')
           : t(hass, 'idle');
-    nodes.secondary.textContent = lastCall
-      ? `${stateText} - ${t(hass, 'last_call')} ${relativeTime(hass, lastCall)}`
-      : `${stateText} - ${t(hass, 'never')}`;
+    // The last call is said once: in its badge when badges show, here otherwise.
+    const badges = config.show_badges && !kiosk && !status.ringing;
+    // while it rings, the picture's caption names the unit: said once
+    let secondary = stateText;
+    if (!status.ringing && !(badges && lastCall)) {
+      secondary = lastCall
+        ? `${stateText} - ${t(hass, 'last_call')} ${relativeTime(hass, lastCall)}`
+        : `${stateText} - ${t(hass, 'never')}`;
+    }
+    nodes.secondary.textContent = secondary;
+
+    // While it rings the drawing steps aside for the visitor; a stream, when
+    // one is up, takes the same place. compact and kiosk never draw it.
+    const drawn = config.layout === 'panel' || config.layout === 'device';
+    nodes.deviceWrap.hidden = !drawn || !!this._stream || status.ringing;
 
     this._syncStream();
-    this._syncScreen(lastCall, status);
+    this._syncShot(status);
+    this._syncScreen(status);
     this._syncKeys(status);
+    this._syncUnits(status);
 
-    nodes.badges.style.display = config.show_badges ? '' : 'none';
-    if (config.show_badges) this._syncBadges(lastCall);
+    nodes.badges.style.display = badges ? '' : 'none';
+    if (badges) this._syncBadges(lastCall);
 
     // once the lock reports open, the request is no longer under way
     if (this._pendingLock && LOCK_OPEN_STATES.includes(hass.states[this._pendingLock]?.state)) {
       this._clearPendingLock();
     }
 
-    nodes.features.style.display = config.show_controls ? '' : 'none';
-    if (config.show_controls) this._syncButtons(status);
+    // answering cannot depend on a switch meant to tidy the idle card
+    const controls = config.show_controls || status.ringing;
+    nodes.features.style.display = controls ? '' : 'none';
+    if (controls) this._syncButtons(status);
 
-    this._syncHistory(lastCall);
+    this._syncHistory(lastCall, status);
   }
 
   /** The labels written once at build time still have to follow the language. */
@@ -1902,8 +2573,10 @@ class Bticino100xCard extends HTMLElement {
     const nodes = this._root;
     const close = t(hass, 'close');
     nodes.standbyText.textContent = t(hass, 'standby');
+    nodes.shotEmptyText.textContent = t(hass, 'standby');
     nodes.expanderLabel.textContent = t(hass, 'recent');
     nodes.empty.textContent = t(hass, 'never');
+    nodes.units.setAttribute('aria-label', t(hass, 'unit'));
     nodes.listDialog.querySelector('.dialog-title').textContent = t(hass, 'recent');
     for (const button of this.shadowRoot.querySelectorAll('dialog .icon-button')) {
       button.setAttribute('aria-label', close);
@@ -1911,11 +2584,91 @@ class Bticino100xCard extends HTMLElement {
     }
   }
 
-  _syncScreen(lastCall, status) {
+  /** The picture of the device's last call, fetched again when it changes. */
+  _snapshotUrl() {
+    const snapshot = this._hass.states[this._found.snapshot];
+    const attrs = snapshot?.attributes || {};
+    return freshUrl(attrs.entity_picture, attrs.event_time_iso || snapshot?.last_changed);
+  }
+
+  /**
+   * What the large picture shows. While it rings: the frame the bus sent with
+   * the ring, else the last call's. With several units, idle: the selected
+   * unit's own last caller, which its camera serves as its still picture.
+   */
+  _shotSource(status) {
+    if (status.ringing) {
+      const fromRing = status.ring?.snapshot;
+      if (fromRing && !this._badShots.has(fromRing)) return fromRing;
+      return this._snapshotUrl();
+    }
+    if (this._units.length > 1) {
+      const camera = this._hass.states[this._selectedUnit()?.camera];
+      const url = freshUrl(camera?.attributes.entity_picture, this._lastCallDate()?.getTime());
+      return url && !this._badShots.has(url) ? url : null;
+    }
+    return this._snapshotUrl();
+  }
+
+  _syncShot(status) {
     const hass = this._hass;
     const nodes = this._root;
-    const snapshot = hass.states[this._found.snapshot];
-    const picture = snapshot?.attributes.entity_picture;
+    const kiosk = this._config.layout === 'kiosk';
+    const show = (status.ringing || kiosk) && !this._stream;
+    nodes.shot.hidden = !show;
+    if (!show) return;
+
+    const src = this._shotSource(status);
+    if (src) {
+      if (nodes.shotImg.getAttribute('src') !== src) {
+        nodes.shot.style.removeProperty('--bt-shot-aspect');
+        nodes.shotImg.setAttribute('src', src);
+      }
+      nodes.shotImg.hidden = false;
+      nodes.shotEmpty.hidden = true;
+    } else {
+      nodes.shotImg.removeAttribute('src');
+      nodes.shotImg.hidden = true;
+      nodes.shotEmpty.hidden = false;
+    }
+
+    let title = '';
+    let sub = '';
+    if (status.ringing) {
+      title = this._ringName(status);
+      sub = t(hass, 'ringing');
+    } else if (this._units.length > 1) {
+      title = this._selectedUnit()?.name || '';
+    } else if (src) {
+      const taken = parseDate(hass.states[this._found.snapshot]?.attributes.event_time_iso);
+      sub = taken ? formatDateTime(hass, taken) : '';
+    }
+    nodes.shotTitle.textContent = title;
+    nodes.shotSub.textContent = sub;
+    nodes.shotDot.hidden = !status.ringing;
+    nodes.shotCaption.hidden = !title && !sub;
+    nodes.shotImg.setAttribute('alt', title || this._deviceName());
+  }
+
+  /** Size the picture to what the device took, so nothing is cropped. */
+  _applyShotAspect() {
+    const img = this._root?.shotImg;
+    if (!img?.naturalWidth || !img?.naturalHeight) return;
+    this._root.shot.style.setProperty('--bt-shot-aspect', `${img.naturalWidth} / ${img.naturalHeight}`);
+  }
+
+  /** A link that expired or a unit without a picture yet: show the next best. */
+  _shotFailed() {
+    const src = this._root?.shotImg.getAttribute('src');
+    if (!src || this._badShots.has(src)) return;
+    this._badShots.add(src);
+    if (this._root) this._sync();
+  }
+
+  _syncScreen(status) {
+    const hass = this._hass;
+    const nodes = this._root;
+    const picture = this._snapshotUrl();
 
     if (picture) {
       if (nodes.screenImg.getAttribute('src') !== picture) nodes.screenImg.setAttribute('src', picture);
@@ -1927,13 +2680,9 @@ class Bticino100xCard extends HTMLElement {
       nodes.screenPlaceholder.style.display = '';
     }
 
-    const stamp = status.ringing ? t(hass, 'ringing') : lastCall ? formatTime(hass, lastCall) : '';
-    nodes.screenStamp.textContent = picture ? stamp : '';
-    nodes.screenStamp.style.display = picture && stamp ? '' : 'none';
-
-    const target = this._found.liveCameras[0] || this._found.snapshot;
+    const target = this._targetCamera(status) || this._found.snapshot;
     nodes.screen.setAttribute('aria-label', `${this._deviceName()} - ${t(hass, 'live')}`);
-    nodes.screen.disabled = !target;
+    nodes.screen.disabled = !target || !status.reachable;
   }
 
   _syncKeys(status) {
@@ -1947,19 +2696,74 @@ class Bticino100xCard extends HTMLElement {
       node.classList.toggle('on', !!on);
       node.classList.toggle('off', available === false);
     };
+    const online = status.reachable;
     const unlocked = found.locks.some((id) => LOCK_OPEN_STATES.includes(hass.states[id]?.state));
-    mark('.bt-lock', unlocked, found.locks.length > 0);
+    mark('.bt-lock', unlocked, online && found.locks.length > 0);
     mark(
       '.bt-star',
       found.lights.some((id) => hass.states[id]?.state === 'on'),
-      found.lights.length > 0,
+      online && found.lights.length > 0,
     );
-    mark('.bt-eye', false, found.liveCameras.length > 0 || !!found.snapshot);
-    mark('.bt-answer', status.talking, found.liveCameras.length > 0 || !!found.snapshot);
+    const canSee = online && (found.liveCameras.length > 0 || !!found.snapshot);
+    mark('.bt-eye', false, canSee);
+    mark('.bt-answer', status.talking, canSee);
     mark('.bt-hangup', false, status.ringing || status.talking);
 
     const wifi = svg.querySelector('.bt-bell');
     if (wifi) wifi.classList.toggle('on', status.ringing);
+  }
+
+  /** One segment per external unit, while idle and only when there is a choice. */
+  _syncUnits(status) {
+    const nodes = this._root;
+    const units = this._units;
+    const show = units.length > 1 && !status.ringing;
+    nodes.units.hidden = !show;
+    if (!show) return;
+
+    const signature = units.map((unit) => `${unit.camera}:${unit.name}`).join('|');
+    if (signature !== this._unitSignature) {
+      nodes.units.innerHTML = '';
+      for (const unit of units) {
+        const button = el(
+          'button',
+          {
+            class: 'unit',
+            type: 'button',
+            role: 'radio',
+            'data-camera': unit.camera,
+            onclick: () => this._selectUnit(unit.camera),
+          },
+          [icon('mdi:check'), el('span', { class: 'text', text: unit.name })],
+        );
+        button.title = unit.name;
+        nodes.units.appendChild(button);
+      }
+      this._unitSignature = signature;
+    }
+    const selected = this._selectedUnit()?.camera;
+    for (const button of nodes.units.querySelectorAll('.unit')) {
+      const checked = button.dataset.camera === selected;
+      button.setAttribute('aria-checked', checked ? 'true' : 'false');
+      // one stop in the tab order; the arrow keys move inside the group
+      button.tabIndex = checked ? 0 : -1;
+    }
+  }
+
+  /** Arrow keys walk the units, the way a radio group does. */
+  _unitKey(ev) {
+    let step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[ev.key];
+    const units = this._units;
+    if (!step || !units.length) return;
+    ev.preventDefault();
+    if (ev.key.endsWith('Left') || ev.key.endsWith('Right')) {
+      if (getComputedStyle(this).direction === 'rtl') step = -step;
+    }
+    const index = Math.max(0, units.indexOf(this._selectedUnit()));
+    const next = units[(index + step + units.length) % units.length];
+    this._selectUnit(next.camera);
+    const buttons = this._root ? [...this._root.units.querySelectorAll('.unit')] : [];
+    buttons.find((button) => button.dataset.camera === next.camera)?.focus();
   }
 
   _syncBadges(lastCall) {
@@ -2034,103 +2838,138 @@ class Bticino100xCard extends HTMLElement {
     }
   }
 
-  _syncButtons(status) {
+  _lockButtons(status) {
     const hass = this._hass;
-    const nodes = this._root;
     const found = this._found;
-    const buttons = [];
-
-    found.locks.slice(0, 3).forEach((id) => {
+    return found.locks.slice(0, 3).map((id) => {
       const stateObj = hass.states[id];
       const name = found.locks.length > 1 ? stateObj?.attributes.friendly_name || id : t(hass, 'open_door');
       // the door only stays open for a few seconds, so the button is the receipt
       const isOpen = LOCK_OPEN_STATES.includes(stateObj?.state);
       const waiting = this._pendingLock === id && !isOpen;
-      buttons.push({
+      return {
         key: `lock-${id}`,
         icon: isOpen ? 'mdi:lock-open-variant' : waiting ? 'mdi:dots-horizontal' : 'mdi:door-open',
         text: isOpen ? t(hass, 'door_open') : waiting ? t(hass, 'opening') : name,
         variant: isOpen ? 'success' : waiting || status.ringing ? 'tonal' : '',
         disabled: !hasValue(stateObj),
         action: () => this._openDoor(id),
-      });
+      };
     });
+  }
 
-    if (found.lights.length) {
-      const id = found.lights[0];
-      const stateObj = hass.states[id];
-      const lightOn = stateObj?.state === 'on';
-      buttons.push({
-        key: 'light',
-        icon: lightOn ? 'mdi:lightbulb-on' : 'mdi:lightbulb-outline',
-        text: t(hass, 'light'),
-        variant: lightOn ? 'tonal' : '',
-        disabled: !hasValue(stateObj),
-        action: () => this._toggleLight(id),
-      });
+  /** View, Answer or Hang up: the same call, on the unit that matters now. */
+  _liveButton(status) {
+    const hass = this._hass;
+    const found = this._found;
+    if (!found.liveCameras.length && !found.snapshot) return null;
+    const target = this._targetCamera(status);
+    const watching = this._stream?.mode === 'video' && (!target || this._stream.entityId === target);
+    const usable = status.reachable && (!target || hass.states[target]?.state !== 'unavailable');
+    let liveIcon = 'mdi:video-outline';
+    let liveText = t(hass, 'live');
+    let liveVariant = '';
+    if (watching) {
+      liveIcon = 'mdi:phone-hangup';
+      liveText = t(hass, 'hang_up');
+      liveVariant = 'tonal';
+    } else if (status.ringing) {
+      liveIcon = 'mdi:phone';
+      liveText = t(hass, 'answer');
+      liveVariant = 'success';
     }
+    return {
+      key: 'live',
+      icon: liveIcon,
+      text: liveText,
+      variant: liveVariant,
+      calling: liveVariant === 'success',
+      // hanging up works whatever the device says; starting a call does not
+      disabled: !watching && !usable,
+      target,
+      action: target ? () => this._toggleStream(target, 'video') : () => this._openMoreInfo(found.snapshot),
+    };
+  }
 
-    if (found.liveCameras.length || found.snapshot) {
-      const target = found.liveCameras[0];
-      const watching = this._stream?.mode === 'video';
-      // the same call either way, but while it rings answering is the point
-      let liveIcon = 'mdi:video-outline';
-      let liveText = t(hass, 'live');
-      let liveVariant = '';
-      if (watching) {
-        liveIcon = 'mdi:phone-hangup';
-        liveText = t(hass, 'hang_up');
-        liveVariant = 'tonal';
-      } else if (status.ringing) {
-        liveIcon = 'mdi:phone';
-        liveText = t(hass, 'answer');
-        liveVariant = 'success';
+  _rejectButton() {
+    return {
+      key: 'reject',
+      icon: 'mdi:phone-hangup',
+      text: t(this._hass, 'reject'),
+      variant: 'danger',
+      disabled: false,
+      action: () => this._reject(),
+    };
+  }
+
+  _syncButtons(status) {
+    const hass = this._hass;
+    const nodes = this._root;
+    const found = this._found;
+    const kiosk = this._config.layout === 'kiosk';
+    const live = this._liveButton(status);
+    const buttons = [];
+
+    if (status.ringing) {
+      // Answer, Open door, Reject: the three things a ring asks for, in that order
+      if (live) buttons.push(live);
+      buttons.push(...this._lockButtons(status));
+      if (!this._stream) buttons.push(this._rejectButton());
+    } else {
+      buttons.push(...this._lockButtons(status));
+
+      if (found.lights.length) {
+        const id = found.lights[0];
+        const stateObj = hass.states[id];
+        const lightOn = stateObj?.state === 'on';
+        buttons.push({
+          key: 'light',
+          icon: lightOn ? 'mdi:lightbulb-on' : 'mdi:lightbulb-outline',
+          text: t(hass, 'light'),
+          variant: lightOn ? 'tonal' : '',
+          disabled: !hasValue(stateObj),
+          action: () => this._toggleLight(id),
+        });
       }
-      buttons.push({
-        key: 'live',
-        icon: liveIcon,
-        text: liveText,
-        variant: liveVariant,
-        calling: liveVariant === 'success',
-        disabled: false,
-        action: target ? () => this._toggleStream(target, 'video') : () => this._openMoreInfo(found.snapshot),
-      });
+
+      if (live) buttons.push(live);
+
+      // Dialling the indoor monitor makes no sense while the door is ringing.
+      if (found.callHome && !status.talking) {
+        const calling = this._stream?.mode === 'audio';
+        buttons.push({
+          key: 'call-home',
+          icon: calling ? 'mdi:phone-hangup' : 'mdi:home-outline',
+          text: t(hass, calling ? 'hang_up' : 'call_home'),
+          variant: calling ? 'tonal' : '',
+          disabled: !calling && (!status.reachable || hass.states[found.callHome]?.state === 'unavailable'),
+          action: () => this._toggleStream(found.callHome, 'audio'),
+        });
+      }
+
+      if (status.talking && !this._stream) buttons.push(this._rejectButton());
+
+      // a kiosk keeps the call log behind one button instead of a drawer
+      if (kiosk && this._config.show_history) {
+        buttons.push({
+          key: 'history',
+          icon: 'mdi:history',
+          text: t(hass, 'recent'),
+          variant: '',
+          disabled: false,
+          action: () => this._openAllCalls(),
+        });
+      }
     }
 
-    // Dialling the indoor monitor makes no sense while the door is ringing.
-    if (found.callHome && !status.ringing && !status.talking) {
-      const calling = this._stream?.mode === 'audio';
-      buttons.push({
-        key: 'call-home',
-        icon: calling ? 'mdi:phone-hangup' : 'mdi:home-outline',
-        text: t(hass, calling ? 'hang_up' : 'call_home'),
-        variant: calling ? 'tonal' : '',
-        disabled: false,
-        action: () => this._toggleStream(found.callHome, 'audio'),
-      });
-    }
-
-    if ((status.ringing || status.talking) && !this._stream) {
-      buttons.push({
-        key: 'reject',
-        icon: 'mdi:phone-hangup',
-        text: t(hass, 'reject'),
-        variant: 'danger',
-        disabled: false,
-        action: () => this._reject(),
-      });
-    }
-
+    nodes.features.dataset.mode = status.ringing ? 'ring' : 'idle';
     const signature = buttons.map((b) => b.key).join('|');
     if (this._buttonSignature !== signature) {
       nodes.features.innerHTML = '';
       this._buttonNodes = {};
       for (const button of buttons) {
         const label = el('span', { class: 'text', text: button.text });
-        const node = el('button', { class: 'button', type: 'button', onclick: button.action }, [
-          icon(button.icon),
-          label,
-        ]);
+        const node = el('button', { class: 'button', type: 'button' }, [icon(button.icon), label]);
         node.title = button.text;
         node.setAttribute('aria-label', button.text);
         nodes.features.appendChild(node);
@@ -2145,6 +2984,10 @@ class Bticino100xCard extends HTMLElement {
       if (!refs) continue;
       refs.node.className = `button ${button.variant}${button.calling ? ' calling' : ''}`.trim();
       refs.node.disabled = button.disabled;
+      // the action follows the unit that rings, so it is bound on every pass
+      refs.node.onclick = button.action;
+      if (button.target) refs.node.dataset.target = button.target;
+      else delete refs.node.dataset.target;
       refs.label.textContent = button.text;
       refs.icon.setAttribute('icon', button.icon);
       refs.node.title = button.text;
@@ -2179,6 +3022,7 @@ class Bticino100xCard extends HTMLElement {
     const found = this._found;
     const mode = found.liveCameras.includes(wanted) ? 'video' : found.callHome === wanted ? 'audio' : null;
     if (!mode) return; // the link names a camera another card owns
+    if (mode === 'video') this._selected = wanted;
 
     autoAnswerTaken = true;
     // drop the parameter, so going back or reloading does not call again
@@ -2261,7 +3105,6 @@ class Bticino100xCard extends HTMLElement {
     const session = this._session;
 
     nodes.stream.hidden = !stream;
-    nodes.deviceWrap.hidden = !!stream;
     if (!stream || !session) return;
 
     const audioOnly = stream.mode === 'audio';
@@ -2301,15 +3144,25 @@ class Bticino100xCard extends HTMLElement {
     nodes.overlayText.textContent = overlayText;
 
     nodes.streamIcon.setAttribute('icon', audioOnly ? 'mdi:phone-in-talk' : 'mdi:video');
-    nodes.streamText.textContent = t(hass, audioOnly ? 'audio_only' : 'live_now');
+    // with several units, the label says which one is on screen
+    const unit = this._units.length > 1 ? this._units.find((item) => item.camera === stream.entityId) : null;
+    nodes.streamText.textContent = unit
+      ? `${t(hass, 'live_now')} - ${unit.name}`
+      : t(hass, audioOnly ? 'audio_only' : 'live_now');
     nodes.streamLabel.hidden = !live;
 
     const micOn = !!session.micActive;
-    nodes.micButton.className = `icon-button${micOn ? ' on' : ''}`;
+    // a refused or missing microphone says so, in the user's language; a tap
+    // on the button asks again
+    const micError = !micOn && session.micError ? t(hass, `mic_${session.micError}`) : '';
+    const micLabel = micError || t(hass, micOn ? 'mic_on' : 'mic_off');
+    nodes.micButton.className = `icon-button${micOn ? ' on' : micError ? ' blocked' : ''}`;
     nodes.micButton.querySelector('ha-icon').setAttribute('icon', micOn ? 'mdi:microphone' : 'mdi:microphone-off');
-    nodes.micButton.setAttribute('aria-label', t(hass, micOn ? 'mic_on' : 'mic_off'));
-    nodes.micButton.title = t(hass, micOn ? 'mic_on' : 'mic_off');
+    nodes.micButton.setAttribute('aria-label', micLabel);
+    nodes.micButton.title = micLabel;
     nodes.micButton.disabled = !live;
+    nodes.micNote.hidden = !micError;
+    nodes.micNoteText.textContent = micError;
 
     nodes.soundButton.className = `icon-button${this._soundOn ? ' on' : ''}`;
     nodes.soundButton
@@ -2376,11 +3229,13 @@ class Bticino100xCard extends HTMLElement {
     this._syncHistory(this._lastCallDate());
   }
 
-  _syncHistory(lastCall) {
+  _syncHistory(lastCall, status = this._status()) {
     const nodes = this._root;
-    if (!this._config.show_history) {
+    // a kiosk opens the log from a button; a ringing card has better things to show
+    if (!this._config.show_history || this._config.layout === 'kiosk' || status.ringing) {
       nodes.expander.hidden = true;
       nodes.history.hidden = true;
+      if (nodes.listDialog.open) this._paintAllCalls();
       return;
     }
     nodes.expander.hidden = false;
@@ -2400,7 +3255,7 @@ class Bticino100xCard extends HTMLElement {
     this._historyBusy = true;
     try {
       // The integration serves the log already signed, so one call is enough.
-      const entryId = hass.devices?.[this._config.device_id]?.config_entries?.[0];
+      const entryId = hass.devices?.[this._deviceId()]?.config_entries?.[0];
       const message = { type: `${DOMAIN}/history`, limit: HISTORY_LIMIT };
       if (entryId) message.entry_id = entryId;
       const result = await hass.callWS(message);
@@ -2410,7 +3265,10 @@ class Bticino100xCard extends HTMLElement {
       this._history = [];
     } finally {
       this._historyBusy = false;
-      if (this._root) this._paintHistory();
+      if (this._root) {
+        this._paintHistory();
+        if (this._root.listDialog.open) this._paintAllCalls();
+      }
     }
   }
 
@@ -2455,6 +3313,7 @@ class Bticino100xCard extends HTMLElement {
   _paintHistory() {
     const nodes = this._root;
     const events = this._history;
+    if (nodes.listDialog.open) this._paintAllCalls();
     nodes.history.hidden = !this._expanded;
     if (!this._expanded) return;
 
@@ -2476,7 +3335,21 @@ class Bticino100xCard extends HTMLElement {
       this._renderCalls(nodes.calls, events.slice(0, HISTORY_PREVIEW));
       this._listSignature = signature;
     }
-    if (nodes.listDialog.open) this._renderCalls(nodes.allCalls, events);
+  }
+
+  /** The whole log, in its dialog; drawn again only when it changed. */
+  _paintAllCalls() {
+    const nodes = this._root;
+    const events = this._history;
+    const signature = Array.isArray(events) ? events.map((e) => `${e.event_id}:${e.answered}`).join('|') : null;
+    if (signature === this._allSignature) return;
+    this._allSignature = signature;
+    if (!Array.isArray(events)) {
+      nodes.allCalls.innerHTML = '';
+      return;
+    }
+    this._renderCalls(nodes.allCalls, events);
+    if (!events.length) nodes.allCalls.appendChild(el('div', { class: 'empty', text: t(this._hass, 'never') }));
   }
 
   /** One row per call: snapshot, outcome, when. */
@@ -2504,8 +3377,15 @@ class Bticino100xCard extends HTMLElement {
 
   _openAllCalls() {
     const nodes = this._root;
-    this._renderCalls(nodes.allCalls, this._history || []);
-    if (typeof nodes.listDialog.showModal === 'function') nodes.listDialog.showModal();
+    // a kiosk opens the log without the drawer, so it may not be loaded yet
+    const key = this._lastCallDate()?.toISOString() ?? 'none';
+    if (this._history === null || key !== this._historyKey) {
+      this._historyKey = key;
+      this._loadHistory();
+    }
+    this._allSignature = undefined;
+    this._paintAllCalls();
+    if (typeof nodes.listDialog.showModal === 'function' && !nodes.listDialog.open) nodes.listDialog.showModal();
   }
 
   _openShot(event) {
@@ -2553,13 +3433,14 @@ const editorSchema = (hass, config) => [
           { value: 'panel', label: te(hass, 'layout_panel') },
           { value: 'device', label: te(hass, 'layout_device') },
           { value: 'compact', label: te(hass, 'layout_compact') },
+          { value: 'kiosk', label: te(hass, 'layout_kiosk') },
         ],
       },
     },
   },
   { name: 'color', selector: { ui_color: { include_none: false } } },
   // the size only means something while the drawing is on screen
-  ...(config.layout === 'compact'
+  ...(config.layout === 'compact' || config.layout === 'kiosk'
     ? []
     : [
         {
@@ -2623,7 +3504,8 @@ class Bticino100xCardEditor extends HTMLElement {
         for (const [key, value] of Object.entries(DEFAULTS)) if (config[key] === value) delete config[key];
         // a size that matches the layout's own default adds nothing to the YAML
         const fallback = DEVICE_WIDTH[config.layout || DEFAULTS.layout] || 140;
-        if (config.layout === 'compact' || Number(config.device_size) === fallback) delete config.device_size;
+        const drawless = config.layout === 'compact' || config.layout === 'kiosk';
+        if (drawless || Number(config.device_size) === fallback) delete config.device_size;
         for (const key of Object.keys(config)) if (config[key] === '' || config[key] === undefined) delete config[key];
         fireEvent(this, 'config-changed', { config });
       });
@@ -2673,4 +3555,4 @@ if (!window.customCards.some((card) => card.type === CARD_TYPE)) {
 
 console.info(`%c BTICINO-100X-CARD %c ${VERSION} `, 'color: #fff; background: #0a8acd; font-weight: 500', '');
 
-export { Bticino100xCard, Bticino100xCardEditor };
+export { Bticino100xCard, Bticino100xCardEditor, BticinoCallSession };

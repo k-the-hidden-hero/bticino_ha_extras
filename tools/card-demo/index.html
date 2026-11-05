@@ -39,6 +39,14 @@ body {
   display: grid; grid-template-columns: minmax(320px, 1fr) 300px; gap: 20px; align-items: start;
 }
 @media (max-width: 760px) { body { grid-template-columns: 1fr; } }
+.kiosk-box { height: 320px; max-width: 640px !important; }
+/* ?view=<layout>: one card alone, the way a panel view or a phone shows it */
+body.solo { display: block; padding: 0; }
+body.solo .cards, body.solo .panel { display: none; }
+#solo { display: none; }
+body.solo #solo { display: block; box-sizing: border-box; }
+body.solo.kiosk #solo { height: 100vh; }
+body.solo:not(.kiosk) #solo { padding: 16px; }
 h2 { font-size: 13px; font-weight: 500; color: var(--secondary-text-color); margin: 18px 0 8px; }
 h2:first-of-type { margin-top: 0; }
 .cards { min-width: 0; }
@@ -75,13 +83,16 @@ button.sim.go { border-color: var(--primary-color); color: var(--primary-color);
   <h2>panel - citofono grande (220px)</h2><div id="g2"></div>
   <h2>device</h2><div id="g3"></div>
   <h2>compact</h2><div id="g4"></div>
+  <h2>kiosk - in a 640x320 box (open ?view=kiosk for a whole screen)</h2><div id="g5" class="kiosk-box"></div>
 </div>
+<div id="solo"></div>
 
 <div class="panel">
   <h3>Intercom simulator</h3>
   <div class="state" id="state"></div>
   <div class="row">
-    <button class="sim go" id="btn-ring">Ring the doorbell</button>
+    <button class="sim go" id="btn-ring">Ring: front door</button>
+    <button class="sim go" id="btn-ring-gate">Ring: gate</button>
   </div>
   <div class="row">
     <button class="sim" id="btn-answer">Answer at the monitor</button>
@@ -93,6 +104,10 @@ button.sim.go { border-color: var(--primary-color); color: var(--primary-color);
   <div class="row">
     <button class="sim" id="btn-offline">Go offline</button>
     <button class="sim" id="btn-clear">Clear history</button>
+  </div>
+  <div class="row">
+    <button class="sim" id="btn-bus">Bus events: on</button>
+    <button class="sim" id="btn-mic">Microphone: allowed</button>
   </div>
   <div class="row">
     <button class="sim" onclick="setTheme('light')">Light</button>
@@ -131,7 +146,15 @@ customElements.define("home-assistant", class extends HTMLElement {});
 
 const DEVICE = "dev1";
 const ENTRY = "e1";
-const MODULE = "Front door";
+const DEVICE_NAME = "Intercom";
+
+/** Two external units, each with its camera, doorbell sensor and doorbell event. */
+const UNITS = {
+  front: { name: "Front door", module: "mod-front", camera: "camera.bticino_ingresso",
+    doorbell: "binary_sensor.bticino_chiamata", event: "event.bticino_ingresso", hue: 205 },
+  gate: { name: "Gate", module: "mod-gate", camera: "camera.bticino_cancello",
+    doorbell: "binary_sensor.bticino_chiamata_cancello", event: "event.bticino_cancello", hue: 32 },
+};
 
 const shot = (hue) => "data:image/svg+xml;utf8," + encodeURIComponent(
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">`
@@ -142,17 +165,21 @@ const shot = (hue) => "data:image/svg+xml;utf8," + encodeURIComponent(
 const minutesAgo = (m) => Math.floor((Date.now() - m * 60000) / 1000);
 
 const sim = {
-  ringing: false,
+  ringing: null,   // the unit ringing right now: "front", "gate" or null
   talking: false,
   offline: false,
   lockOpen: false,
   light: false,
+  busEvents: true, // off: what a user who is not an administrator gets
+  micDenied: false,
   lastCallTs: minutesAgo(38),
-  snapshot: shot(205),
+  snapshot: shot(UNITS.front.hue),
+  // the last caller of each unit, which its camera serves as its still picture
+  unitShots: { front: shot(UNITS.front.hue), gate: shot(UNITS.gate.hue) },
   // a log long enough to need scrolling in the dialog
   calls: Array.from({ length: 16 }, (_, i) => ({
     event_id: `h${i}`,
-    module_name: i % 3 === 2 ? "Gate" : MODULE,
+    module_name: i % 3 === 2 ? UNITS.gate.name : UNITS.front.name,
     timestamp: minutesAgo(38 + i * 340),
     answered: i % 3 !== 1,
     event_type: i % 3 !== 1 ? "answered_elsewhere" : "terminated",
@@ -176,28 +203,52 @@ function clearTimer(name) {
   if (sim.timers[name]) { clearTimeout(sim.timers[name]); delete sim.timers[name]; }
 }
 
-function ring() {
+/* ------------------------------------------- the bus: bticino_intercom_call */
+
+const listeners = new Set();
+const connection = {
+  async subscribeEvents(callback, eventType) {
+    const entry = { callback, eventType };
+    listeners.add(entry);
+    return async () => listeners.delete(entry);
+  },
+};
+
+function fireCall(data) {
+  if (!sim.busEvents) return;
+  for (const { callback, eventType } of listeners) {
+    if (eventType === "bticino_intercom_call") callback({ event_type: eventType, data: { entry_id: ENTRY, ...data } });
+  }
+}
+
+function ring(unitKey = "front") {
   if (sim.ringing || sim.talking) return;
+  const unit = UNITS[unitKey];
   const hue = Math.floor(Math.random() * 360);
-  sim.ringing = true;
+  sim.ringing = unitKey;
   sim.snapshot = shot(hue);
+  sim.unitShots[unitKey] = sim.snapshot;
   sim.lastCallTs = Math.floor(Date.now() / 1000);
   sim.open = {
-    event_id: `c${Date.now()}`, module_name: MODULE, timestamp: sim.lastCallTs,
+    event_id: `c${Date.now()}`, module_name: unit.name, timestamp: sim.lastCallTs,
     answered: null, event_type: "incoming_call", snapshot: sim.snapshot, vignette: sim.snapshot,
   };
   sim.calls.unshift(sim.open);
-  log("doorbell: incoming call from " + MODULE);
+  log(`doorbell: incoming call from ${unit.name}`);
   clearTimer("ring");
   sim.timers.ring = setTimeout(() => endCall(false, "nobody answered"), 30000);
   publish();
+  fireCall({
+    type: "ring", module_id: unit.module, module_name: unit.name, camera_entity_id: unit.camera,
+    snapshot_url: sim.snapshot, vignette_url: sim.snapshot,
+  });
 }
 
 function answerAtMonitor() {
   if (!sim.ringing) return;
   clearTimer("ring");
-  sim.ringing = false;
-  sim.talking = true;
+  sim.talking = sim.ringing;
+  sim.ringing = null;
   log("answered at the indoor monitor");
   publish();
 }
@@ -205,7 +256,8 @@ function answerAtMonitor() {
 function endCall(answered, why) {
   clearTimer("ring");
   if (!sim.ringing && !sim.talking) return;
-  sim.ringing = false;
+  const unit = UNITS[sim.ringing || sim.talking];
+  sim.ringing = null;
   sim.talking = false;
   if (sim.open) {
     sim.open.answered = answered;
@@ -214,6 +266,7 @@ function endCall(answered, why) {
   }
   log(`call closed: ${answered ? "answered" : "missed"} (${why})`);
   publish();
+  fireCall({ type: "end", module_id: unit?.module ?? null, module_name: unit?.name ?? null });
 }
 
 function openDoor() {
@@ -244,8 +297,10 @@ function toggleLight() {
 
 /* ------------------------------------------------------------ hass object */
 
-let theme = "light";
-let language = "en";
+const params = new URLSearchParams(location.search);
+let theme = params.get("theme") === "dark" ? "dark" : "light";
+let language = params.get("lang") || "en";
+document.documentElement.dataset.theme = theme;
 
 function buildStates() {
   const off = sim.offline;
@@ -253,17 +308,26 @@ function buildStates() {
     [entity_id, { entity_id, state: off ? "unavailable" : state, attributes, last_changed: new Date().toISOString() }];
   const answered = sim.calls.filter((c) => c.answered === true).length;
   const missed = sim.calls.filter((c) => c.answered === false).length;
+  const unitStates = Object.entries(UNITS).flatMap(([key, unit]) => [
+    put(unit.camera, "idle", { friendly_name: `${DEVICE_NAME} ${unit.name}`, supported_features: 2,
+      module_id: unit.module, entity_picture: sim.unitShots[key] }),
+    put(unit.doorbell, sim.ringing === key ? "on" : "off",
+      { friendly_name: `${DEVICE_NAME} ${unit.name}`, device_class: "sound", module_id: unit.module }),
+    put(unit.event, new Date(sim.lastCallTs * 1000).toISOString(),
+      { friendly_name: `${DEVICE_NAME} ${unit.name}`, device_class: "doorbell", event_types: ["ring"], module_id: unit.module }),
+  ]);
   return Object.fromEntries([
     put("lock.bticino_porta_esterna", sim.lockOpen ? "open" : "locked",
       { friendly_name: "Street door", supported_features: 1, device_class: "lock" }),
     put("light.bticino_luce_scale", sim.light ? "on" : "off", { friendly_name: "Stair light", supported_features: 0 }),
-    put("binary_sensor.bticino_chiamata", sim.ringing ? "on" : "off", { friendly_name: MODULE, device_class: "sound" }),
     put("binary_sensor.bticino_bridge_busy", sim.talking ? "on" : "off", { friendly_name: "Bridge Busy", device_class: "occupancy" }),
     put("camera.bticino_last_event_snapshot", "idle",
       { friendly_name: "Last Event Snapshot", supported_features: 0, entity_picture: sim.snapshot,
         event_time_iso: new Date(sim.lastCallTs * 1000).toISOString() }),
-    put("camera.bticino_ingresso", "idle", { friendly_name: MODULE, supported_features: 2 }),
-    put("camera.bticino_call_home", "idle", { friendly_name: "Call Home", supported_features: 2, icon: "mdi:phone-classic" }),
+    ...unitStates,
+    // Call Home dials the indoor monitor: it carries the bridge's module id, which no doorbell has
+    put("camera.bticino_call_home", "idle", { friendly_name: "Call Home", supported_features: 2, icon: "mdi:phone-classic",
+      module_id: "70:ee:50:00:00:01" }),
     put("sensor.bticino_last_call_timestamp", new Date(sim.lastCallTs * 1000).toISOString(),
       { friendly_name: "Last Call Timestamp", device_class: "timestamp" }),
     put("sensor.bticino_calls", String(answered + missed), { friendly_name: "Calls", answered, missed, state_class: "measurement" }),
@@ -272,8 +336,6 @@ function buildStates() {
       { friendly_name: "Bridge WiFi Strength", device_class: "signal_strength", unit_of_measurement: "dBm" }),
     put("sensor.bticino_bridge_websocket_status", "connected",
       { friendly_name: "Bridge WebSocket Status", device_class: "enum", options: ["connected", "disconnected"] }),
-    put("event.bticino_doorbell", new Date(sim.lastCallTs * 1000).toISOString(),
-      { friendly_name: "Doorbell", device_class: "doorbell", event_types: ["ring"] }),
   ]);
 }
 
@@ -288,7 +350,7 @@ function makeHass() {
   return {
     states: buildStates(),
     entities,
-    devices: { [DEVICE]: { id: DEVICE, name: "BTicino Intercom - Home", name_by_user: "Front door",
+    devices: { [DEVICE]: { id: DEVICE, name: "BTicino Intercom - Home", name_by_user: DEVICE_NAME,
       model: "BNC1", manufacturer: "BTicino", config_entries: [ENTRY] } },
     areas: {},
     language,
@@ -296,6 +358,7 @@ function makeHass() {
     themes: { darkMode: theme === "dark" },
     config: { time_zone: "Europe/Rome", version: "2026.10.1" },
     user: { name: "Demo", is_admin: true },
+    connection,
     formatEntityState: (st) => `${st.state}${st.attributes.unit_of_measurement ? " " + st.attributes.unit_of_measurement : ""}`,
     callService: async (domain, service, data) => {
       if (domain === "lock") openDoor();
@@ -313,7 +376,7 @@ function makeHass() {
 /* ------------------------------------------- a call that does not need HA */
 
 /** A moving picture, so the live view has a real video track to show. */
-function fakeCameraStream() {
+function fakeCameraStream(label) {
   const canvas = document.createElement("canvas");
   canvas.width = 640;
   canvas.height = 480;
@@ -334,7 +397,7 @@ function fakeCameraStream() {
     ctx.fillStyle = "#8fa6b8";
     ctx.font = "16px sans-serif";
     // kept at the top, clear of the card's own overlay at the bottom
-    ctx.fillText("SIMULATION 640x480", 16, 30);
+    ctx.fillText(`SIMULATION 640x480 - ${label}`, 16, 30);
     ctx.fillText(new Date().toLocaleTimeString("en-GB"), 540, 30);
   };
   const timer = setInterval(draw, 100);
@@ -350,6 +413,7 @@ class FakeSession {
     this.onState = onState;
     this.state = "connecting";
     this.micActive = false;
+    this.micError = null;
     this.error = null;
     this.stream = new MediaStream();
   }
@@ -358,18 +422,26 @@ class FakeSession {
     this.onState(this);
     this._timer = setTimeout(() => {
       if (this.wantsVideo) {
-        this._camera = fakeCameraStream();
+        const unit = Object.values(UNITS).find((u) => u.camera === this.entityId);
+        this._camera = fakeCameraStream(unit?.name || this.entityId);
         this.stream = this._camera.stream;
       }
       this.state = "live";
-      this.micActive = true;
-      log("call connected, microphone live");
+      this.micActive = !sim.micDenied;
+      this.micError = sim.micDenied ? "denied" : null;
+      log(sim.micDenied ? "call connected, microphone refused by the browser" : "call connected, microphone live");
       this.onState(this);
     }, 1200);
   }
   async setMic(on) {
-    this.micActive = on;
-    log(`microphone ${on ? "on" : "off"}`);
+    if (on && sim.micDenied) {
+      this.micError = "denied";
+      log("microphone: the browser refused again");
+    } else {
+      this.micActive = on;
+      this.micError = null;
+      log(`microphone ${on ? "on" : "off"}`);
+    }
     this.onState(this);
   }
   stop() {
@@ -390,9 +462,9 @@ const cards = [];
 const NOTIFICATION_KEY = "bt-sim-notification";
 function openFromNotification(camera) {
   sessionStorage.setItem(NOTIFICATION_KEY, JSON.stringify({ camera, at: Date.now() }));
-  const params = new URLSearchParams(location.search);
-  params.set("answer", camera);
-  location.href = `${location.pathname}?${params}`;
+  const next = new URLSearchParams(location.search);
+  next.set("answer", camera);
+  location.href = `${location.pathname}?${next}`;
 }
 
 function publish() {
@@ -402,14 +474,18 @@ function publish() {
 }
 
 function renderState() {
-  const where = sim.ringing ? "Incoming call" : sim.talking ? "In a call" : "Idle";
+  const where = sim.ringing ? `Incoming call - ${UNITS[sim.ringing].name}` : sim.talking ? "In a call" : "Idle";
   document.getElementById("state").innerHTML =
     `<b>${where}</b><br>lock ${sim.lockOpen ? "released" : "closed"} - light ${sim.light ? "on" : "off"}`
     + ` - ${sim.offline ? "offline" : "online"}<br>${sim.calls.length} calls in the log`;
-  document.getElementById("btn-ring").disabled = sim.ringing || sim.talking || sim.offline;
+  const busy = !!sim.ringing || !!sim.talking || sim.offline;
+  document.getElementById("btn-ring").disabled = busy;
+  document.getElementById("btn-ring-gate").disabled = busy;
   document.getElementById("btn-answer").disabled = !sim.ringing;
   document.getElementById("btn-visitor").disabled = !sim.ringing && !sim.talking;
   document.getElementById("btn-offline").textContent = sim.offline ? "Back online" : "Go offline";
+  document.getElementById("btn-bus").textContent = `Bus events: ${sim.busEvents ? "on" : "off (not admin)"}`;
+  document.getElementById("btn-mic").textContent = `Microphone: ${sim.micDenied ? "refused" : "allowed"}`;
 }
 
 async function boot() {
@@ -439,27 +515,44 @@ async function boot() {
     document.getElementById(target).appendChild(card);
     cards.push(card);
   };
-  add("g1", { device_id: DEVICE, layout: "panel" });
-  add("g2", { device_id: DEVICE, layout: "panel", device_size: 220, color: "purple" });
-  add("g3", { device_id: DEVICE, layout: "device" });
-  add("g4", { device_id: DEVICE, layout: "compact" });
 
-  document.getElementById("btn-ring").onclick = ring;
+  // ?view=<layout> shows that one card alone, filling the window for a kiosk
+  const view = params.get("view");
+  if (view) {
+    document.body.classList.add("solo");
+    document.body.classList.toggle("kiosk", view === "kiosk");
+    add("solo", { device_id: DEVICE, layout: view });
+  } else {
+    add("g1", { device_id: DEVICE, layout: "panel" });
+    add("g2", { device_id: DEVICE, layout: "panel", device_size: 220, color: "purple" });
+    add("g3", { device_id: DEVICE, layout: "device" });
+    add("g4", { device_id: DEVICE, layout: "compact" });
+    add("g5", { device_id: DEVICE, layout: "kiosk" });
+  }
+
+  document.getElementById("btn-ring").onclick = () => ring("front");
+  document.getElementById("btn-ring-gate").onclick = () => ring("gate");
   document.getElementById("btn-answer").onclick = answerAtMonitor;
-  document.getElementById("btn-visitor").onclick = () => endCall(sim.talking, "the visitor hung up");
-  document.getElementById("btn-offline").onclick = () => {
-    sim.offline = !sim.offline;
-    log(sim.offline ? "bridge offline" : "bridge back online");
-    publish();
-  };
+  document.getElementById("btn-visitor").onclick = () => endCall(!!sim.talking, "the visitor hung up");
+  document.getElementById("btn-offline").onclick = () => setOffline(!sim.offline);
   document.getElementById("btn-clear").onclick = () => {
     sim.calls = [];
     log("history cleared");
     publish();
   };
+  document.getElementById("btn-bus").onclick = () => {
+    sim.busEvents = !sim.busEvents;
+    log(sim.busEvents ? "bus events delivered" : "bus events withheld, as for a user who is not an administrator");
+    publish();
+  };
+  document.getElementById("btn-mic").onclick = () => {
+    sim.micDenied = !sim.micDenied;
+    log(sim.micDenied ? "the browser will refuse the microphone" : "the browser will allow the microphone");
+    publish();
+  };
 
   document.getElementById("btn-notify").onclick = () =>
-    openFromNotification("camera.bticino_ingresso");
+    openFromNotification(UNITS.front.camera);
 
   log("simulator ready");
 
@@ -474,14 +567,26 @@ async function boot() {
   sessionStorage.removeItem(NOTIFICATION_KEY);
   if (arrival && Date.now() - arrival.at < 60000) {
     log(`opened from the notification with ?answer=${arrival.camera}`);
-    ring();
+    ring(Object.keys(UNITS).find((key) => UNITS[key].camera === arrival.camera) || "front");
   }
 
   publish();
 }
 
+function setOffline(value) {
+  sim.offline = value;
+  log(sim.offline ? "bridge offline" : "bridge back online");
+  publish();
+}
+
 window.setTheme = (value) => { theme = value; document.documentElement.dataset.theme = value; publish(); };
 window.setLang = (value) => { language = value; publish(); };
+/** For scripted runs: drive the simulator from the console or a test browser. */
+window.sim = {
+  ring, answerAtMonitor, endCall, setOffline, cards,
+  denyMicrophone: (value = true) => { sim.micDenied = value; },
+  busEvents: (value = true) => { sim.busEvents = value; },
+};
 boot();
 </script>
 </body>

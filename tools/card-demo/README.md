@@ -13,19 +13,34 @@ edit shows up on reload.
 
 ## What it simulates
 
-- **Suona il campanello** starts an incoming call: the doorbell sensor turns on, a fresh snapshot
-  appears, every card reacts, and a record is opened in the call log. Nobody answering for 30
+The intercom has two external units, **Front door** and **Gate**, each with its own camera,
+doorbell sensor and doorbell event, all carrying a `module_id` attribute.
+
+- **Ring: front door** and **Ring: gate** start an incoming call from that unit: its doorbell
+  sensor turns on, a fresh snapshot appears, a `bticino_intercom_call` ring event goes out on the
+  fake bus, every card reacts, and a record is opened in the call log. Nobody answering for 30
   seconds closes it as missed.
-- **Rispondi dal monitor** and **Il visitatore riaggancia** close the call as answered or missed.
-- The card's own buttons act for real: **Apri** unlocks and relocks after three seconds, **Luce
-  scale** toggles with the ten second auto-off, **Rifiuta** ends the call, and **Guarda** and
-  **Chiama casa** start a call.
-- **Notifica: tocca Rispondi** does what the phone does when the actionable notification is
+- **Answer at the monitor** and **Visitor hangs up** close the call as answered or missed.
+- The card's own buttons act for real: **Open** unlocks and relocks after three seconds, **Stair
+  light** toggles with the ten second auto-off, **Reject** ends the call, and **Live** and
+  **Call home** start a call.
+- **Notification: tap Answer** does what the phone does when the actionable notification is
   tapped: it reloads the page with `?answer=<camera>` in the address, with the bell ringing, and
   the card picks the call up on its own and clears the parameter.
-- **Vai offline** makes every entity unavailable.
+- **Go offline** makes every entity unavailable.
+- **Bus events** withholds the ring and end events, the way Home Assistant does for a user who is
+  not an administrator, so the card has to tell the units apart from the doorbell sensors alone.
+- **Microphone** makes the fake call refuse the microphone, to show the blocked state.
 
 Every action is printed in the log, so a flow can be read end to end.
+
+## One card alone
+
+`?view=<layout>` shows a single card instead of the gallery: `?view=kiosk` fills the window the
+way a panel view on a wall tablet does. `&theme=dark`, `&lang=it` and `&camera=<camera entity>`
+(the unit a kiosk shows first) work with it. `window.sim` drives the page from a script:
+`sim.ring('gate')`, `sim.answerAtMonitor()`, `sim.endCall(false, 'why')`, `sim.setOffline(true)`,
+`sim.denyMicrophone()`, `sim.busEvents(false)`.
 
 ## The call
 
