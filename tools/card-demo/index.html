@@ -81,7 +81,8 @@ button.sim.go { border-color: var(--primary-color); color: var(--primary-color);
   <h3>Intercom simulator</h3>
   <div class="state" id="state"></div>
   <div class="row">
-    <button class="sim go" id="btn-ring">Ring the doorbell</button>
+    <button class="sim go" id="btn-ring">Ring front door</button>
+    <button class="sim go" id="btn-ring-gate">Ring gate</button>
   </div>
   <div class="row">
     <button class="sim" id="btn-answer">Answer at the monitor</button>
@@ -132,6 +133,10 @@ customElements.define("home-assistant", class extends HTMLElement {});
 const DEVICE = "dev1";
 const ENTRY = "e1";
 const MODULE = "Front door";
+const GATE = "Gate";
+// the attribute the integration publishes so a card can pair the entities
+const MODULE_FRONT = "d9a63b-a06f-front";
+const MODULE_GATE = "d9a63b-a16f-gate";
 
 const shot = (hue) => "data:image/svg+xml;utf8," + encodeURIComponent(
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">`
@@ -143,6 +148,7 @@ const minutesAgo = (m) => Math.floor((Date.now() - m * 60000) / 1000);
 
 const sim = {
   ringing: false,
+  ringingModule: null,
   talking: false,
   offline: false,
   lockOpen: false,
@@ -176,18 +182,19 @@ function clearTimer(name) {
   if (sim.timers[name]) { clearTimeout(sim.timers[name]); delete sim.timers[name]; }
 }
 
-function ring() {
+function ring(which = MODULE_FRONT) {
   if (sim.ringing || sim.talking) return;
   const hue = Math.floor(Math.random() * 360);
   sim.ringing = true;
+  sim.ringingModule = which;
   sim.snapshot = shot(hue);
   sim.lastCallTs = Math.floor(Date.now() / 1000);
   sim.open = {
-    event_id: `c${Date.now()}`, module_name: MODULE, timestamp: sim.lastCallTs,
+    event_id: `c${Date.now()}`, module_name: which === MODULE_GATE ? GATE : MODULE, timestamp: sim.lastCallTs,
     answered: null, event_type: "incoming_call", snapshot: sim.snapshot, vignette: sim.snapshot,
   };
   sim.calls.unshift(sim.open);
-  log("doorbell: incoming call from " + MODULE);
+  log("doorbell: incoming call from " + (which === MODULE_GATE ? GATE : MODULE));
   clearTimer("ring");
   sim.timers.ring = setTimeout(() => endCall(false, "nobody answered"), 30000);
   publish();
@@ -197,6 +204,7 @@ function answerAtMonitor() {
   if (!sim.ringing) return;
   clearTimer("ring");
   sim.ringing = false;
+  sim.ringingModule = null;
   sim.talking = true;
   log("answered at the indoor monitor");
   publish();
@@ -206,6 +214,7 @@ function endCall(answered, why) {
   clearTimer("ring");
   if (!sim.ringing && !sim.talking) return;
   sim.ringing = false;
+  sim.ringingModule = null;
   sim.talking = false;
   if (sim.open) {
     sim.open.answered = answered;
@@ -257,12 +266,16 @@ function buildStates() {
     put("lock.bticino_porta_esterna", sim.lockOpen ? "open" : "locked",
       { friendly_name: "Street door", supported_features: 1, device_class: "lock" }),
     put("light.bticino_luce_scale", sim.light ? "on" : "off", { friendly_name: "Stair light", supported_features: 0 }),
-    put("binary_sensor.bticino_chiamata", sim.ringing ? "on" : "off", { friendly_name: MODULE, device_class: "sound" }),
+    put("binary_sensor.bticino_chiamata", sim.ringingModule === MODULE_FRONT ? "on" : "off",
+      { friendly_name: MODULE, device_class: "sound", module_id: MODULE_FRONT }),
+    put("binary_sensor.bticino_chiamata_cancello", sim.ringingModule === MODULE_GATE ? "on" : "off",
+      { friendly_name: GATE, device_class: "sound", module_id: MODULE_GATE }),
     put("binary_sensor.bticino_bridge_busy", sim.talking ? "on" : "off", { friendly_name: "Bridge Busy", device_class: "occupancy" }),
     put("camera.bticino_last_event_snapshot", "idle",
       { friendly_name: "Last Event Snapshot", supported_features: 0, entity_picture: sim.snapshot,
         event_time_iso: new Date(sim.lastCallTs * 1000).toISOString() }),
-    put("camera.bticino_ingresso", "idle", { friendly_name: MODULE, supported_features: 2 }),
+    put("camera.bticino_ingresso", "idle", { friendly_name: MODULE, supported_features: 2, module_id: MODULE_FRONT }),
+    put("camera.bticino_cancello", "idle", { friendly_name: GATE, supported_features: 2, module_id: MODULE_GATE }),
     put("camera.bticino_call_home", "idle", { friendly_name: "Call Home", supported_features: 2, icon: "mdi:phone-classic" }),
     put("sensor.bticino_last_call_timestamp", new Date(sim.lastCallTs * 1000).toISOString(),
       { friendly_name: "Last Call Timestamp", device_class: "timestamp" }),
@@ -406,7 +419,9 @@ function renderState() {
   document.getElementById("state").innerHTML =
     `<b>${where}</b><br>lock ${sim.lockOpen ? "released" : "closed"} - light ${sim.light ? "on" : "off"}`
     + ` - ${sim.offline ? "offline" : "online"}<br>${sim.calls.length} calls in the log`;
-  document.getElementById("btn-ring").disabled = sim.ringing || sim.talking || sim.offline;
+  const busy = sim.ringing || sim.talking || sim.offline;
+  document.getElementById("btn-ring").disabled = busy;
+  document.getElementById("btn-ring-gate").disabled = busy;
   document.getElementById("btn-answer").disabled = !sim.ringing;
   document.getElementById("btn-visitor").disabled = !sim.ringing && !sim.talking;
   document.getElementById("btn-offline").textContent = sim.offline ? "Back online" : "Go offline";
@@ -444,7 +459,8 @@ async function boot() {
   add("g3", { device_id: DEVICE, layout: "device" });
   add("g4", { device_id: DEVICE, layout: "compact" });
 
-  document.getElementById("btn-ring").onclick = ring;
+  document.getElementById("btn-ring").onclick = () => ring(MODULE_FRONT);
+  document.getElementById("btn-ring-gate").onclick = () => ring(MODULE_GATE);
   document.getElementById("btn-answer").onclick = answerAtMonitor;
   document.getElementById("btn-visitor").onclick = () => endCall(sim.talking, "the visitor hung up");
   document.getElementById("btn-offline").onclick = () => {

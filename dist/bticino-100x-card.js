@@ -52,6 +52,8 @@ const STRINGS = {
     call_failed: 'Call failed',
     mic_on: 'Microphone on',
     mic_off: 'Microphone off',
+    mic_denied: 'The browser refused the microphone',
+    mic_insecure: 'The microphone needs a secure connection: open Home Assistant over https',
     sound_on: 'Sound on',
     sound_off: 'Sound off',
     browser_warning: 'Chrome or another Chromium browser is needed for audio and video.',
@@ -75,7 +77,7 @@ const STRINGS = {
     never: 'Nessuna chiamata',
     recent: 'Chiamate recenti',
     no_device: 'Scegli un citofono BTicino nelle impostazioni della card.',
-    no_entities: 'Nessuna entita BTicino trovata per questo dispositivo.',
+    no_entities: 'Nessuna entità BTicino trovata per questo dispositivo.',
     standby: 'A riposo',
     close: 'Chiudi',
     call_answered: 'Risposta',
@@ -91,6 +93,8 @@ const STRINGS = {
     call_failed: 'Chiamata non riuscita',
     mic_on: 'Microfono acceso',
     mic_off: 'Microfono spento',
+    mic_denied: 'Il browser ha negato il microfono',
+    mic_insecure: 'Il microfono richiede una connessione sicura: apri Home Assistant in https',
     sound_on: 'Audio acceso',
     sound_off: 'Audio spento',
     browser_warning: 'Per audio e video serve Chrome o un browser Chromium.',
@@ -104,7 +108,7 @@ const STRINGS = {
     light: 'Lumiere escalier',
     reject: 'Refuser',
     live: 'Direct',
-    answer: 'Repondre',
+    answer: 'Répondre',
     opening: 'Ouverture',
     door_open: 'Ouverte',
     last_call: 'Dernier appel',
@@ -112,13 +116,13 @@ const STRINGS = {
     answered: 'repondus',
     missed: 'manques',
     never: 'Aucun appel',
-    recent: 'Appels recents',
-    no_device: 'Choisissez un interphone BTicino dans les reglages de la carte.',
-    no_entities: 'Aucune entite BTicino pour cet appareil.',
+    recent: 'Appels récents',
+    no_device: 'Choisissez un interphone BTicino dans les réglages de la carte.',
+    no_entities: 'Aucune entité BTicino pour cet appareil.',
     standby: 'Veille',
     close: 'Fermer',
-    call_answered: 'Repondu',
-    call_missed: 'Manque',
+    call_answered: 'Répondu',
+    call_missed: 'Manqué',
     call_open: 'Appel',
     call_home: 'Appeler la maison',
     show_all: 'Voir tout',
@@ -127,24 +131,26 @@ const STRINGS = {
     hang_up: 'Raccrocher',
     connecting: 'Connexion en cours',
     reconnecting: 'Reconnexion',
-    call_failed: 'Appel echoue',
+    call_failed: 'Appel échoué',
     mic_on: 'Micro actif',
-    mic_off: 'Micro coupe',
+    mic_off: 'Micro coupé',
+    mic_denied: 'Le navigateur a refusé le micro',
+    mic_insecure: 'Le micro exige une connexion sécurisée: ouvrez Home Assistant en https',
     sound_on: 'Son actif',
-    sound_off: 'Son coupe',
+    sound_off: 'Son coupé',
     browser_warning: 'Chrome ou un navigateur Chromium est necessaire pour l audio et la video.',
   },
   de: {
     idle: 'Bereit',
     ringing: 'Eingehender Anruf',
-    talking: 'Gespraech laeuft',
-    unavailable: 'Nicht verfuegbar',
-    open_door: 'Oeffnen',
+    talking: 'Gespräch läuft',
+    unavailable: 'Nicht verfügbar',
+    open_door: 'Öffnen',
     light: 'Treppenlicht',
     reject: 'Ablehnen',
     live: 'Live',
     answer: 'Annehmen',
-    opening: 'Oeffnet',
+    opening: 'Öffnet',
     door_open: 'Offen',
     last_call: 'Letzter Anruf',
     calls: 'Anrufe',
@@ -152,10 +158,10 @@ const STRINGS = {
     missed: 'verpasst',
     never: 'Noch keine Anrufe',
     recent: 'Letzte Anrufe',
-    no_device: 'Waehle in den Karteneinstellungen eine BTicino Sprechanlage.',
-    no_entities: 'Keine BTicino Entitaeten fuer dieses Geraet.',
+    no_device: 'Wähle in den Karteneinstellungen eine BTicino Sprechanlage.',
+    no_entities: 'Keine BTicino Entitäten für dieses Gerät.',
     standby: 'Standby',
-    close: 'Schliessen',
+    close: 'Schließen',
     call_answered: 'Angenommen',
     call_missed: 'Verpasst',
     call_open: 'Anruf',
@@ -169,9 +175,11 @@ const STRINGS = {
     call_failed: 'Anruf fehlgeschlagen',
     mic_on: 'Mikrofon an',
     mic_off: 'Mikrofon aus',
+    mic_denied: 'Der Browser hat das Mikrofon abgelehnt',
+    mic_insecure: 'Das Mikrofon braucht eine sichere Verbindung: öffne Home Assistant über https',
     sound_on: 'Ton an',
     sound_off: 'Ton aus',
-    browser_warning: 'Fuer Ton und Bild wird Chrome oder ein Chromium-Browser benoetigt.',
+    browser_warning: 'Für Ton und Bild wird Chrome oder ein Chromium-Browser benötigt.',
   },
   es: {
     idle: 'En reposo',
@@ -185,7 +193,7 @@ const STRINGS = {
     answer: 'Responder',
     opening: 'Abriendo',
     door_open: 'Abierta',
-    last_call: 'Ultima llamada',
+    last_call: 'Última llamada',
     calls: 'Llamadas',
     answered: 'contestadas',
     missed: 'perdidas',
@@ -208,6 +216,8 @@ const STRINGS = {
     call_failed: 'Llamada fallida',
     mic_on: 'Microfono activado',
     mic_off: 'Microfono apagado',
+    mic_denied: 'El navegador ha rechazado el micrófono',
+    mic_insecure: 'El micrófono necesita una conexión segura: abre Home Assistant en https',
     sound_on: 'Sonido activado',
     sound_off: 'Sonido apagado',
     browser_warning: 'Para audio y video hace falta Chrome u otro navegador Chromium.',
@@ -232,9 +242,9 @@ const EDITOR_LABELS = {
     snapshot_entity: 'Snapshot camera',
     lock_entity: 'Door lock',
     light_entity: 'Stair light',
-    layout_panel: 'Panel - a small drawing above the card',
+    layout_panel: 'Panel - a small Classe 100X above the card',
     layout_device: 'Device - the drawing is the card',
-    layout_compact: 'Compact - no drawing',
+    layout_compact: 'Compact - no drawing (default)',
     device_size: 'Drawing size',
   },
   it: {
@@ -249,14 +259,14 @@ const EDITOR_LABELS = {
     show_history: 'Mostra le chiamate recenti',
     auto_answer: 'Rispondi dai link delle notifiche',
     appearance: 'Aspetto',
-    entities: 'Entita',
+    entities: 'Entità',
     camera_entity: 'Telecamera live',
     snapshot_entity: 'Telecamera istantanee',
     lock_entity: 'Serratura',
     light_entity: 'Luce scale',
-    layout_panel: 'Pannello - disegno piccolo sopra la card',
-    layout_device: 'Dispositivo - il disegno e la card',
-    layout_compact: 'Compatta - senza disegno',
+    layout_panel: 'Pannello - Classe 100X piccolo sopra la card',
+    layout_device: 'Dispositivo - il disegno è la card',
+    layout_compact: 'Compatta - senza disegno (predefinita)',
     device_size: 'Dimensione del citofono',
   },
 };
@@ -439,11 +449,13 @@ const isChromium = () => {
  *    a single result.
  */
 class BticinoCallSession {
-  constructor(hass, { entityId, wantsVideo, onState }) {
+  constructor(hass, { entityId, wantsVideo, onState, onNotice }) {
     this.hass = hass;
     this.entityId = entityId;
     this.wantsVideo = !!wantsVideo;
     this.onState = onState || (() => {});
+    // something the user should read, rather than a state the card draws
+    this.onNotice = onNotice || (() => {});
     this.stream = new MediaStream();
     this.state = CALL_STATE.CONNECTING;
     this.micActive = false;
@@ -669,7 +681,7 @@ class BticinoCallSession {
     if (on === this.micActive) return;
     if (on) {
       if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
-        this._set(this.state, 'microphone needs https');
+        this.onNotice('mic_insecure');
         return;
       }
       try {
@@ -683,7 +695,9 @@ class BticinoCallSession {
         }
         this.micActive = true;
       } catch {
+        // a denial is silent otherwise, and the user keeps pressing the button
         this.micActive = false;
+        this.onNotice('mic_denied');
       }
     } else {
       if (this._micSender && this._silenceTrack) await this._micSender.replaceTrack(this._silenceTrack);
@@ -837,15 +851,60 @@ function resolveEntities(hass, deviceId) {
         break;
     }
   }
+  found.units = buildUnits(hass, found);
   return found;
 }
 
+const entityName = (hass, entityId) => (entityId ? hass.states[entityId]?.attributes?.friendly_name || null : null);
+
+/**
+ * Group the entities of each external unit.
+ *
+ * Every entity of a home shares the bridge device, so the only thing that
+ * says which entrance a camera or a doorbell belongs to is the module_id
+ * attribute. Integrations older than that one do not publish it: there the
+ * card falls back to a single unit, which is what it did before, and a home
+ * with one entrance - nearly all of them - behaves the same either way.
+ */
+function buildUnits(hass, found) {
+  const moduleOf = (entityId) => hass.states[entityId]?.attributes?.module_id || null;
+  const pairable = found.liveCameras.some(moduleOf) && found.doorbells.some(moduleOf);
+  if (!pairable) {
+    const camera = found.liveCameras[0] || null;
+    const doorbell = found.doorbells[0] || null;
+    if (!camera && !doorbell) return [];
+    return [{ moduleId: null, camera, doorbell, name: entityName(hass, camera || doorbell) }];
+  }
+
+  const units = new Map();
+  const slot = (key, moduleId) => {
+    if (!units.has(key)) units.set(key, { moduleId, camera: null, doorbell: null, name: null });
+    return units.get(key);
+  };
+  for (const camera of found.liveCameras) {
+    const moduleId = moduleOf(camera);
+    const unit = slot(moduleId || `camera:${camera}`, moduleId);
+    unit.camera = unit.camera || camera;
+  }
+  for (const doorbell of found.doorbells) {
+    const moduleId = moduleOf(doorbell);
+    const unit = slot(moduleId || `doorbell:${doorbell}`, moduleId);
+    unit.doorbell = unit.doorbell || doorbell;
+  }
+  for (const unit of units.values()) {
+    // the camera is named after the unit; the doorbell after its lock
+    unit.name = entityName(hass, unit.camera) || entityName(hass, unit.doorbell);
+  }
+  return [...units.values()];
+}
+
 /** Override an automatic pick with one the user set in the config. */
-function applyOverrides(found, config) {
+function applyOverrides(hass, found, config) {
   if (config.camera_entity) found.liveCameras = [config.camera_entity];
   if (config.snapshot_entity) found.snapshot = config.snapshot_entity;
   if (config.lock_entity) found.locks = [].concat(config.lock_entity);
   if (config.light_entity) found.lights = [].concat(config.light_entity);
+  if (config.camera_entity) found.units = buildUnits(hass, found);
   return found;
 }
 
@@ -1088,6 +1147,14 @@ button:disabled { cursor: not-allowed; }
   --ha-card-background: transparent;
 }
 .stream[hidden] { display: none; }
+.preview {
+  position: relative; align-self: center; width: 100%; max-width: 480px;
+  padding: 0; overflow: hidden; cursor: pointer; outline: none;
+  border-radius: var(--ha-border-radius-lg, 12px); background: var(--bt-screen);
+}
+.preview[hidden] { display: none; }
+.preview:focus-visible { box-shadow: 0 0 0 2px var(--tile-color); }
+.preview-img { display: block; width: 100%; height: auto; }
 .stream-video {
   display: block; width: 100%; background: var(--bt-screen); object-fit: contain;
   /* 16:9 only until the device says what it actually sends, then no bands */
@@ -1099,7 +1166,7 @@ button:disabled { cursor: not-allowed; }
   position: absolute; inset-inline-end: 6px; bottom: 6px; z-index: 2;
   display: flex; gap: 2px;
 }
-.stream-controls .icon-button { width: 36px; height: 36px; color: var(--text-primary-color, #fff); }
+.stream-controls .icon-button { width: 40px; height: 40px; color: var(--text-primary-color, #fff); }
 .stream-controls .icon-button.on { color: var(--tile-color); }
 .stream-overlay {
   position: absolute; inset: 0; z-index: 1;
@@ -1180,7 +1247,8 @@ button:disabled { cursor: not-allowed; }
 /* --- badges ------------------------------------------------------------- */
 .badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .badge {
-  display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px;
+  /* 36px, the height core gives ha-badge, instead of the 32 this had */
+  display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px;
   box-sizing: border-box; min-width: 0;
   border-radius: var(--ha-badge-border-radius, 16px);
   border: var(--ha-card-border-width, 1px) solid var(--ha-card-border-color, var(--divider-color, #e0e0e0));
@@ -1209,9 +1277,11 @@ button:disabled { cursor: not-allowed; }
 .button.tonal::before { background: var(--tile-color); }
 .button.primary::before { background: var(--tile-color); opacity: 1; }
 .button.primary { color: var(--text-primary-color, #fff); }
-.button.danger::before { background: var(--error-color, #db4437); opacity: 1; }
+/* white text on the raw token sits near 3:1; a slightly deeper fill clears
+   what the label needs at this size, and stays obviously red or green */
+.button.danger::before { background: color-mix(in srgb, var(--error-color, #db4437) 80%, #000); opacity: 1; }
 .button.danger { color: var(--text-primary-color, #fff); }
-.button.success::before { background: var(--success-color, #43a047); opacity: 1; }
+.button.success::before { background: color-mix(in srgb, var(--success-color, #43a047) 80%, #000); opacity: 1; }
 .button.success { color: var(--text-primary-color, #fff); }
 .button.success.flash { animation: bt-flash var(--ha-animation-duration-slow, 350ms) ease-out 2; }
 /* while it rings, the answer button asks to be pressed */
@@ -1459,7 +1529,10 @@ const HISTORY_LIMIT = 50;
 const HISTORY_PREVIEW = 5;
 
 const DEFAULTS = {
-  layout: 'panel',
+  // the drawing is a Classe 100X, and the device registry reports the bridge
+  // (BNC1) for the 100X and the 300X alike, so it cannot be chosen for the
+  // user: whoever wants it picks panel or device
+  layout: 'compact',
   color: 'blue',
   auto_answer: true,
   show_badges: true,
@@ -1495,7 +1568,7 @@ class Bticino100xCard extends HTMLElement {
 
   static getStubConfig(hass) {
     const entry = Object.values(hass?.entities || {}).find((e) => e.platform === DOMAIN && e.device_id);
-    return { device_id: entry ? entry.device_id : '', layout: 'panel' };
+    return { device_id: entry ? entry.device_id : '' };
   }
 
   constructor() {
@@ -1578,7 +1651,7 @@ class Bticino100xCard extends HTMLElement {
     const hass = this._hass;
     if (!hass || !this._config) return;
 
-    const found = applyOverrides(resolveEntities(hass, this._config.device_id), this._config);
+    const found = applyOverrides(hass, resolveEntities(hass, this._config.device_id), this._config);
     this._found = found;
     this._watched = found.all.slice();
 
@@ -1654,7 +1727,7 @@ class Bticino100xCard extends HTMLElement {
         type: 'button',
         onclick: (ev) => {
           ev.stopPropagation();
-          this._openMoreInfo(this._found.liveCameras[0] || this._found.snapshot);
+          this._openMoreInfo(this._activeCamera(this._status()) || this._found.snapshot);
         },
       },
       [nodes.screenImg, nodes.screenPlaceholder, nodes.screenStamp],
@@ -1699,7 +1772,24 @@ class Bticino100xCard extends HTMLElement {
     ]);
     nodes.stream.hidden = true;
 
-    nodes.body = el('div', { class: 'body' }, [nodes.deviceWrap, nodes.stream, nodes.content]);
+    nodes.previewImg = el('img', { class: 'preview-img', alt: '', decoding: 'async' });
+    nodes.previewIcon = icon('mdi:bell-ring');
+    nodes.previewText = el('span');
+    nodes.preview = el(
+      'button',
+      {
+        class: 'preview',
+        type: 'button',
+        onclick: () => {
+          const camera = this._activeCamera(this._status());
+          if (camera) this._toggleStream(camera, 'video');
+        },
+      },
+      [nodes.previewImg, el('div', { class: 'stream-label' }, [nodes.previewIcon, nodes.previewText])],
+    );
+    nodes.preview.hidden = true;
+
+    nodes.body = el('div', { class: 'body' }, [nodes.deviceWrap, nodes.preview, nodes.stream, nodes.content]);
 
     nodes.expander = el(
       'button',
@@ -1767,13 +1857,12 @@ class Bticino100xCard extends HTMLElement {
           this._toggleLight(found.lights[0]);
           break;
         case 'bt-eye':
-          if (found.liveCameras[0]) this._toggleStream(found.liveCameras[0], 'video');
+        case 'bt-answer': {
+          const camera = this._activeCamera(this._status());
+          if (camera) this._toggleStream(camera, 'video');
           else this._openMoreInfo(found.snapshot);
           break;
-        case 'bt-answer':
-          if (found.liveCameras[0]) this._toggleStream(found.liveCameras[0], 'video');
-          else this._openMoreInfo(found.snapshot);
-          break;
+        }
         case 'bt-hangup':
           this._reject();
           break;
@@ -1799,10 +1888,21 @@ class Bticino100xCard extends HTMLElement {
   _status() {
     const hass = this._hass;
     const found = this._found;
-    const ringing = found.doorbells.some((id) => hass.states[id]?.state === 'on');
+    const ringingUnit = found.units.find((unit) => unit.doorbell && hass.states[unit.doorbell]?.state === 'on');
+    const ringing = !!ringingUnit || found.doorbells.some((id) => hass.states[id]?.state === 'on');
     const talking = !ringing && hass.states[found.busy]?.state === 'on';
     const reachable = found.all.some((id) => hass.states[id] && hass.states[id].state !== 'unavailable');
-    return { ringing, talking, reachable, active: ringing || talking };
+    return { ringing, talking, reachable, active: ringing || talking, ringingUnit: ringingUnit || null };
+  }
+
+  /** The entrance the card is about right now: the one ringing, else the first. */
+  _activeUnit(status) {
+    return status.ringingUnit || this._found.units[0] || null;
+  }
+
+  /** The camera to answer or watch, which follows the unit that rang. */
+  _activeCamera(status) {
+    return this._activeUnit(status)?.camera || this._found.liveCameras[0] || null;
   }
 
   _primaryEntity() {
@@ -1874,10 +1974,15 @@ class Bticino100xCard extends HTMLElement {
         : status.talking
           ? t(hass, 'talking')
           : t(hass, 'idle');
-    nodes.secondary.textContent = lastCall
-      ? `${stateText} - ${t(hass, 'last_call')} ${relativeTime(hass, lastCall)}`
-      : `${stateText} - ${t(hass, 'never')}`;
+    // with two entrances, which one rang matters more than when the last call was
+    const unitName = status.ringing && this._found.units.length > 1 ? status.ringingUnit?.name : null;
+    nodes.secondary.textContent = unitName
+      ? `${stateText} - ${unitName}`
+      : lastCall
+        ? `${stateText} - ${t(hass, 'last_call')} ${relativeTime(hass, lastCall)}`
+        : `${stateText} - ${t(hass, 'never')}`;
 
+    this._syncRingingPreview(status);
     this._syncStream();
     this._syncScreen(lastCall, status);
     this._syncKeys(status);
@@ -1911,6 +2016,22 @@ class Bticino100xCard extends HTMLElement {
     }
   }
 
+  /**
+   * A 93x55 snapshot inside the drawing is no help at the one moment it is
+   * needed, so while it rings the picture takes the drawing's place.
+   */
+  _syncRingingPreview(status) {
+    const nodes = this._root;
+    const picture = this._hass.states[this._found.snapshot]?.attributes.entity_picture;
+    const show = status.ringing && !this._stream && !!picture;
+    nodes.preview.hidden = !show;
+    if (!show) return;
+    if (nodes.previewImg.getAttribute('src') !== picture) nodes.previewImg.setAttribute('src', picture);
+    const unit = this._activeUnit(status);
+    nodes.previewText.textContent = unit?.name || t(this._hass, 'ringing');
+    nodes.preview.setAttribute('aria-label', `${t(this._hass, 'answer')} - ${unit?.name || ''}`.trim());
+  }
+
   _syncScreen(lastCall, status) {
     const hass = this._hass;
     const nodes = this._root;
@@ -1931,7 +2052,7 @@ class Bticino100xCard extends HTMLElement {
     nodes.screenStamp.textContent = picture ? stamp : '';
     nodes.screenStamp.style.display = picture && stamp ? '' : 'none';
 
-    const target = this._found.liveCameras[0] || this._found.snapshot;
+    const target = this._activeCamera(status) || this._found.snapshot;
     nodes.screen.setAttribute('aria-label', `${this._deviceName()} - ${t(hass, 'live')}`);
     nodes.screen.disabled = !target;
   }
@@ -2071,7 +2192,7 @@ class Bticino100xCard extends HTMLElement {
     }
 
     if (found.liveCameras.length || found.snapshot) {
-      const target = found.liveCameras[0];
+      const target = this._activeCamera(status);
       const watching = this._stream?.mode === 'video';
       // the same call either way, but while it rings answering is the point
       let liveIcon = 'mdi:video-outline';
@@ -2092,7 +2213,7 @@ class Bticino100xCard extends HTMLElement {
         text: liveText,
         variant: liveVariant,
         calling: liveVariant === 'success',
-        disabled: false,
+        disabled: !status.reachable,
         action: target ? () => this._toggleStream(target, 'video') : () => this._openMoreInfo(found.snapshot),
       });
     }
@@ -2105,7 +2226,7 @@ class Bticino100xCard extends HTMLElement {
         icon: calling ? 'mdi:phone-hangup' : 'mdi:home-outline',
         text: t(hass, calling ? 'hang_up' : 'call_home'),
         variant: calling ? 'tonal' : '',
-        disabled: false,
+        disabled: !status.reachable,
         action: () => this._toggleStream(found.callHome, 'audio'),
       });
     }
@@ -2212,6 +2333,7 @@ class Bticino100xCard extends HTMLElement {
       onState: () => {
         if (this._session === session && this._root) this._syncStream();
       },
+      onNotice: (key) => fireEvent(this, 'hass-notification', { message: t(this._hass, key) }),
     });
     this._session = session;
     this._stream = { entityId, mode };
@@ -2261,7 +2383,7 @@ class Bticino100xCard extends HTMLElement {
     const session = this._session;
 
     nodes.stream.hidden = !stream;
-    nodes.deviceWrap.hidden = !!stream;
+    nodes.deviceWrap.hidden = !!stream || !nodes.preview.hidden;
     if (!stream || !session) return;
 
     const audioOnly = stream.mode === 'audio';
@@ -2550,9 +2672,9 @@ const editorSchema = (hass, config) => [
       select: {
         mode: 'dropdown',
         options: [
+          { value: 'compact', label: te(hass, 'layout_compact') },
           { value: 'panel', label: te(hass, 'layout_panel') },
           { value: 'device', label: te(hass, 'layout_device') },
-          { value: 'compact', label: te(hass, 'layout_compact') },
         ],
       },
     },

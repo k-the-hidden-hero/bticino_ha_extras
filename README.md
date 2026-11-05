@@ -139,12 +139,16 @@ the card working. Everything else is optional:
 | Option | Default | Description |
 |---|---|---|
 | `device_id` | - | The BTicino device, picked in the visual editor |
-| `layout` | `panel` | `panel` (a small drawing above the card), `device` (the drawing leads and its own keys are the controls) or `compact` (no drawing) |
+| `layout` | `compact` | `compact` (no drawing), `panel` (a small Classe 100X above the card) or `device` (the drawing leads and its own keys are the controls). The drawing is a 100X, and the device registry reports the bridge for the 100X and the 300X alike, so it is opt-in |
 | `device_size` | 140 / 260 | Width of the drawing in pixels, 80 to 320 |
 | `name`, `icon` | from the device | Title and header icon |
 | `color` | `blue` | Accent while ringing or in a call |
 | `show_badges`, `show_controls`, `show_history` | `true` | Sections of the card |
 | `auto_answer` | `true` | Pick the call up when a notification links to the dashboard with `?answer=` |
+
+With more than one external unit, the card pairs each doorbell with the camera of the same module
+and **Answer** opens the one that rang; the header says which entrance it is. While it rings the
+snapshot takes the drawing's place at full width, because that is the moment it is worth reading.
 | `camera_entity`, `lock_entity`, `light_entity` | automatic | Override which entity each control uses |
 
 **The call.** **Live** opens a WebRTC call to the entrance panel in place of the drawing: video,
