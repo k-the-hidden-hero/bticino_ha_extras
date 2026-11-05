@@ -1,0 +1,193 @@
+# View Assist view: BTicino intercom.
+#
+# Opened by the "BTicino Intercom - View Assist pop-up" blueprint when the
+# doorbell rings, as /view-assist/citofono?camera=<camera>&timeout=<s>
+# [&restore_mode=<mode>&restore_path=<path>]. Opening it from the menu works too: without a
+# `camera` parameter it shows the first BTicino external unit.
+#
+# Like the stock Camera view, it puts the satellite in `hold` while it is up,
+# so View Assist does not navigate away mid-call, and gives the previous mode
+# back when it closes (timeout or the close button). A satellite that was
+# itself in `hold` gets its hold view back.
+#
+# Needs: View Assist, custom:button-card (as every View Assist view) and the
+# BTicino Intercom card (bticino-100x-card) with the `kiosk` layout.
+type: panel
+title: Citofono
+path: citofono
+cards:
+  - type: custom:button-card
+    template:
+      - variable_template
+      - responsive_base
+      - body_template
+    variables:
+      var_url_params: |-
+        [[[
+          let queryString = '';
+          const vaEntity = hass.states[variables.var_assistsat_entity];
+          const currentPath = vaEntity?.attributes?.current_path;
+          if (currentPath && currentPath.includes('?')) {
+            queryString = currentPath.split('?')[1];
+          }
+          if (!queryString && window.location.search) {
+            queryString = window.location.search.substring(1);
+          }
+          return new URLSearchParams(queryString);
+        ]]]
+      var_camera: |-
+        [[[
+          const fromUrl = variables.var_url_params.get('camera');
+          if (fromUrl && hass.states[fromUrl]) return fromUrl;
+          // No camera in the URL: the first BTicino external unit. Call Home
+          // dials the indoor monitor, not a unit, so it is skipped.
+          const units = Object.values(hass.entities || {})
+            .filter((e) => e.platform === 'bticino_intercom' && e.entity_id.startsWith('camera.'))
+            .map((e) => e.entity_id)
+            .filter((id) => !id.endsWith('_call_home') && !id.endsWith('_last_event_snapshot'))
+            .filter((id) => hass.states[id] && hass.states[id].state !== 'unavailable')
+            .sort();
+          return units[0] || '';
+        ]]]
+      var_timeout_seconds: |-
+        [[[
+          const timeout = parseInt(variables.var_url_params.get('timeout'), 10);
+          return Number.isFinite(timeout) && timeout > 0 ? timeout : 90;
+        ]]]
+      var_setup_intercom_hold_mode: |-
+        [[[
+          const entityId = variables.var_assistsat_entity;
+          const cleanup = () => {
+            if (window.vaIntercomTimeout) clearTimeout(window.vaIntercomTimeout);
+            window.vaIntercomTimeout = null;
+            window.vaIntercomPageKey = null;
+            window.vaIntercomRestore = null;
+          };
+
+          if (variables.var_current_view !== 'citofono' || !entityId) {
+            cleanup();
+            return '';
+          }
+
+          const pageKey = `${window.location.pathname}${window.location.search}`;
+          if (window.vaIntercomPageKey === pageKey) return '';
+          window.vaIntercomPageKey = pageKey;
+          if (window.vaIntercomTimeout) clearTimeout(window.vaIntercomTimeout);
+
+          const params = variables.var_url_params;
+          const timeoutMs = variables.var_timeout_seconds * 1000;
+          const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+          const liveHass = () => document.querySelector('home-assistant')?.hass || hass;
+          const recordedHere = (h) =>
+            String(h.states[entityId]?.attributes?.current_path || '').split('?')[0].endsWith('/citofono');
+
+          const begin = (h) => {
+            const attrs = h.states[entityId]?.attributes || {};
+            // The blueprint lifts hold before navigating here and passes what
+            // to give back; opened by hand, a mode other than hold is the
+            // previous one.
+            const restoreMode = params.get('restore_mode') || (attrs.mode && attrs.mode !== 'hold' ? attrs.mode : 'normal');
+            const restorePath = params.get('restore_path') || '';
+            if (attrs.mode !== 'hold') {
+              h.callService('view_assist', 'set_state', { entity_id: entityId, mode: 'hold' });
+            }
+            window.vaIntercomRestore = async () => {
+              const live = liveHass();
+              cleanup();
+              try {
+                // Leaving hold, View Assist goes back to its home screen itself.
+                await live.callService('view_assist', 'set_state', { entity_id: entityId, mode: 'normal' });
+                if (restoreMode === 'hold') {
+                  if (restorePath) {
+                    await pause(1500);
+                    await live.callService('view_assist', 'navigate', { device: entityId, path: restorePath });
+                  }
+                  await pause(1500);
+                  await live.callService('view_assist', 'set_state', { entity_id: entityId, mode: 'hold' });
+                } else if (restoreMode !== 'normal') {
+                  await pause(1500);
+                  await live.callService('view_assist', 'set_state', { entity_id: entityId, mode: restoreMode });
+                }
+              } catch (error) {
+                console.warn('BTicino intercom view: could not restore the View Assist mode', error);
+              }
+            };
+            window.vaIntercomTimeout = setTimeout(() => window.vaIntercomRestore?.(), timeoutMs);
+          };
+
+          // Entering hold pins View Assist's hold_path to the path it has on
+          // record, and View Assist then keeps the screen there. After a page
+          // load the view can render before that path reaches the browser, and
+          // this template may not run again, so wait for it here (up to 5 s).
+          let tries = 0;
+          const waitForPath = () => {
+            if (window.vaIntercomPageKey !== pageKey) return;
+            const h = liveHass();
+            if (recordedHere(h)) begin(h);
+            else if (++tries < 20) setTimeout(waitForPath, 250);
+          };
+          waitForPath();
+          return '';
+        ]]]
+    styles:
+      grid:
+        - grid-template-areas: |
+            "status"
+            "intercom"
+        - grid-template-columns: 1fr
+        - grid-template-rows: min-content 1fr
+      card:
+        - background: '[[[ return `center / cover no-repeat url(${variables.background})` ]]]'
+        - background-size: cover
+        - border-radius: 0px
+        - font-family: "[[[ return `'${variables.var_assistsat_entity_font_style}', sans-serif`; ]]]"
+      custom_fields:
+        intercom:
+          - height: 100%
+          - width: 100%
+          - min-height: 0
+          - overflow: hidden
+        close_button:
+          - position: absolute
+          - right: 1rem
+          - top: 1rem
+          - z-index: 2
+    custom_fields:
+      _hold_mode_init: '[[[ return variables.var_setup_intercom_hold_mode ]]]'
+      intercom:
+        card:
+          type: custom:bticino-100x-card
+          layout: kiosk
+          camera_entity: '[[[ return variables.var_camera ]]]'
+      close_button:
+        card:
+          type: custom:button-card
+          icon: mdi:close
+          name: Chiudi
+          show_name: false
+          styles:
+            card:
+              - background: rgba(0,0,0,0.6)
+              - border-radius: 50%
+              - width: 3.5rem
+              - height: 3.5rem
+              - padding: 0
+            icon:
+              - color: white
+              - width: 2rem
+              - height: 2rem
+          grid:
+            - grid-template-areas: i
+            - justify-items: center
+            - align-items: center
+          # A plain service call, not a `javascript` action: the outer
+          # button-card evaluates every [[[ ]]] of the cards nested in it while
+          # rendering, so a script here would run as soon as the view showed.
+          # Leaving hold sends View Assist to its home screen; a previous hold
+          # comes back when the view's timer runs out.
+          tap_action:
+            action: call-service
+            service: view_assist.set_state
+            service_data:
+              entity_id: '[[[ return variables.var_assistsat_entity ]]]'
+              mode: normal

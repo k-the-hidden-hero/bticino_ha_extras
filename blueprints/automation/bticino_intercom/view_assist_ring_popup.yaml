@@ -1,0 +1,115 @@
+blueprint:
+  name: BTicino Intercom - View Assist pop-up
+  description: >
+    When the doorbell rings, show the intercom full screen on your View Assist
+    devices, with the unit that rang: answer, open the door or reject from there.
+    Needs the "citofono" View Assist view from bticino_ha_extras
+    (view_assist/views/citofono) and the BTicino Intercom card.
+
+    A device pinned in View Assist's `hold` mode is released for the pop-up and
+    put back in `hold`, on its hold view, when the pop-up closes.
+  domain: automation
+  author: k-the-hidden-hero
+  source_url: https://github.com/k-the-hidden-hero/bticino_ha_extras/blob/main/blueprints/automation/bticino_intercom/view_assist_ring_popup.yaml
+  homeassistant:
+    min_version: '2024.10.0'
+  input:
+    devices:
+      name: Screens
+      icon: mdi:tablet
+      input:
+        va_devices:
+          name: View Assist devices
+          description: The View Assist devices that show the pop-up.
+          selector:
+            entity:
+              filter:
+                - integration: view_assist
+                  domain: sensor
+              multiple: true
+        cameras:
+          name: External units (optional)
+          description: >
+            Only a ring from these units opens the pop-up. Leave empty for every
+            unit.
+          default: []
+          selector:
+            entity:
+              filter:
+                - integration: bticino_intercom
+                  domain: camera
+              multiple: true
+    settings:
+      name: Settings
+      icon: mdi:cog
+      collapsed: true
+      input:
+        timeout:
+          name: Pop-up duration
+          description: >
+            Seconds the pop-up stays up before the screen goes back to what it
+            was showing. The close button on the pop-up closes it earlier.
+          default: 90
+          selector:
+            number:
+              min: 30
+              max: 600
+              step: 10
+              unit_of_measurement: s
+              mode: slider
+        view_path:
+          name: View path
+          description: Path of the intercom view in the View Assist dashboard.
+          default: /view-assist/citofono
+          selector:
+            text:
+
+mode: restart
+max_exceeded: silent
+
+triggers:
+  - trigger: event
+    event_type: bticino_intercom_call
+    event_data:
+      type: ring
+
+variables:
+  allowed_cameras: !input cameras
+  timeout: !input timeout
+  view_path: !input view_path
+  camera: "{{ trigger.event.data.camera_entity_id | default('', true) }}"
+
+conditions:
+  - condition: template
+    value_template: >
+      {{ camera != '' and (allowed_cameras | length == 0 or camera in allowed_cameras) }}
+
+actions:
+  - repeat:
+      for_each: !input va_devices
+      sequence:
+        - variables:
+            previous_mode: "{{ state_attr(repeat.item, 'mode') or 'normal' }}"
+            previous_hold_path: "{{ state_attr(repeat.item, 'hold_path') or '' }}"
+        # A device in hold stays on its hold view. Leaving hold sends it to its
+        # home screen, so wait for that before navigating, or the two collide.
+        - if:
+            - condition: template
+              value_template: "{{ previous_mode == 'hold' }}"
+          then:
+            - action: view_assist.set_state
+              target:
+                entity_id: '{{ repeat.item }}'
+              data:
+                mode: normal
+            - delay:
+                seconds: 2
+        - action: view_assist.navigate
+          data:
+            device: '{{ repeat.item }}'
+            path: >-
+              {{ view_path }}?camera={{ camera }}&timeout={{ timeout | int }}&restore_mode={{ previous_mode
+              }}{{ '&restore_path=' ~ (previous_hold_path | urlencode) if previous_hold_path else '' }}
+            # The view holds the screen while it is up; this only matters if the
+            # view fails to load, so the screen does not stay stuck.
+            revert_timeout: 120
