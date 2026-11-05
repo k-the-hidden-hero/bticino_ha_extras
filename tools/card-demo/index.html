@@ -67,14 +67,24 @@ button.sim.go { border-color: var(--primary-color); color: var(--primary-color);
 }
 .log div { color: var(--secondary-text-color); }
 .log div span { color: var(--primary-text-color); }
+.toasts {
+  position: fixed; left: 16px; bottom: 16px; z-index: 100;
+  display: flex; flex-direction: column; gap: 8px; max-width: 360px;
+}
+.toast {
+  background: #323232; color: #fff; border-radius: 8px; padding: 10px 14px;
+  font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,.3);
+}
 </style>
 </head>
 <body>
+<div class="toasts" id="toasts"></div>
 <div class="cards">
   <h2>panel</h2><div id="g1"></div>
   <h2>panel - citofono grande (220px)</h2><div id="g2"></div>
   <h2>device</h2><div id="g3"></div>
   <h2>compact</h2><div id="g4"></div>
+  <h2>default configuration (device_id only)</h2><div id="g5"></div>
 </div>
 
 <div class="panel">
@@ -94,6 +104,10 @@ button.sim.go { border-color: var(--primary-color); color: var(--primary-color);
   <div class="row">
     <button class="sim" id="btn-offline">Go offline</button>
     <button class="sim" id="btn-clear">Clear history</button>
+  </div>
+  <div class="row">
+    <button class="sim" id="btn-mic">Refuse microphone</button>
+    <button class="sim" id="btn-legacy">Drop module_id</button>
   </div>
   <div class="row">
     <button class="sim" onclick="setTheme('light')">Light</button>
@@ -151,6 +165,9 @@ const sim = {
   ringingModule: null,
   talking: false,
   offline: false,
+  micRefused: false,
+  // an integration older than the module_id attribute
+  legacy: false,
   lockOpen: false,
   light: false,
   lastCallTs: minutesAgo(38),
@@ -260,6 +277,8 @@ function buildStates() {
   const off = sim.offline;
   const put = (entity_id, state, attributes = {}) =>
     [entity_id, { entity_id, state: off ? "unavailable" : state, attributes, last_changed: new Date().toISOString() }];
+  // an older integration publishes no module_id, and the card falls back
+  const mod = (moduleId) => (sim.legacy ? {} : { module_id: moduleId });
   const answered = sim.calls.filter((c) => c.answered === true).length;
   const missed = sim.calls.filter((c) => c.answered === false).length;
   return Object.fromEntries([
@@ -267,15 +286,15 @@ function buildStates() {
       { friendly_name: "Street door", supported_features: 1, device_class: "lock" }),
     put("light.bticino_luce_scale", sim.light ? "on" : "off", { friendly_name: "Stair light", supported_features: 0 }),
     put("binary_sensor.bticino_chiamata", sim.ringingModule === MODULE_FRONT ? "on" : "off",
-      { friendly_name: MODULE, device_class: "sound", module_id: MODULE_FRONT }),
+      { friendly_name: MODULE, device_class: "sound", ...mod(MODULE_FRONT) }),
     put("binary_sensor.bticino_chiamata_cancello", sim.ringingModule === MODULE_GATE ? "on" : "off",
-      { friendly_name: GATE, device_class: "sound", module_id: MODULE_GATE }),
+      { friendly_name: GATE, device_class: "sound", ...mod(MODULE_GATE) }),
     put("binary_sensor.bticino_bridge_busy", sim.talking ? "on" : "off", { friendly_name: "Bridge Busy", device_class: "occupancy" }),
     put("camera.bticino_last_event_snapshot", "idle",
       { friendly_name: "Last Event Snapshot", supported_features: 0, entity_picture: sim.snapshot,
         event_time_iso: new Date(sim.lastCallTs * 1000).toISOString() }),
-    put("camera.bticino_ingresso", "idle", { friendly_name: MODULE, supported_features: 2, module_id: MODULE_FRONT }),
-    put("camera.bticino_cancello", "idle", { friendly_name: GATE, supported_features: 2, module_id: MODULE_GATE }),
+    put("camera.bticino_ingresso", "idle", { friendly_name: MODULE, supported_features: 2, ...mod(MODULE_FRONT) }),
+    put("camera.bticino_cancello", "idle", { friendly_name: GATE, supported_features: 2, ...mod(MODULE_GATE) }),
     put("camera.bticino_call_home", "idle", { friendly_name: "Call Home", supported_features: 2, icon: "mdi:phone-classic" }),
     put("sensor.bticino_last_call_timestamp", new Date(sim.lastCallTs * 1000).toISOString(),
       { friendly_name: "Last Call Timestamp", device_class: "timestamp" }),
@@ -357,10 +376,11 @@ function fakeCameraStream() {
 }
 
 class FakeSession {
-  constructor({ entityId, wantsVideo, onState }) {
+  constructor({ entityId, wantsVideo, onState, onNotice }) {
     this.entityId = entityId;
     this.wantsVideo = wantsVideo;
     this.onState = onState;
+    this.onNotice = onNotice || (() => {});
     this.state = "connecting";
     this.micActive = false;
     this.error = null;
@@ -375,12 +395,20 @@ class FakeSession {
         this.stream = this._camera.stream;
       }
       this.state = "live";
-      this.micActive = true;
-      log("call connected, microphone live");
+      this.micActive = !sim.micRefused;
+      if (sim.micRefused) this.onNotice("mic_denied");
+      log(`call connected, microphone ${this.micActive ? "live" : "refused"}`);
       this.onState(this);
     }, 1200);
   }
   async setMic(on) {
+    if (on && sim.micRefused) {
+      log("microphone refused by the browser");
+      this.micActive = false;
+      this.onNotice("mic_denied");
+      this.onState(this);
+      return;
+    }
     this.micActive = on;
     log(`microphone ${on ? "on" : "off"}`);
     this.onState(this);
@@ -425,10 +453,13 @@ function renderState() {
   document.getElementById("btn-answer").disabled = !sim.ringing;
   document.getElementById("btn-visitor").disabled = !sim.ringing && !sim.talking;
   document.getElementById("btn-offline").textContent = sim.offline ? "Back online" : "Go offline";
+  document.getElementById("btn-mic").textContent = sim.micRefused ? "Allow microphone" : "Refuse microphone";
+  document.getElementById("btn-legacy").textContent = sim.legacy ? "Restore module_id" : "Drop module_id";
 }
 
 async function boot() {
-  await import("../../dist/bticino-100x-card.js?v=" + Date.now());
+  const card = await import("../../dist/bticino-100x-card.js?v=" + Date.now());
+  const t = card.t;
   await customElements.whenDefined("bticino-100x-card");
 
   // The simulator has no Home Assistant behind it, so the card's real WebRTC
@@ -440,6 +471,13 @@ async function boot() {
       entityId,
       wantsVideo: mode === "video",
       onState: () => { if (this._session === session && this._root) this._syncStream(); },
+      onNotice: (key) => this.dispatchEvent(
+        new CustomEvent("hass-notification", {
+          detail: { message: t(this.hass, key) },
+          bubbles: true,
+          composed: true,
+        }),
+      ),
     });
     this._session = session;
     this._stream = { entityId, mode };
@@ -458,6 +496,7 @@ async function boot() {
   add("g2", { device_id: DEVICE, layout: "panel", device_size: 220, color: "purple" });
   add("g3", { device_id: DEVICE, layout: "device" });
   add("g4", { device_id: DEVICE, layout: "compact" });
+  add("g5", { device_id: DEVICE });
 
   document.getElementById("btn-ring").onclick = () => ring(MODULE_FRONT);
   document.getElementById("btn-ring-gate").onclick = () => ring(MODULE_GATE);
@@ -471,6 +510,27 @@ async function boot() {
   document.getElementById("btn-clear").onclick = () => {
     sim.calls = [];
     log("history cleared");
+    publish();
+  };
+
+  document.addEventListener("hass-notification", (event) => {
+    const message = event.detail?.message ?? "";
+    log(`notification: ${message}`);
+    const toast = document.createElement("div");
+    toast.className = "toast";
+    toast.textContent = message;
+    document.getElementById("toasts").appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
+  });
+
+  document.getElementById("btn-mic").onclick = () => {
+    sim.micRefused = !sim.micRefused;
+    log(`browser microphone ${sim.micRefused ? "refused" : "allowed"}`);
+    publish();
+  };
+  document.getElementById("btn-legacy").onclick = () => {
+    sim.legacy = !sim.legacy;
+    log(sim.legacy ? "integration without module_id" : "integration with module_id");
     publish();
   };
 

@@ -2795,4 +2795,5 @@ if (!window.customCards.some((card) => card.type === CARD_TYPE)) {
 
 console.info(`%c BTICINO-100X-CARD %c ${VERSION} `, 'color: #fff; background: #0a8acd; font-weight: 500', '');
 
-export { Bticino100xCard, Bticino100xCardEditor };
+// t is exported so the demo can speak the card's own language
+export { Bticino100xCard, Bticino100xCardEditor, t };

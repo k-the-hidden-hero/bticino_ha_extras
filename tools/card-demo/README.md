@@ -23,11 +23,20 @@ edit shows up on reload.
 - **Notifica: tocca Rispondi** does what the phone does when the actionable notification is
   tapped: it reloads the page with `?answer=<camera>` in the address, with the bell ringing, and
   the card picks the call up on its own and clears the parameter.
-- **Vai offline** makes every entity unavailable.
+- **Ring gate** rings the second external unit, so the pairing can be seen: the header names the
+  entrance and **Answer** opens that unit's camera, not the first one.
+- **Refuse microphone** makes the browser deny it, which is how the card's notification path is
+  exercised; toasts the card fires appear bottom left and in the log.
+- **Drop module_id** removes the attribute from every entity, the way an integration older than
+  k-the-hidden-hero/bticino_intercom#115 behaves, so the single-unit fallback can be checked.
+- **Go offline** makes every entity unavailable.
 
 Every action is printed in the log, so a flow can be read end to end.
 
 ## The call
+
+The last card on the page carries only a `device_id`, so the default configuration is on screen
+next to the configured ones.
 
 The page has no Home Assistant behind it, so `_startStream` is replaced with a session that
 connects after a moment and, for a video call, serves a canvas animation as its video track. It is
