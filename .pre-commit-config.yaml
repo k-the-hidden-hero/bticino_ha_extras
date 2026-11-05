@@ -1,3 +1,9 @@
+# The node hooks run on the installed Node. Left to pick one, nodeenv asks for
+# the latest release and fails to parse the pre-release Node lists first
+# ("invalid literal for int() with base 10: '0-alpha'").
+default_language_version:
+  node: system
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
