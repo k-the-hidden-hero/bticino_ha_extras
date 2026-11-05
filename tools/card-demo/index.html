@@ -33,6 +33,16 @@ html[data-theme="dark"] {
   --primary-background-color: #111111; --secondary-background-color: #282828;
   --state-unavailable-color: #6f6f6f;
 }
+/* ?theme=custom: a user theme that changes the primary colour and the shape of core components,
+   to see that the card follows the component tokens and not only the colours */
+html[data-theme="custom"] {
+  --primary-color: #8e24aa; --accent-color: #00897b; --blue-color: #3949ab;
+  --primary-background-color: #f3eef6; --card-background-color: #fffdfd; --ha-card-background: #fffdfd;
+  --ha-card-border-radius: 4px; --ha-card-border-color: #d9c7e3;
+  --ha-card-features-border-radius: 4px; --ha-badge-border-radius: 4px; --ha-tile-icon-border-radius: 8px;
+  --ha-card-box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  --ha-picture-card-text-color: #fff8e1;
+}
 body {
   margin: 0; padding: 20px; background: var(--primary-background-color);
   color: var(--primary-text-color); font-family: var(--ha-font-family-body);
@@ -47,6 +57,13 @@ body.solo .cards, body.solo .panel { display: none; }
 body.solo #solo { display: block; box-sizing: border-box; }
 body.solo.kiosk #solo { height: 100vh; }
 body.solo:not(.kiosk) #solo { padding: 16px; }
+/* ?view=sections: a sections dashboard, 12 columns per section, rows of 56px 8px apart */
+.sections { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 32px 16px; align-items: start; }
+.section { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-rows: minmax(56px, auto); gap: 8px; }
+.section > h3 { grid-column: 1 / -1; margin: 0; align-self: end; font-size: 20px; font-weight: 400; }
+.section > .cell { min-width: 0; }
+.tile-stub { height: 56px; box-sizing: border-box; display: flex; align-items: center; padding: 0 12px;
+  font-size: 14px; color: var(--secondary-text-color); }
 h2 { font-size: 13px; font-weight: 500; color: var(--secondary-text-color); margin: 18px 0 8px; }
 h2:first-of-type { margin-top: 0; }
 .cards { min-width: 0; }
@@ -137,7 +154,8 @@ customElements.define("ha-icon", class extends HTMLElement {
 customElements.define("ha-card", class extends HTMLElement {
   connectedCallback() {
     this.style.cssText = "display:block;background:var(--ha-card-background,var(--card-background-color));"
-      + "border-radius:var(--ha-card-border-radius,12px);border:var(--ha-card-border-width,1px) solid var(--ha-card-border-color,var(--divider-color));";
+      + "border-radius:var(--ha-card-border-radius,12px);border:var(--ha-card-border-width,1px) solid var(--ha-card-border-color,var(--divider-color));"
+      + "box-shadow:var(--ha-card-box-shadow,none);box-sizing:border-box;";
   }
 });
 customElements.define("home-assistant", class extends HTMLElement {});
@@ -146,7 +164,8 @@ customElements.define("home-assistant", class extends HTMLElement {});
 
 const DEVICE = "dev1";
 const ENTRY = "e1";
-const DEVICE_NAME = "Intercom";
+// a device the way the integration creates it, not renamed by the user
+const DEVICE_NAME = "BTicino Classe 100X";
 
 /** Two external units, each with its camera, doorbell sensor and doorbell event. */
 const UNITS = {
@@ -298,7 +317,7 @@ function toggleLight() {
 /* ------------------------------------------------------------ hass object */
 
 const params = new URLSearchParams(location.search);
-let theme = params.get("theme") === "dark" ? "dark" : "light";
+let theme = ["dark", "custom"].includes(params.get("theme")) ? params.get("theme") : "light";
 let language = params.get("lang") || "en";
 document.documentElement.dataset.theme = theme;
 
@@ -350,7 +369,7 @@ function makeHass() {
   return {
     states: buildStates(),
     entities,
-    devices: { [DEVICE]: { id: DEVICE, name: "BTicino Intercom - Home", name_by_user: DEVICE_NAME,
+    devices: { [DEVICE]: { id: DEVICE, name: DEVICE_NAME, name_by_user: null,
       model: "BNC1", manufacturer: "BTicino", config_entries: [ENTRY] } },
     areas: {},
     language,
@@ -518,7 +537,10 @@ async function boot() {
 
   // ?view=<layout> shows that one card alone, filling the window for a kiosk
   const view = params.get("view");
-  if (view) {
+  if (view === "sections") {
+    document.body.classList.add("solo");
+    buildSections();
+  } else if (view) {
     document.body.classList.add("solo");
     document.body.classList.toggle("kiosk", view === "kiosk");
     add("solo", { device_id: DEVICE, layout: view });
@@ -528,6 +550,51 @@ async function boot() {
     add("g3", { device_id: DEVICE, layout: "device" });
     add("g4", { device_id: DEVICE, layout: "compact" });
     add("g5", { device_id: DEVICE, layout: "kiosk" });
+  }
+
+  /** Cards placed the way a sections view places them, from their own getGridOptions(). */
+  function buildSections() {
+    const root = document.getElementById("solo");
+    root.innerHTML = '<div class="sections"></div>';
+    const grid = root.firstChild;
+    const section = (title) => {
+      const node = document.createElement("div");
+      node.className = "section";
+      node.innerHTML = `<h3>${title}</h3>`;
+      grid.appendChild(node);
+      return node;
+    };
+    const place = (target, config, columns) => {
+      const card = document.createElement("bticino-100x-card");
+      card.setConfig(config);
+      const options = card.getGridOptions();
+      const span = columns || (options.columns === "full" ? 12 : options.columns);
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      cell.style.gridColumn = `span ${span}`;
+      if (options.rows) {
+        cell.style.gridRow = `span ${options.rows}`;
+        cell.style.height = `${options.rows * 56 + (options.rows - 1) * 8}px`;
+      }
+      cell.appendChild(card);
+      target.appendChild(cell);
+      cards.push(card);
+    };
+    const tile = (target, text) => {
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      cell.style.gridColumn = "span 6";
+      cell.innerHTML = `<ha-card class="tile-stub">${text}</ha-card>`;
+      target.appendChild(cell);
+    };
+    const a = section("Ingresso");
+    place(a, { device_id: DEVICE, layout: "panel" });
+    const b = section("Compatta a min_columns");
+    place(b, { device_id: DEVICE, layout: "compact" }, 6);
+    tile(b, "Another card");
+    place(b, { device_id: DEVICE, layout: "device" });
+    const c = section("Kiosk");
+    place(c, { device_id: DEVICE, layout: "kiosk" });
   }
 
   document.getElementById("btn-ring").onclick = () => ring("front");

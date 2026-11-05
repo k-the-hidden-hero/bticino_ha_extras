@@ -196,8 +196,7 @@ test('with two units, Answer calls the unit the bus says rang, not the first one
   assert.equal(answer.dataset.target, GATE);
   answer.click();
   assert.deepEqual(card.calls, [[GATE, 'video']]);
-  assert.equal($(card, '.shot-title').textContent, 'Gate', 'the picture names the unit that rang');
-  assert.equal($(card, '.secondary').textContent, 'Incoming call', 'and the status line does not repeat it');
+  assert.equal($(card, '.secondary').textContent, 'Gate · Incoming call', 'the subtitle names the unit that rang');
 });
 
 test('without the bus, the doorbell carrying the same module_id names the unit', async () => {
@@ -330,7 +329,8 @@ for (const layout of ['panel', 'device', 'compact', 'kiosk']) {
 
     assert.equal($(card, '.device-wrap').hidden, true, 'no drawing while it rings');
     assert.equal($(card, '.shot').hidden, false, 'the picture shows instead');
-    assert.equal($(card, '.shot-title').textContent, 'Front door');
+    assert.equal($(card, '.secondary').textContent, 'Front door · Incoming call');
+    assert.equal($$(card, '.shot > :not(img):not(.shot-empty)').length, 0, 'nothing is drawn over the visitor');
     assert.equal($(card, '.features').dataset.mode, 'ring');
     assert.deepEqual(
       buttons(card).map((node) => node.getAttribute('aria-label')),
@@ -343,6 +343,19 @@ for (const layout of ['panel', 'device', 'compact', 'kiosk']) {
     assert.equal($(card, '.device-wrap').hidden, layout === 'compact' || layout === 'kiosk');
   });
 }
+
+test('ringing in Italian: the unit leads the subtitle, the picture carries no caption', async () => {
+  const hass = makeHass({ language: 'it' });
+  const card = await mount({ layout: 'kiosk' }, hass);
+  ring(hass, 'gate', GATE);
+  assert.equal($(card, '.secondary').textContent, 'Gate · Chiamata in arrivo');
+  assert.equal($(card, '.shot-caption'), null);
+  assert.equal($(card, '.shot img').getAttribute('alt'), 'Gate · Chiamata in arrivo', 'said to screen readers instead');
+
+  // back to idle: the subtitle is the state again, with the last call
+  hass.connection.fire({ type: 'end', entry_id: ENTRY, module_id: 'mod-gate' });
+  assert.match($(card, '.secondary').textContent, /^A riposo · Ultima chiamata /);
+});
 
 test('while it rings the buttons show even if they are switched off for the idle card', async () => {
   const card = await mount({ show_controls: false }, makeHass({ ringing: ['front'] }));
@@ -470,6 +483,29 @@ test('the last call is said once: in its badge, or in the status line without ba
 
   const without = await mount({ camera_entity: FRONT, show_badges: false });
   assert.match($(without, '.secondary').textContent, /Last call/);
+});
+
+test('the title is the device name, as the user named it, unless the config names the card', async () => {
+  const hass = makeHass();
+  hass.devices[DEVICE] = { ...hass.devices[DEVICE], name: 'BTicino Classe 100X', name_by_user: 'Citofono di casa' };
+  const card = await mount({}, hass);
+  assert.equal($(card, '.primary').textContent, 'Citofono di casa');
+
+  const unnamed = makeHass({ connection: hass.connection });
+  unnamed.devices[DEVICE] = { ...unnamed.devices[DEVICE], name: 'BTicino Classe 100X', name_by_user: null };
+  card.hass = unnamed;
+  assert.equal($(card, '.primary').textContent, 'BTicino Classe 100X');
+
+  const named = await mount({ name: 'Ingresso' }, makeHass());
+  assert.equal($(named, '.primary').textContent, 'Ingresso');
+});
+
+test('a user who is not an administrator is not subscribed to the bus at all', async () => {
+  const hass = makeHass({ ringing: ['gate'] });
+  hass.user = { name: 'Wall tablet', is_admin: false };
+  const card = await mount({}, hass);
+  assert.equal(hass.connection.subscriptions.length, 0, 'Home Assistant would refuse it');
+  assert.equal(button(card, 'Answer').dataset.target, GATE, 'the doorbell still says which unit rings');
 });
 
 test('the bus subscription ends with the card', async () => {

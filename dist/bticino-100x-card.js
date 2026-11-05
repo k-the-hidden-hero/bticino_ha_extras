@@ -465,6 +465,10 @@ function relativeTime(hass, date) {
   }
 }
 
+/** Home Assistant joins a state and its detail with a middle dot, as the tile card does. */
+const SEP = ' · ';
+const joined = (...parts) => parts.filter(Boolean).join(SEP);
+
 function parseDate(value) {
   if (!value) return null;
   const date = new Date(value);
@@ -1159,6 +1163,8 @@ const STYLE = `
   --radius: var(--ha-card-features-border-radius, var(--ha-border-radius-lg, 12px));
   /* A powered-off display is dark in any theme; a theme can still override it. */
   --bt-screen: var(--bticino-screen-color, #0d1116);
+  /* text and icons over the camera picture, as core's picture cards draw them */
+  --bt-on-picture: var(--ha-picture-card-text-color, #fff);
   /* white text on these stays above 4.5:1, which the theme's own green and red do not */
   --bt-success-strong: var(--success-color, #43a047);
   --bt-success-strong: color-mix(in srgb, var(--success-color, #43a047) 75%, black);
@@ -1199,7 +1205,7 @@ button:disabled { cursor: not-allowed; }
   position: relative; flex: none; width: 36px; height: 36px; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
   border-radius: var(--ha-tile-icon-border-radius, var(--ha-border-radius-pill, 9999px));
-  color: var(--tile-color); --mdc-icon-size: 22px;
+  color: var(--tile-color); --mdc-icon-size: 24px;
 }
 .tile-icon::before {
   content: ""; position: absolute; inset: 0;
@@ -1269,7 +1275,7 @@ button:disabled { cursor: not-allowed; }
 /* the live stream takes the drawing's place while a call is up */
 .stream {
   position: relative; align-self: center; width: 100%; max-width: 480px;
-  border-radius: var(--ha-border-radius-lg, 12px); overflow: hidden;
+  border-radius: var(--radius); overflow: hidden;
   background: var(--bt-screen);
   /* the card Home Assistant builds for us must not draw a surface of its own */
   --ha-card-border-width: 0;
@@ -1292,15 +1298,19 @@ button:disabled { cursor: not-allowed; }
 /* over a picture of any brightness: white on a dark disc when off, dark on a
    white disc when on, so the two states read apart without relying on hue */
 .stream-controls { gap: 6px; }
-.stream-controls .icon-button { width: 44px; height: 44px; color: #fff; background: rgba(0, 0, 0, 0.6); }
-.stream-controls .icon-button.on { color: #111; background: rgba(255, 255, 255, 0.92); }
+.stream-controls .icon-button { width: 44px; height: 44px; color: var(--bt-on-picture); background: rgba(0, 0, 0, 0.6); }
+.stream-controls .icon-button.on {
+  color: var(--bt-screen); background: color-mix(in srgb, var(--bt-on-picture) 92%, transparent);
+}
 /* a refused microphone is a state, not a silence: it shows, and a tap asks again */
-.stream-controls .icon-button.blocked { color: #fff; background: var(--bt-error-strong); }
+.stream-controls .icon-button.blocked { color: var(--text-primary-color, #fff); background: var(--bt-error-strong); }
 .stream-note {
-  position: absolute; inset-inline-start: 10px; top: 10px; z-index: 2; max-width: calc(100% - 20px);
-  display: flex; align-items: center; gap: 6px; padding: 6px 10px; box-sizing: border-box;
+  position: absolute; inset-inline-start: var(--ha-space-2, 8px); top: var(--ha-space-2, 8px); z-index: 2;
+  max-width: calc(100% - 2 * var(--ha-space-2, 8px));
+  display: flex; align-items: center; gap: var(--ha-space-2, 8px);
+  padding: var(--ha-space-1, 4px) var(--ha-space-3, 12px); box-sizing: border-box;
   border-radius: var(--ha-border-radius-pill, 9999px);
-  background: rgba(0, 0, 0, 0.72); color: #fff;
+  background: rgba(0, 0, 0, 0.72); color: var(--bt-on-picture);
   font-size: var(--ha-font-size-s, 12px); font-weight: var(--ha-font-weight-medium, 500); line-height: 16px;
   --mdc-icon-size: 16px;
 }
@@ -1310,7 +1320,7 @@ button:disabled { cursor: not-allowed; }
   position: absolute; inset: 0; z-index: 1;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
   padding: var(--ha-space-4, 16px); text-align: center;
-  color: var(--text-primary-color, #fff); --mdc-icon-size: 32px;
+  color: var(--bt-on-picture); --mdc-icon-size: 32px;
   font-size: var(--ha-font-size-s, 12px);
 }
 .stream-overlay[hidden] { display: none; }
@@ -1320,7 +1330,7 @@ button:disabled { cursor: not-allowed; }
   position: absolute; inset-inline-start: 10px; bottom: 10px; z-index: 1;
   display: flex; align-items: center; gap: 6px; padding: 4px 10px;
   border-radius: var(--ha-border-radius-pill, 9999px);
-  background: rgba(0, 0, 0, 0.55); color: var(--text-primary-color, #fff);
+  background: rgba(0, 0, 0, 0.55); color: var(--bt-on-picture);
   font-size: var(--ha-font-size-s, 12px); font-weight: var(--ha-font-weight-medium, 500);
   --mdc-icon-size: 16px;
 }
@@ -1337,7 +1347,7 @@ button:disabled { cursor: not-allowed; }
   color: var(--primary-text-color);
   background: color-mix(in srgb, var(--primary-text-color) 14%, transparent);
 }
-.stream.audio .stream-controls .icon-button.blocked { color: #fff; background: var(--bt-error-strong); }
+.stream.audio .stream-controls .icon-button.blocked { color: var(--text-primary-color, #fff); background: var(--bt-error-strong); }
 .stream.audio .stream-label { display: none; }
 .stream.audio .stream-note { position: static; align-self: center; margin: 0 auto var(--ha-space-3, 12px); }
 
@@ -1362,7 +1372,7 @@ button:disabled { cursor: not-allowed; }
   --mdc-icon-size: 22%;
 }
 .screen .placeholder span {
-  font-size: 9px; letter-spacing: 0.4px; text-transform: uppercase;
+  font-size: var(--ha-font-size-xs, 10px); letter-spacing: 0.4px; text-transform: uppercase;
 }
 
 /* --- alert -------------------------------------------------------------- */
@@ -1381,13 +1391,13 @@ button:disabled { cursor: not-allowed; }
 /* --- badges ------------------------------------------------------------- */
 .badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .badge {
-  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px;
-  box-sizing: border-box; min-width: 0;
-  border-radius: var(--ha-border-radius-pill, 9999px);
+  display: inline-flex; align-items: center; gap: var(--ha-space-2, 8px); min-height: 44px;
+  padding: 0 var(--ha-space-3, 12px); box-sizing: border-box; min-width: 0;
+  border-radius: var(--ha-badge-border-radius, var(--ha-border-radius-pill, 9999px));
   border: var(--ha-card-border-width, 1px) solid var(--ha-card-border-color, var(--divider-color, #e0e0e0));
 }
-.badge ha-icon { --mdc-icon-size: 16px; margin-inline-start: -2px; color: var(--badge-color, var(--secondary-text-color)); }
-.badge:focus-visible { outline: 2px solid var(--primary-text-color); outline-offset: 2px; }
+.badge ha-icon { --mdc-icon-size: 18px; margin-inline-start: -4px; color: var(--badge-color, var(--secondary-text-color)); }
+.badge:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--tile-color); }
 .badge .label { font-size: var(--ha-font-size-xs, 10px); font-weight: 500; line-height: 12px; letter-spacing: 0.1px; color: var(--secondary-text-color); }
 .badge .value { font-size: var(--ha-font-size-s, 12px); font-weight: 500; line-height: 1.2; letter-spacing: 0.1px; color: var(--primary-text-color); white-space: nowrap; }
 .badge .stack { display: flex; flex-direction: column; min-width: 0; }
@@ -1412,9 +1422,9 @@ button:disabled { cursor: not-allowed; }
 .button.primary::before { background: var(--tile-color); opacity: 1; }
 .button.primary { color: var(--text-primary-color, #fff); }
 .button.danger::before { background: var(--bt-error-strong); opacity: 1; }
-.button.danger { color: #fff; }
+.button.danger { color: var(--text-primary-color, #fff); }
 .button.success::before { background: var(--bt-success-strong); opacity: 1; }
-.button.success { color: #fff; }
+.button.success { color: var(--text-primary-color, #fff); }
 .button.success.flash { animation: bt-flash var(--ha-animation-duration-slow, 350ms) ease-out 2; }
 /* while it rings, the answer button asks to be pressed */
 .button.calling { animation: bt-breathe 2s ease-in-out infinite; }
@@ -1431,6 +1441,10 @@ button:disabled { cursor: not-allowed; }
 @container (min-width: 340px) { .features[data-count="3"] .text { display: block; } }
 @container (min-width: 460px) { .features[data-count="4"] .text { display: block; } }
 @container (min-width: 580px) { .features[data-count="5"] .text { display: block; } }
+/* a card at min_columns in a sections grid: two columns of icons rather than four slivers */
+@container (max-width: 240px) {
+  .features[data-mode="idle"] { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 /* --- recent calls ------------------------------------------------------- */
 /* The recent calls live behind a row that expands the card, like a feature row. */
@@ -1482,7 +1496,7 @@ button:disabled { cursor: not-allowed; }
   transition: opacity 120ms ease-in-out;
 }
 .show-all:hover::before { opacity: 0.08; }
-.show-all:focus-visible { box-shadow: 0 0 0 2px var(--primary-text-color); }
+.show-all:focus-visible { box-shadow: 0 0 0 2px var(--tile-color); }
 .show-all > * { position: relative; }
 .call {
   position: relative; overflow: hidden; display: flex; align-items: center; gap: 10px;
@@ -1601,7 +1615,7 @@ dialog[open]::backdrop { opacity: 1; }
 .shot {
   position: relative; align-self: center; width: 100%; max-width: 480px; min-height: 160px; max-height: 70vh;
   aspect-ratio: var(--bt-shot-aspect, 4 / 3);
-  border-radius: var(--ha-border-radius-lg, 12px); overflow: hidden;
+  border-radius: var(--radius); overflow: hidden;
   background: var(--bt-screen);
 }
 .shot[hidden] { display: none; }
@@ -1609,30 +1623,15 @@ dialog[open]::backdrop { opacity: 1; }
 .shot img[hidden] { display: none; }
 .shot-empty {
   position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 8px; color: rgba(255, 255, 255, 0.78); --mdc-icon-size: 40px;
+  gap: var(--ha-space-2, 8px); color: color-mix(in srgb, var(--bt-on-picture) 78%, transparent); --mdc-icon-size: 40px;
   font-size: var(--ha-font-size-m, 14px);
 }
 .shot-empty[hidden] { display: none; }
-/* text over a picture sits on its own dark plate: 4.5:1 whatever the picture */
-.shot-caption {
-  position: absolute; inset-inline-start: 10px; bottom: 10px; z-index: 1;
-  display: flex; align-items: center; gap: 10px; max-width: calc(100% - 20px); box-sizing: border-box;
-  padding: 8px 14px; border-radius: var(--ha-border-radius-lg, 12px);
-  background: rgba(0, 0, 0, 0.72); color: #fff;
-}
-.shot-caption[hidden] { display: none; }
-.shot-dot { flex: none; width: 10px; height: 10px; border-radius: var(--ha-border-radius-circle, 50%); background: #fff; }
-.shot-dot[hidden] { display: none; }
-.ringing .shot-dot { animation: bt-pulse 1.4s ease-in-out infinite; }
-.shot-text { min-width: 0; display: flex; flex-direction: column; }
-.shot-title, .shot-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.shot-title { font-size: var(--ha-font-size-l, 16px); font-weight: var(--ha-font-weight-medium, 500); line-height: 22px; }
-.shot-sub { font-size: var(--ha-font-size-m, 14px); line-height: 18px; }
-.shot-title:empty, .shot-sub:empty { display: none; }
 
 /* --- the unit picker ----------------------------------------------------- */
 .units {
-  position: relative; z-index: 0; display: flex; flex-wrap: wrap; gap: 4px; padding: 4px;
+  position: relative; z-index: 0; display: flex; flex-wrap: wrap;
+  gap: var(--ha-space-1, 4px); padding: var(--ha-space-1, 4px);
   border-radius: var(--radius);
 }
 .units::before {
@@ -1643,8 +1642,9 @@ dialog[open]::backdrop { opacity: 1; }
 .unit {
   /* as wide as its name, sharing what is left; a name too long wraps the row */
   flex: 1 1 auto; min-width: 0; min-height: 44px; box-sizing: border-box;
-  display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 12px;
-  border: 2px solid transparent; border-radius: calc(var(--radius) - 4px); outline: none;
+  display: flex; align-items: center; justify-content: center; gap: var(--ha-space-2, 8px);
+  padding: 0 var(--ha-space-3, 12px);
+  border: 2px solid transparent; border-radius: calc(var(--radius) - var(--ha-space-1, 4px)); outline: none;
   font-size: var(--ha-font-size-m, 14px); font-weight: var(--ha-font-weight-medium, 500);
   color: var(--primary-text-color); --mdc-icon-size: 18px;
 }
@@ -1652,15 +1652,19 @@ dialog[open]::backdrop { opacity: 1; }
 .unit ha-icon { flex: none; }
 .unit[aria-checked="false"] ha-icon { display: none; }
 /* the chosen one carries a border in the text colour and a tick: no hue needed */
-.unit[aria-checked="true"] { border-color: var(--primary-text-color); background: var(--card-background-color, transparent); }
+.unit[aria-checked="true"] {
+  border-color: var(--primary-text-color);
+  background: var(--ha-card-background, var(--card-background-color, transparent));
+}
 .unit:hover:not([aria-checked="true"]) { background: color-mix(in srgb, var(--primary-text-color) 6%, transparent); }
-.unit:focus-visible { outline: 2px solid var(--primary-text-color); outline-offset: 2px; }
+.unit:focus-visible { outline: 2px solid var(--tile-color); outline-offset: 2px; }
 
 /* --- while it rings: three large actions --------------------------------- */
 .features[data-mode="ring"] { flex-wrap: wrap; }
 /* the icon over its word, like a phone's call screen: three fit a phone's width */
 .features[data-mode="ring"] .button {
-  flex: 1 1 88px; flex-direction: column; gap: 4px; min-height: 64px; padding: 8px 6px;
+  flex: 1 1 88px; flex-direction: column; gap: var(--ha-space-1, 4px); min-height: 64px;
+  padding: var(--ha-space-2, 8px) var(--ha-space-1, 4px);
   font-size: var(--ha-font-size-m, 14px); --mdc-icon-size: 24px;
 }
 .features[data-mode="ring"] .text { display: block; max-width: 100%; }
@@ -1686,18 +1690,19 @@ dialog[open]::backdrop { opacity: 1; }
 .card[data-layout="kiosk"] .shot,
 .card[data-layout="kiosk"] .stream {
   grid-column: 1; grid-row: 1; align-self: stretch;
-  width: 100%; max-width: none; height: 100%; min-height: 160px; max-height: none; aspect-ratio: auto;
+  /* the grid row sets the floor; a minimum of its own would spill over the controls */
+  width: 100%; max-width: none; height: 100%; min-height: 0; max-height: none; aspect-ratio: auto;
 }
 .card[data-layout="kiosk"] .stream { display: flex; flex-direction: column; justify-content: center; }
 .card[data-layout="kiosk"] .shot[hidden],
 .card[data-layout="kiosk"] .stream[hidden] { display: none; }
 .card[data-layout="kiosk"] .stream-video { flex: 1 1 auto; min-height: 0; height: 100%; aspect-ratio: auto; }
-.card[data-layout="kiosk"] .stream-controls { inset-inline-end: 10px; bottom: 10px; gap: 10px; }
+.card[data-layout="kiosk"] .stream-controls {
+  inset-inline-end: var(--ha-space-3, 12px); bottom: var(--ha-space-3, 12px); gap: var(--ha-space-3, 12px);
+}
 .card[data-layout="kiosk"] .stream-controls .icon-button { width: 56px; height: 56px; --mdc-icon-size: 28px; }
 .card[data-layout="kiosk"] .stream-label,
 .card[data-layout="kiosk"] .stream-note { font-size: var(--ha-font-size-m, 14px); }
-.card[data-layout="kiosk"] .shot-title { font-size: var(--ha-font-size-xl, 20px); line-height: 26px; }
-.card[data-layout="kiosk"] .shot-sub { font-size: var(--ha-font-size-l, 16px); line-height: 22px; }
 .card[data-layout="kiosk"] .content {
   grid-column: 2; grid-row: 1; min-height: 0; overflow-y: auto;
   /* centred while it fits; when it scrolls, plain centring would cut the top off */
@@ -1706,12 +1711,13 @@ dialog[open]::backdrop { opacity: 1; }
 }
 .card[data-layout="kiosk"] .features { flex-direction: column; }
 .card[data-layout="kiosk"] .button {
-  flex: 0 0 auto; min-height: 56px; justify-content: flex-start; gap: 12px; padding: 0 16px;
+  flex: 0 0 auto; min-height: 56px; justify-content: flex-start;
+  gap: var(--ha-space-3, 12px); padding: 0 var(--ha-space-4, 16px);
   font-size: var(--ha-font-size-l, 16px); --mdc-icon-size: 24px;
 }
 .card[data-layout="kiosk"] .button .text { display: block; }
 .card[data-layout="kiosk"] .features[data-mode="ring"] .button {
-  flex-direction: row; gap: 12px; padding: 0 16px;
+  flex-direction: row; gap: var(--ha-space-3, 12px); padding: 0 var(--ha-space-4, 16px);
   min-height: 72px; font-size: var(--ha-font-size-xl, 20px); --mdc-icon-size: 28px;
 }
 /* a long word wraps onto a second line rather than losing its end */
@@ -1723,7 +1729,8 @@ dialog[open]::backdrop { opacity: 1; }
 .card[data-layout="kiosk"] .unit { min-height: 56px; font-size: var(--ha-font-size-l, 16px); }
 .card[data-layout="kiosk"][data-orient="portrait"] .body {
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(200px, 1fr) auto;
+  /* the picture gives way first: a kiosk in a sections cell has a fixed height */
+  grid-template-rows: minmax(120px, 1fr) auto;
 }
 .card[data-layout="kiosk"][data-orient="portrait"] .content { grid-column: 1; grid-row: 2; overflow: visible; }
 .card[data-layout="kiosk"][data-orient="portrait"] .features {
@@ -1733,7 +1740,8 @@ dialog[open]::backdrop { opacity: 1; }
   grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
 }
 .card[data-layout="kiosk"][data-orient="portrait"] .features[data-mode="ring"] .button {
-  flex-direction: column; justify-content: center; gap: 4px; min-height: 88px; padding: 8px;
+  flex-direction: column; justify-content: center; gap: var(--ha-space-1, 4px); min-height: 88px;
+  padding: var(--ha-space-2, 8px);
   font-size: var(--ha-font-size-l, 16px);
 }
 
@@ -2062,6 +2070,8 @@ class Bticino100xCard extends HTMLElement {
   _subscribeCalls() {
     const connection = this._hass?.connection;
     if (!this.isConnected || typeof connection?.subscribeEvents !== 'function') return;
+    // Home Assistant refuses this subscription to anyone else: don't ask
+    if (this._hass.user && this._hass.user.is_admin === false) return;
     if (this._callSub?.connection === connection) return;
     this._unsubscribeCalls();
     const sub = { connection, unsub: null, closed: false };
@@ -2300,14 +2310,7 @@ class Bticino100xCard extends HTMLElement {
     nodes.shotImg.addEventListener('error', () => this._shotFailed());
     nodes.shotEmptyText = el('span', { text: t(hass, 'standby') });
     nodes.shotEmpty = el('div', { class: 'shot-empty' }, [icon('mdi:cctv'), nodes.shotEmptyText]);
-    nodes.shotDot = el('span', { class: 'shot-dot' });
-    nodes.shotTitle = el('div', { class: 'shot-title' });
-    nodes.shotSub = el('div', { class: 'shot-sub' });
-    nodes.shotCaption = el('div', { class: 'shot-caption' }, [
-      nodes.shotDot,
-      el('div', { class: 'shot-text' }, [nodes.shotTitle, nodes.shotSub]),
-    ]);
-    nodes.shot = el('div', { class: 'shot' }, [nodes.shotImg, nodes.shotEmpty, nodes.shotCaption]);
+    nodes.shot = el('div', { class: 'shot' }, [nodes.shotImg, nodes.shotEmpty]);
     nodes.shot.hidden = true;
 
     nodes.video = el('video', { class: 'stream-video', autoplay: '', playsinline: '' });
@@ -2450,9 +2453,9 @@ class Bticino100xCard extends HTMLElement {
     return { ringing, ringUnit: ring.unit, ring: ring.ring, talking, reachable, active: ringing || talking };
   }
 
-  /** Who is at the door, in a word: the unit, else the device. */
-  _ringName(status) {
-    return status.ringUnit?.name || status.ring?.moduleName || this._deviceName();
+  /** The unit that rings, when the card knows it. */
+  _ringUnitName(status) {
+    return status.ringUnit?.name || status.ring?.moduleName || '';
   }
 
   _primaryEntity() {
@@ -2531,12 +2534,15 @@ class Bticino100xCard extends HTMLElement {
           : t(hass, 'idle');
     // The last call is said once: in its badge when badges show, here otherwise.
     const badges = config.show_badges && !kiosk && !status.ringing;
-    // while it rings, the picture's caption names the unit: said once
     let secondary = stateText;
-    if (!status.ringing && !(badges && lastCall)) {
+    if (status.ringing) {
+      // who is at the door goes in the subtitle, so the picture stays clear
+      const unit = this._ringUnitName(status);
+      secondary = joined(unit !== this._deviceName() ? unit : '', stateText);
+    } else if (!(badges && lastCall)) {
       secondary = lastCall
-        ? `${stateText} - ${t(hass, 'last_call')} ${relativeTime(hass, lastCall)}`
-        : `${stateText} - ${t(hass, 'never')}`;
+        ? joined(stateText, `${t(hass, 'last_call')} ${relativeTime(hass, lastCall)}`)
+        : joined(stateText, t(hass, 'never'));
     }
     nodes.secondary.textContent = secondary;
 
@@ -2632,22 +2638,10 @@ class Bticino100xCard extends HTMLElement {
       nodes.shotEmpty.hidden = false;
     }
 
-    let title = '';
-    let sub = '';
-    if (status.ringing) {
-      title = this._ringName(status);
-      sub = t(hass, 'ringing');
-    } else if (this._units.length > 1) {
-      title = this._selectedUnit()?.name || '';
-    } else if (src) {
-      const taken = parseDate(hass.states[this._found.snapshot]?.attributes.event_time_iso);
-      sub = taken ? formatDateTime(hass, taken) : '';
-    }
-    nodes.shotTitle.textContent = title;
-    nodes.shotSub.textContent = sub;
-    nodes.shotDot.hidden = !status.ringing;
-    nodes.shotCaption.hidden = !title && !sub;
-    nodes.shotImg.setAttribute('alt', title || this._deviceName());
+    // Nothing is drawn over the picture: on a phone a caption covers the
+    // visitor, and the header already says who rang. The name is for screen readers.
+    const unit = status.ringing ? this._ringUnitName(status) : this._units.length > 1 ? this._selectedUnit()?.name : '';
+    nodes.shotImg.setAttribute('alt', joined(unit || this._deviceName(), status.ringing ? t(hass, 'ringing') : ''));
   }
 
   /** Size the picture to what the device took, so nothing is cropped. */
@@ -2681,7 +2675,7 @@ class Bticino100xCard extends HTMLElement {
     }
 
     const target = this._targetCamera(status) || this._found.snapshot;
-    nodes.screen.setAttribute('aria-label', `${this._deviceName()} - ${t(hass, 'live')}`);
+    nodes.screen.setAttribute('aria-label', joined(this._deviceName(), t(hass, 'live')));
     nodes.screen.disabled = !target || !status.reachable;
   }
 
@@ -2787,12 +2781,13 @@ class Bticino100xCard extends HTMLElement {
     if (hasValue(calls)) {
       const answered = calls.attributes.answered ?? 0;
       const missed = calls.attributes.missed ?? 0;
-      const number = (value) => new Intl.NumberFormat(numberLocale(hass)).format(value);
+      const number = (value) =>
+        new Intl.NumberFormat(numberLocale(hass), { useGrouping: hass.locale?.number_format !== 'none' }).format(value);
       badges.push({
         key: 'calls',
         icon: 'mdi:phone-log',
         label: t(hass, 'calls'),
-        value: missed > 0 ? `${number(calls.state)} - ${number(missed)} ${t(hass, 'missed')}` : number(calls.state),
+        value: missed > 0 ? joined(number(calls.state), `${number(missed)} ${t(hass, 'missed')}`) : number(calls.state),
         title: `${number(answered)} ${t(hass, 'answered')}, ${number(missed)} ${t(hass, 'missed')}`,
         entity: found.calls,
       });
@@ -3124,7 +3119,7 @@ class Bticino100xCard extends HTMLElement {
     let pulsing = false;
     if (session.state === CALL_STATE.ERROR) {
       overlayIcon = 'mdi:phone-alert';
-      overlayText = `${t(hass, 'call_failed')} - ${session.error || ''}`.trim();
+      overlayText = joined(t(hass, 'call_failed'), session.error);
     } else if (session.state === CALL_STATE.CONNECTING || session.state === CALL_STATE.RECONNECTING) {
       overlayIcon = 'mdi:loading';
       overlayText = t(hass, session.state);
@@ -3135,7 +3130,7 @@ class Bticino100xCard extends HTMLElement {
     // the warning belongs where it helps: while the call is not up
     if (!isChromium() && !live) {
       const warning = t(hass, 'browser_warning');
-      overlayText = overlayText ? `${overlayText} - ${warning}` : warning;
+      overlayText = joined(overlayText, warning);
     }
 
     nodes.overlay.hidden = hasVideo && live && overlayText === '';
@@ -3147,7 +3142,7 @@ class Bticino100xCard extends HTMLElement {
     // with several units, the label says which one is on screen
     const unit = this._units.length > 1 ? this._units.find((item) => item.camera === stream.entityId) : null;
     nodes.streamText.textContent = unit
-      ? `${t(hass, 'live_now')} - ${unit.name}`
+      ? joined(t(hass, 'live_now'), unit.name)
       : t(hass, audioOnly ? 'audio_only' : 'live_now');
     nodes.streamLabel.hidden = !live;
 
@@ -3370,7 +3365,7 @@ class Bticino100xCard extends HTMLElement {
         el('div', { class: 'when', text: when }),
       ]);
       row.style.setProperty('--call-color', outcome.color);
-      row.setAttribute('aria-label', `${outcome.label} - ${when}`);
+      row.setAttribute('aria-label', joined(outcome.label, when));
       container.appendChild(row);
     }
   }
@@ -3394,7 +3389,7 @@ class Bticino100xCard extends HTMLElement {
     if (!picture) return;
     const outcome = this._outcome(event);
     const when = this._callWhen(new Date(event.timestamp * 1000));
-    nodes.dialogTitle.textContent = `${outcome.label} - ${when}`;
+    nodes.dialogTitle.textContent = joined(outcome.label, when);
     nodes.dialogImg.setAttribute('src', picture);
     if (typeof nodes.dialog.showModal === 'function') nodes.dialog.showModal();
   }
