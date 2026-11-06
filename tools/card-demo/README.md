@@ -25,6 +25,9 @@ edit shows up on reload.
   the card picks the call up on its own and clears the parameter.
 - **Ring gate** rings the second external unit, so the pairing can be seen: the header names the
   entrance and **Answer** opens that unit's camera, not the first one.
+- **One entrance only / Two entrances** adds or removes the second external unit, which is what
+  decides whether the tabs appear at all: most homes have one, and the card should look right there
+  too.
 - **Refuse microphone** makes the browser deny it, which is how the card's notification path is
   exercised; toasts the card fires appear bottom left and in the log.
 - **Drop module_id** removes the attribute from every entity, the way an integration older than

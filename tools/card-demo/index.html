@@ -95,6 +95,9 @@ button.sim.go { border-color: var(--primary-color); color: var(--primary-color);
     <button class="sim go" id="btn-ring-gate">Ring gate</button>
   </div>
   <div class="row">
+    <button class="sim" id="btn-units">One entrance only</button>
+  </div>
+  <div class="row">
     <button class="sim" id="btn-answer">Answer at the monitor</button>
     <button class="sim" id="btn-visitor">Visitor hangs up</button>
   </div>
@@ -170,6 +173,8 @@ const sim = {
   legacy: false,
   lockOpen: false,
   extraGate: false,
+  // most homes have one external unit; the tabs only appear beyond that
+  twoUnits: true,
   light: false,
   lastCallTs: minutesAgo(38),
   snapshot: shot(205),
@@ -291,14 +296,18 @@ function buildStates() {
       attributes: { friendly_name: "Driveway gate", device_class: "lock", supported_features: 0 }, last_changed: new Date().toISOString() }],
     put("binary_sensor.bticino_chiamata", sim.ringingModule === MODULE_FRONT ? "on" : "off",
       { friendly_name: MODULE, device_class: "sound", ...mod(MODULE_FRONT) }),
-    put("binary_sensor.bticino_chiamata_cancello", sim.ringingModule === MODULE_GATE ? "on" : "off",
-      { friendly_name: GATE, device_class: "sound", ...mod(MODULE_GATE) }),
+    ...(sim.twoUnits
+      ? [put("binary_sensor.bticino_chiamata_cancello", sim.ringingModule === MODULE_GATE ? "on" : "off",
+          { friendly_name: GATE, device_class: "sound", ...mod(MODULE_GATE) })]
+      : []),
     put("binary_sensor.bticino_bridge_busy", sim.talking ? "on" : "off", { friendly_name: "Bridge Busy", device_class: "occupancy" }),
     put("camera.bticino_last_event_snapshot", "idle",
       { friendly_name: "Last Event Snapshot", supported_features: 0, entity_picture: sim.snapshot,
         event_time_iso: new Date(sim.lastCallTs * 1000).toISOString() }),
     put("camera.bticino_ingresso", "idle", { friendly_name: MODULE, supported_features: 2, ...mod(MODULE_FRONT) }),
-    put("camera.bticino_cancello", "idle", { friendly_name: GATE, supported_features: 2, ...mod(MODULE_GATE) }),
+    ...(sim.twoUnits
+      ? [put("camera.bticino_cancello", "idle", { friendly_name: GATE, supported_features: 2, ...mod(MODULE_GATE) })]
+      : []),
     put("camera.bticino_call_home", "idle", { friendly_name: "Call Home", supported_features: 2, icon: "mdi:phone-classic" }),
     put("sensor.bticino_last_call_timestamp", new Date(sim.lastCallTs * 1000).toISOString(),
       { friendly_name: "Last Call Timestamp", device_class: "timestamp" }),
@@ -455,10 +464,12 @@ function renderState() {
   const where = sim.ringing ? "Incoming call" : sim.talking ? "In a call" : "Idle";
   document.getElementById("state").innerHTML =
     `<b>${where}</b><br>lock ${sim.lockOpen ? "released" : "closed"} - light ${sim.light ? "on" : "off"}`
-    + ` - ${sim.offline ? "offline" : "online"}<br>${sim.calls.length} calls in the log`;
+    + ` - ${sim.offline ? "offline" : "online"}`
+    + `<br>${sim.twoUnits ? "two" : "one"} entrance${sim.twoUnits ? "s" : ""} - ${sim.calls.length} calls in the log`;
   const busy = sim.ringing || sim.talking || sim.offline;
   document.getElementById("btn-ring").disabled = busy;
-  document.getElementById("btn-ring-gate").disabled = busy;
+  document.getElementById("btn-ring-gate").disabled = busy || !sim.twoUnits;
+  document.getElementById("btn-units").textContent = sim.twoUnits ? "One entrance only" : "Two entrances";
   document.getElementById("btn-answer").disabled = !sim.ringing;
   document.getElementById("btn-visitor").disabled = !sim.ringing && !sim.talking;
   document.getElementById("btn-offline").textContent = sim.offline ? "Back online" : "Go offline";
@@ -535,6 +546,13 @@ async function boot() {
     setTimeout(() => toast.remove(), 4000);
   });
 
+  document.getElementById("btn-units").onclick = () => {
+    sim.twoUnits = !sim.twoUnits;
+    // a gate that no longer exists cannot go on ringing
+    if (!sim.twoUnits && sim.ringingModule === MODULE_GATE) endCall(false, "the gate was removed");
+    log(sim.twoUnits ? "two external units" : "one external unit");
+    publish();
+  };
   document.getElementById("btn-mic").onclick = () => {
     sim.micRefused = !sim.micRefused;
     log(`browser microphone ${sim.micRefused ? "refused" : "allowed"}`);
