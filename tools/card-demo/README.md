@@ -34,6 +34,9 @@ edit shows up on reload.
   k-the-hidden-hero/bticino_intercom#115 behaves, so the single-unit fallback can be checked.
 - **Go offline** makes every entity unavailable.
 
+The swatches set the accent colour on every card at once, the way `color` does in the config, so
+the palette can be checked against both themes.
+
 Every action is printed in the log, so a flow can be read end to end.
 
 ## The call

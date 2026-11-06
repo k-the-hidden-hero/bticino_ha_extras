@@ -1747,8 +1747,10 @@ class Bticino100xCard extends HTMLElement {
     this._badgeSignature = null;
     this._buttonSignature = null;
     this._listSignature = null;
+    this._tabSignature = null;
     this._badgeNodes = {};
     this._buttonNodes = {};
+    this._tabNodes = new Map();
 
     const nodes = {};
     nodes.icon = icon('mdi:doorbell-video');
