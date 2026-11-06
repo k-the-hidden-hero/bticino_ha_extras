@@ -1802,7 +1802,7 @@ class Bticino100xCard extends HTMLElement {
     nodes.features = el('div', { class: 'features' });
     nodes.tabs = el('div', { class: 'tabs', role: 'tablist' });
     nodes.tabs.hidden = true;
-    nodes.content = el('div', { class: 'content' }, [nodes.tabs, nodes.badges, nodes.features]);
+    nodes.content = el('div', { class: 'content' }, [nodes.badges, nodes.features]);
 
     nodes.video = el('video', { class: 'stream-video', autoplay: '', playsinline: '' });
     nodes.video.muted = false;
@@ -1876,7 +1876,8 @@ class Bticino100xCard extends HTMLElement {
     nodes.history = el('div', { class: 'history' }, [nodes.calls, nodes.showAll, nodes.empty]);
     nodes.history.hidden = true;
 
-    nodes.card = el('div', { class: 'card' }, [nodes.head, nodes.body, nodes.expander, nodes.history]);
+    // the entrance is chosen before the picture of it is looked at
+    nodes.card = el('div', { class: 'card' }, [nodes.head, nodes.tabs, nodes.body, nodes.expander, nodes.history]);
 
     nodes.dialogImg = el('img', { alt: '' });
     nodes.dialogTitle = el('div', { class: 'dialog-title' });
