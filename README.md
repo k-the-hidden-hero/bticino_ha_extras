@@ -128,6 +128,11 @@ the sections grid without configuration.
 
 <img src="docs/images/card-100x-idle.png" width="420" alt="The card at rest"> <img src="docs/images/card-100x-ringing.png" width="420" alt="The card while the intercom rings">
 
+The default layout carries no drawing, so it suits a 300X or an EOS as well; `panel` and `device`
+add the Classe 100X for whoever has one.
+
+<img src="docs/images/card-100x-panel.png" width="420" alt="The panel layout, with a small drawing"> <img src="docs/images/card-100x-device.png" width="420" alt="The device layout">
+
 ```yaml
 type: custom:bticino-100x-card
 device_id: 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d
@@ -193,7 +198,7 @@ the card works in full except that list, which stays empty.
 card picks the call up on its own, then removes the parameter. Only the first card on the page
 acts, and only on a camera of its own device, so the card above can still take a link meant for it.
 
-<img src="docs/images/card-100x-device.png" width="400" alt="The device layout"> <img src="docs/images/card-100x-dark.png" width="400" alt="The card in the dark theme">
+<img src="docs/images/card-100x-dark.png" width="420" alt="The card in the dark theme">
 
 ### Intercom Notification Blueprint
 
