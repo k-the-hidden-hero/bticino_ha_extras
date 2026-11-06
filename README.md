@@ -159,7 +159,8 @@ that is ringing is marked with a dot and selected on its own - and the choice ma
 back once the call is over. **Answer** always opens the one that rang, and the header says which
 entrance it is.
 
-Buttons for things outside the integration go in `actions`:
+Buttons for things the integration does not own - a gate on another system, a scene, a script -
+go in `actions`, and appear after the built-in ones:
 
 ```yaml
 actions:
@@ -167,6 +168,8 @@ actions:
     name: Driveway
     icon: mdi:gate
 ```
+
+<img src="docs/images/card-100x-actions.png" width="420" alt="The card with an extra button for a gate outside the integration">
 
 Without a `service` the card picks the obvious one for the domain - `lock.open` where the lock has
 a latch, `toggle` for a light or a switch, `press` for a button - and `service` overrides it. While it rings the
