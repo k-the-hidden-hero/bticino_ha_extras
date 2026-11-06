@@ -10,6 +10,8 @@ export default [
         console: 'readonly',
         setTimeout: 'readonly',
         clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
         location: 'readonly',
         history: 'readonly',
         navigator: 'readonly',
