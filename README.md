@@ -144,10 +144,27 @@ the card working. Everything else is optional:
 | `name`, `icon` | from the device | Title and header icon |
 | `color` | `blue` | Accent while ringing or in a call |
 | `show_badges`, `show_controls`, `show_history` | `true` | Sections of the card |
+| `show_tabs` | `true` | One tab per entrance, shown only when the home has more than one |
+| `actions` | - | Extra buttons for anything the integration does not own: a list of `{ entity, name?, icon?, service? }` |
 | `auto_answer` | `true` | Pick the call up when a notification links to the dashboard with `?answer=` |
 
 With more than one external unit, the card pairs each doorbell with the camera of the same module
-and **Answer** opens the one that rang; the header says which entrance it is. While it rings the
+and shows a tab per entrance. A call takes over the view while it lasts - the tab of the entrance
+that is ringing is marked with a dot and selected on its own - and the choice made by hand comes
+back once the call is over. **Answer** always opens the one that rang, and the header says which
+entrance it is.
+
+Buttons for things outside the integration go in `actions`:
+
+```yaml
+actions:
+  - entity: lock.driveway_gate
+    name: Driveway
+    icon: mdi:gate
+```
+
+Without a `service` the card picks the obvious one for the domain - `lock.open` where the lock has
+a latch, `toggle` for a light or a switch, `press` for a button - and `service` overrides it. While it rings the
 snapshot takes the drawing's place at full width, because that is the moment it is worth reading.
 | `camera_entity`, `lock_entity`, `light_entity` | automatic | Override which entity each control uses |
 

@@ -235,6 +235,8 @@ const EDITOR_LABELS = {
     show_badges: 'Show badges',
     show_controls: 'Show buttons',
     show_history: 'Show recent calls',
+    show_tabs: 'One tab per entrance',
+    actions: 'Extra buttons (entity, name, icon, service)',
     auto_answer: 'Answer from notification links',
     appearance: 'Appearance',
     entities: 'Entities',
@@ -257,6 +259,8 @@ const EDITOR_LABELS = {
     show_badges: 'Mostra i badge',
     show_controls: 'Mostra i pulsanti',
     show_history: 'Mostra le chiamate recenti',
+    show_tabs: 'Una scheda per ogni ingresso',
+    actions: 'Pulsanti aggiuntivi (entity, name, icon, service)',
     auto_answer: 'Rispondi dai link delle notifiche',
     appearance: 'Aspetto',
     entities: 'Entità',
@@ -1245,6 +1249,35 @@ button:disabled { cursor: not-allowed; }
 .alert .text b { font-weight: var(--ha-font-weight-bold, 700); }
 
 /* --- badges ------------------------------------------------------------- */
+.tabs {
+  position: relative; display: flex; gap: 4px; padding: 4px; height: 40px; box-sizing: border-box;
+  border-radius: var(--ha-border-radius-lg, 12px);
+}
+.tabs[hidden] { display: none; }
+.tabs::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  background: var(--disabled-color, #bdbdbd); opacity: 0.2;
+}
+.tab {
+  position: relative; flex: 1; min-width: 0; border-radius: calc(var(--ha-border-radius-lg, 12px) - 4px);
+  font-size: var(--ha-font-size-m, 14px); font-weight: var(--ha-font-weight-medium, 500);
+  color: var(--primary-text-color); outline: none;
+}
+.tab::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  background: var(--tile-color); opacity: 0; transition: opacity 80ms ease-in-out;
+}
+.tab:hover::before { opacity: 0.2; }
+.tab.selected { color: var(--text-primary-color, #fff); }
+.tab.selected::before { opacity: 1; }
+.tab:focus-visible { box-shadow: 0 0 0 2px var(--tile-color); }
+.tab span { position: relative; display: block; padding: 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tab .dot {
+  position: absolute; top: 4px; inset-inline-end: 6px; width: 6px; height: 6px;
+  border-radius: var(--ha-border-radius-circle, 50%); background: var(--tile-color);
+}
+.tab.selected .dot { background: var(--text-primary-color, #fff); }
+
 .badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .badge {
   /* 36px, the height core gives ha-badge, instead of the 32 this had */
@@ -1298,6 +1331,8 @@ button:disabled { cursor: not-allowed; }
 @container (min-width: 220px) { .features[data-count="2"] .text { display: block; } }
 @container (min-width: 340px) { .features[data-count="3"] .text { display: block; } }
 @container (min-width: 460px) { .features[data-count="4"] .text { display: block; } }
+@container (min-width: 580px) { .features[data-count="5"] .text { display: block; } }
+@container (min-width: 700px) { .features[data-count="6"] .text { display: block; } }
 @container (min-width: 580px) { .features[data-count="5"] .text { display: block; } }
 
 /* --- recent calls ------------------------------------------------------- */
@@ -1521,6 +1556,25 @@ const DEVICE_WIDTH = { panel: 140, device: 260 };
 const AUTO_ANSWER_PARAM = 'answer';
 let autoAnswerTaken = false;
 
+/**
+ * What a free action calls when the config does not name a service. Anything
+ * not listed falls back to homeassistant.toggle, which exists for every
+ * domain that can be toggled at all.
+ */
+const ACTION_SERVICES = {
+  light: 'light.toggle',
+  switch: 'switch.toggle',
+  fan: 'fan.toggle',
+  input_boolean: 'input_boolean.toggle',
+  cover: 'cover.toggle',
+  button: 'button.press',
+  input_button: 'input_button.press',
+  scene: 'scene.turn_on',
+  script: 'script.turn_on',
+  automation: 'automation.trigger',
+};
+const ACTIVE_STATES = new Set(['on', 'open', 'opening', 'unlocked']);
+
 /** A door the integration reports as released, whatever word it uses for it. */
 const LOCK_OPEN_STATES = ['unlocked', 'open', 'opening'];
 
@@ -1535,6 +1589,7 @@ const DEFAULTS = {
   layout: 'compact',
   color: 'blue',
   auto_answer: true,
+  show_tabs: true,
   show_badges: true,
   show_controls: true,
   show_history: true,
@@ -1581,6 +1636,7 @@ class Bticino100xCard extends HTMLElement {
     this._stream = null;
     this._session = null;
     this._soundOn = true;
+    this._selectedUnit = null;
   }
 
   setConfig(config) {
@@ -1744,7 +1800,9 @@ class Bticino100xCard extends HTMLElement {
 
     nodes.badges = el('div', { class: 'badges' });
     nodes.features = el('div', { class: 'features' });
-    nodes.content = el('div', { class: 'content' }, [nodes.badges, nodes.features]);
+    nodes.tabs = el('div', { class: 'tabs', role: 'tablist' });
+    nodes.tabs.hidden = true;
+    nodes.content = el('div', { class: 'content' }, [nodes.tabs, nodes.badges, nodes.features]);
 
     nodes.video = el('video', { class: 'stream-video', autoplay: '', playsinline: '' });
     nodes.video.muted = false;
@@ -1895,9 +1953,20 @@ class Bticino100xCard extends HTMLElement {
     return { ringing, talking, reachable, active: ringing || talking, ringingUnit: ringingUnit || null };
   }
 
-  /** The entrance the card is about right now: the one ringing, else the first. */
+  /**
+   * The entrance the card is about right now. A call in progress wins, so the
+   * view is not yanked away mid-conversation; then the one that is ringing,
+   * because that is the event; then whichever the user picked.
+   */
   _activeUnit(status) {
-    return status.ringingUnit || this._found.units[0] || null;
+    const units = this._found.units;
+    if (this._stream) {
+      const streaming = units.find((unit) => unit.camera === this._stream.entityId);
+      if (streaming) return streaming;
+    }
+    if (status.ringingUnit) return status.ringingUnit;
+    const chosen = units.find((unit) => (unit.moduleId || unit.camera || unit.doorbell) === this._selectedUnit);
+    return chosen || units[0] || null;
   }
 
   /** The camera to answer or watch, which follows the unit that rang. */
@@ -1986,6 +2055,8 @@ class Bticino100xCard extends HTMLElement {
     this._syncStream();
     this._syncScreen(lastCall, status);
     this._syncKeys(status);
+
+    this._syncTabs(status);
 
     nodes.badges.style.display = config.show_badges ? '' : 'none';
     if (config.show_badges) this._syncBadges(lastCall);
@@ -2081,6 +2152,58 @@ class Bticino100xCard extends HTMLElement {
 
     const wifi = svg.querySelector('.bt-bell');
     if (wifi) wifi.classList.toggle('on', status.ringing);
+  }
+
+  /**
+   * One tab per entrance, so a home with several of them can look at the one
+   * it chooses rather than the one that happens to come first.
+   */
+  _syncTabs(status) {
+    const nodes = this._root;
+    const units = this._found.units;
+    const show = this._config.show_tabs && units.length > 1;
+    nodes.tabs.hidden = !show;
+    if (!show) return;
+
+    const keyOf = (unit) => unit.moduleId || unit.camera || unit.doorbell;
+    const active = this._activeUnit(status);
+    const activeKey = active ? keyOf(active) : null;
+    const signature = units.map(keyOf).join('|');
+    if (signature !== this._tabSignature) {
+      nodes.tabs.innerHTML = '';
+      this._tabNodes = new Map();
+      units.forEach((unit, index) => {
+        const label = el('span', { text: unit.name || `#${index + 1}` });
+        const dot = el('div', { class: 'dot' });
+        const tab = el(
+          'button',
+          {
+            class: 'tab',
+            type: 'button',
+            role: 'tab',
+            onclick: () => {
+              this._selectedUnit = keyOf(unit);
+              this._sync();
+            },
+          },
+          [label, dot],
+        );
+        nodes.tabs.appendChild(tab);
+        this._tabNodes.set(keyOf(unit), { tab, label, dot });
+      });
+      this._tabSignature = signature;
+    }
+
+    for (const unit of units) {
+      const refs = this._tabNodes.get(keyOf(unit));
+      if (!refs) continue;
+      const selected = keyOf(unit) === activeKey;
+      refs.tab.className = `tab${selected ? ' selected' : ''}`;
+      refs.tab.setAttribute('aria-selected', selected ? 'true' : 'false');
+      refs.label.textContent = unit.name || '';
+      // the dot marks the entrance that is ringing, selected or not
+      refs.dot.hidden = !(unit.doorbell && this._hass.states[unit.doorbell]?.state === 'on');
+    }
   }
 
   _syncBadges(lastCall) {
@@ -2241,6 +2364,8 @@ class Bticino100xCard extends HTMLElement {
         action: () => this._reject(),
       });
     }
+
+    for (const action of this._extraActions()) buttons.push(action);
 
     const signature = buttons.map((b) => b.key).join('|');
     if (this._buttonSignature !== signature) {
@@ -2440,6 +2565,47 @@ class Bticino100xCard extends HTMLElement {
     nodes.soundButton.setAttribute('aria-label', t(hass, this._soundOn ? 'sound_on' : 'sound_off'));
     nodes.soundButton.title = t(hass, this._soundOn ? 'sound_on' : 'sound_off');
     nodes.soundButton.hidden = audioOnly && !live;
+  }
+
+  /**
+   * Buttons the user added in the config, for anything the integration does
+   * not own: a gate on another system, a scene, a script.
+   */
+  _extraActions() {
+    const hass = this._hass;
+    const configured = Array.isArray(this._config.actions) ? this._config.actions : [];
+    return configured
+      .filter((action) => action && action.entity)
+      .slice(0, 6)
+      .map((action) => {
+        const stateObj = hass.states[action.entity];
+        const domain = action.entity.split('.')[0];
+        return {
+          key: `extra-${action.entity}`,
+          icon: action.icon || stateObj?.attributes.icon || 'mdi:gesture-tap-button',
+          text: action.name || stateObj?.attributes.friendly_name || action.entity,
+          variant: ACTIVE_STATES.has(stateObj?.state) ? 'tonal' : '',
+          disabled: !hasValue(stateObj),
+          action: () => this._runAction(action, domain),
+        };
+      });
+  }
+
+  _runAction(action, domain) {
+    if (action.service) {
+      const [serviceDomain, service] = action.service.includes('.')
+        ? action.service.split('.')
+        : [domain, action.service];
+      this._call(serviceDomain, service, { entity_id: action.entity });
+      return;
+    }
+    // a lock may or may not have a latch, so reuse what the door button does
+    if (domain === 'lock') {
+      this._openDoor(action.entity);
+      return;
+    }
+    const [serviceDomain, service] = (ACTION_SERVICES[domain] || 'homeassistant.toggle').split('.');
+    this._call(serviceDomain, service, { entity_id: action.entity });
   }
 
   /* --------------------------------------------------------------- actions */
@@ -2701,6 +2867,7 @@ const editorSchema = (hass, config) => [
       { name: 'show_badges', selector: { boolean: {} } },
       { name: 'show_controls', selector: { boolean: {} } },
       { name: 'show_history', selector: { boolean: {} } },
+      { name: 'show_tabs', selector: { boolean: {} } },
       { name: 'auto_answer', selector: { boolean: {} } },
     ],
   },
@@ -2715,6 +2882,8 @@ const editorSchema = (hass, config) => [
       { name: 'camera_entity', selector: { entity: { filter: { integration: DOMAIN, domain: 'camera' } } } },
       { name: 'lock_entity', selector: { entity: { filter: { integration: DOMAIN, domain: 'lock' } } } },
       { name: 'light_entity', selector: { entity: { filter: { integration: DOMAIN, domain: 'light' } } } },
+      // a list of { entity, name?, icon?, service? }, edited as YAML
+      { name: 'actions', selector: { object: {} } },
     ],
   },
 ];

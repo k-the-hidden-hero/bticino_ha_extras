@@ -35,8 +35,9 @@ Every action is printed in the log, so a flow can be read end to end.
 
 ## The call
 
-The last card on the page carries only a `device_id`, so the default configuration is on screen
-next to the configured ones.
+The last card on the page carries only a `device_id` plus one free action pointing at
+`lock.driveway_gate`, an entity that is deliberately not part of the integration, so the default
+configuration and the extra buttons are both on screen next to the configured cards.
 
 The page has no Home Assistant behind it, so `_startStream` is replaced with a session that
 connects after a moment and, for a video call, serves a canvas animation as its video track. It is

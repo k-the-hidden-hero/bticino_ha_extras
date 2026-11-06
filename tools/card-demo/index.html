@@ -84,7 +84,7 @@ button.sim.go { border-color: var(--primary-color); color: var(--primary-color);
   <h2>panel - citofono grande (220px)</h2><div id="g2"></div>
   <h2>device</h2><div id="g3"></div>
   <h2>compact</h2><div id="g4"></div>
-  <h2>default configuration (device_id only)</h2><div id="g5"></div>
+  <h2>default, with a free action for a non-BTicino gate</h2><div id="g5"></div>
 </div>
 
 <div class="panel">
@@ -169,6 +169,7 @@ const sim = {
   // an integration older than the module_id attribute
   legacy: false,
   lockOpen: false,
+  extraGate: false,
   light: false,
   lastCallTs: minutesAgo(38),
   snapshot: shot(205),
@@ -285,6 +286,9 @@ function buildStates() {
     put("lock.bticino_porta_esterna", sim.lockOpen ? "open" : "locked",
       { friendly_name: "Street door", supported_features: 1, device_class: "lock" }),
     put("light.bticino_luce_scale", sim.light ? "on" : "off", { friendly_name: "Stair light", supported_features: 0 }),
+    // not a BTicino entity: it stands in for a gate on another system
+    ["lock.driveway_gate", { entity_id: "lock.driveway_gate", state: sim.extraGate ? "unlocked" : "locked",
+      attributes: { friendly_name: "Driveway gate", device_class: "lock", supported_features: 0 }, last_changed: new Date().toISOString() }],
     put("binary_sensor.bticino_chiamata", sim.ringingModule === MODULE_FRONT ? "on" : "off",
       { friendly_name: MODULE, device_class: "sound", ...mod(MODULE_FRONT) }),
     put("binary_sensor.bticino_chiamata_cancello", sim.ringingModule === MODULE_GATE ? "on" : "off",
@@ -310,7 +314,7 @@ function buildStates() {
 }
 
 const entities = Object.fromEntries(
-  Object.keys(buildStates()).map((id) => [id, {
+  Object.keys(buildStates()).filter((id) => id.includes("bticino")).map((id) => [id, {
     entity_id: id, device_id: DEVICE, platform: "bticino_intercom",
     entity_category: /bridge_(busy|wifi|websocket)/.test(id) ? "diagnostic" : null,
   }]),
@@ -330,7 +334,12 @@ function makeHass() {
     user: { name: "Demo", is_admin: true },
     formatEntityState: (st) => `${st.state}${st.attributes.unit_of_measurement ? " " + st.attributes.unit_of_measurement : ""}`,
     callService: async (domain, service, data) => {
-      if (domain === "lock") openDoor();
+      if (domain === "lock" && data?.entity_id === "lock.driveway_gate") {
+        sim.extraGate = true;
+        log("driveway gate: released");
+        publish();
+        setTimeout(() => { sim.extraGate = false; log("driveway gate: closed again"); publish(); }, 3000);
+      } else if (domain === "lock") openDoor();
       else if (domain === "light") toggleLight();
       else if (domain === "bticino_intercom" && service === "reject_call") endCall(false, "rejected from the card");
       else log(`service ${domain}.${service} ${JSON.stringify(data || {})}`);
@@ -496,7 +505,10 @@ async function boot() {
   add("g2", { device_id: DEVICE, layout: "panel", device_size: 220, color: "purple" });
   add("g3", { device_id: DEVICE, layout: "device" });
   add("g4", { device_id: DEVICE, layout: "compact" });
-  add("g5", { device_id: DEVICE });
+  add("g5", {
+    device_id: DEVICE,
+    actions: [{ entity: "lock.driveway_gate", name: "Driveway", icon: "mdi:gate" }],
+  });
 
   document.getElementById("btn-ring").onclick = () => ring(MODULE_FRONT);
   document.getElementById("btn-ring-gate").onclick = () => ring(MODULE_GATE);
