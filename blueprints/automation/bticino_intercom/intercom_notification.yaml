@@ -26,12 +26,24 @@ blueprint:
           integration: bticino_intercom
     camera_entity:
       name: Live video camera (optional)
-      description: The WebRTC camera entity to open when "Answer" is tapped
+      description: >
+        The WebRTC camera entity to open when "Answer" is tapped. Works together
+        with the dashboard below.
       default: ''
       selector:
         entity:
           domain: camera
           integration: bticino_intercom
+    answer_dashboard:
+      name: Intercom dashboard (optional)
+      description: >
+        Path of the dashboard that holds the BTicino intercom card, for example
+        /lovelace/intercom. When this and the live video camera are both set,
+        "Answer" opens the dashboard with ?answer=<camera> and the card answers
+        the call. Otherwise "Answer" only dismisses the notification.
+      default: ''
+      selector:
+        text:
     snapshot_camera:
       name: Snapshot camera (optional)
       description: >
@@ -122,6 +134,18 @@ variables:
   reject_label_text: !input reject_label
   silent_urgent_value: !input silent_urgent
   vibration_pattern_value: !input vibration_pattern
+  camera_entity_id: !input camera_entity
+  answer_dashboard_path: !input answer_dashboard
+  # With a camera and a dashboard, "Answer" opens the card there and the card
+  # answers the call (?answer=<camera>); otherwise it only clears the notification.
+  answer_action: >-
+    {%- if camera_entity_id and answer_dashboard_path -%}
+    {%- set separator = '&' if '?' in answer_dashboard_path else '?' -%}
+    {{ {'action': 'URI', 'title': answer_label_text,
+        'uri': answer_dashboard_path ~ separator ~ 'answer=' ~ camera_entity_id} }}
+    {%- else -%}
+    {{ {'action': 'BTICINO_ANSWER', 'title': answer_label_text} }}
+    {%- endif -%}
 
 trigger:
   - platform: event
@@ -174,8 +198,7 @@ action:
                 else {'interruption-level': 'critical', 'sound': {'name': 'default', 'critical': 1, 'volume': 1.0}} -}}
               vibrationPattern: "{{ vibration_pattern_value if silent_urgent_value else '' }}"
               actions:
-                - action: BTICINO_ANSWER
-                  title: '{{ answer_label_text }}'
+                - '{{ answer_action }}'
                 - action: BTICINO_OPEN_DOOR
                   title: '{{ open_door_label_text }}'
                 - action: BTICINO_REJECT
@@ -214,8 +237,7 @@ action:
                 {{- {'interruption-level': 'time-sensitive'} if silent_urgent_value
                 else {'interruption-level': 'critical', 'sound': {'name': 'default', 'critical': 1, 'volume': 0.0}} -}}
               actions:
-                - action: BTICINO_ANSWER
-                  title: '{{ answer_label_text }}'
+                - '{{ answer_action }}'
                 - action: BTICINO_OPEN_DOOR
                   title: '{{ open_door_label_text }}'
                 - action: BTICINO_REJECT
