@@ -76,6 +76,12 @@ resource. One file carries both cards, so this is done once:
 
 ### BTicino Intercom Card
 
+Incoming-call controls are restored when the card opens during a ring. The card
+pairs each configured camera with its call sensor by bridge device and `module_id`,
+then reads ringing from normal HA state updates, including for non-admin users.
+The companion integration supplies current session/snapshot metadata separately
+from call history. Update both components, restart HA, and refresh the dashboard.
+
 Add the card to any dashboard:
 
 ```yaml

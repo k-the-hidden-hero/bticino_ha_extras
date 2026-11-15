@@ -1111,9 +1111,12 @@ var BticinoIntercomCard = class extends HTMLElement {
     this._sslWarningDismissed = false;
     this._boundDocClick = this._onDocumentClick.bind(this);
     this._callEventUnsub = null;
+    this._callEventConnection = null;
     this._ringSessionId = null;
     this._ringtoneAudio = null;
     this._ringData = null;
+    this._ignoredRings = /* @__PURE__ */ new Map();
+    this._answeredRingSessionId = null;
     this._savedActionBarHTML = null;
     this._missedCallTimer = null;
     this._lang = "en";
@@ -1135,10 +1138,12 @@ var BticinoIntercomCard = class extends HTMLElement {
     const prev = this._hass;
     this._hass = hass;
     this._lang = hass?.language || "en";
-    if (!this._callEventUnsub && hass?.connection) this._subscribeCallEvents();
+    if (prev?.connection !== hass?.connection || !hass?.user?.is_admin) this._unsubscribeCallEvents();
+    this._subscribeCallEvents();
     if (!prev && hass && this._config) this._render();
     this._updateIdleOverlay();
     this._updateActionStates();
+    this._syncRingingCall();
   }
   setConfig(config) {
     if (!config.intercoms || !Array.isArray(config.intercoms) || config.intercoms.length === 0) {
@@ -1147,6 +1152,8 @@ var BticinoIntercomCard = class extends HTMLElement {
     for (const ic of config.intercoms) {
       if (!ic.name || !ic.camera) throw new Error("Each intercom requires name and camera");
     }
+    this._clearRingState();
+    this._ignoredRings.clear();
     this._config = {
       intercoms: config.intercoms.map((ic) => ({
         name: ic.name,
@@ -1184,13 +1191,14 @@ var BticinoIntercomCard = class extends HTMLElement {
     this._checkAutoAnswer();
   }
   disconnectedCallback() {
-    this._stopRingtone();
-    this._cleanup();
+    this._hangUp();
+    this._ignoredRings.clear();
     this._unsubscribeCallEvents();
     document.removeEventListener("click", this._boundDocClick);
   }
   // ========== Rendering ==========
   _render() {
+    this._savedActionBarHTML = null;
     const intercoms = this._config.intercoms;
     const showTabs = intercoms.length > 1;
     const actions = this._activeIntercom.actions;
@@ -1294,6 +1302,7 @@ var BticinoIntercomCard = class extends HTMLElement {
     this._bindEvents();
     this._updateIdleOverlay();
     this._updateActionStates();
+    this._syncRingingCall();
   }
   _renderActionBtn(action, index) {
     const { icon: icon2, label } = this._resolveAction(action);
@@ -1446,7 +1455,7 @@ var BticinoIntercomCard = class extends HTMLElement {
     tabs.forEach((tab, i) => {
       tab.classList.remove("ring", "live");
       const origName = this._config.intercoms[i]?.name || "";
-      if (i === this._activeIndex && isRinging) {
+      if (isRinging && this._config.intercoms[i]?.camera === this._ringData?.camera_entity_id) {
         tab.classList.add("ring");
         tab.textContent = `🔔 ${origName}`;
       } else if (i === this._activeIndex && (this._state === STATE.LIVE || this._state === STATE.CONNECTING || this._state === STATE.RECONNECTING)) {
@@ -1572,6 +1581,8 @@ var BticinoIntercomCard = class extends HTMLElement {
     this._connect();
   }
   _hangUp() {
+    this._ignoreCurrentRing();
+    this._answeredRingSessionId = null;
     this._wantPlay = false;
     this._playing = false;
     this._clearRingState();
@@ -1656,7 +1667,7 @@ var BticinoIntercomCard = class extends HTMLElement {
     }
     if (call.state === CALL_STATE.LIVE) {
       this._setState(STATE.LIVE);
-      this._fadeRingSnapshot();
+      if (!this._ringData) this._fadeRingSnapshot();
     } else if (call.state === CALL_STATE.RECONNECTING) {
       this._setState(STATE.RECONNECTING);
     } else if (call.state === CALL_STATE.ERROR) {
@@ -1683,8 +1694,7 @@ var BticinoIntercomCard = class extends HTMLElement {
     this._closeConnection();
   }
   // ========== History ==========
-  _getConfigEntryId() {
-    const camera = this._activeIntercom?.camera;
+  _getConfigEntryId(camera = this._activeIntercom?.camera) {
     if (!camera) return null;
     const entityReg = this._hass?.entities?.[camera];
     if (!entityReg?.device_id) return null;
@@ -1848,37 +1858,103 @@ var BticinoIntercomCard = class extends HTMLElement {
   }
   // ========== Call event subscription ==========
   _subscribeCallEvents() {
-    if (this._callEventUnsub || !this._hass?.connection) return;
-    this._callEventUnsub = this._hass.connection.subscribeEvents(
-      (event) => this._handleCallEvent(event),
-      "bticino_intercom_call"
-    );
+    const connection = this._hass?.connection;
+    if (!this.isConnected || !this._hass?.user?.is_admin || !connection || this._callEventConnection === connection)
+      return;
+    this._callEventConnection = connection;
+    const subscription = connection.subscribeEvents((event) => {
+      if (this._callEventUnsub === subscription) this._handleCallEvent(event);
+    }, "bticino_intercom_call");
+    this._callEventUnsub = subscription;
+    subscription.catch(() => {
+    });
   }
   _unsubscribeCallEvents() {
+    this._callEventConnection = null;
     if (this._callEventUnsub) {
-      this._callEventUnsub.then((unsub) => unsub());
+      this._callEventUnsub.then((unsub) => unsub()).catch(() => {
+      });
       this._callEventUnsub = null;
     }
+  }
+  _ringingSensors() {
+    const hass = this._hass;
+    if (!hass?.states || !this._config) return [];
+    const sensors = [];
+    for (const ic of this._config.intercoms) {
+      const camera = hass.entities?.[ic.camera];
+      const moduleId = hass.states[ic.camera]?.attributes?.module_id;
+      if (camera?.platform !== "bticino_intercom" || !camera.device_id || !moduleId) continue;
+      for (const [entityId, entity] of Object.entries(hass.entities)) {
+        const state = hass.states[entityId];
+        if (entityId.startsWith("binary_sensor.") && entity.platform === "bticino_intercom" && entity.device_id === camera.device_id && state?.attributes?.module_id === moduleId) {
+          sensors.push({ state, camera: ic.camera, name: ic.name });
+        }
+      }
+    }
+    return sensors;
+  }
+  _sameRing(a, b) {
+    return a && b && a.sensor_id === b.sensor_id && a.started === b.started && (!a.session_id || !b.session_id || a.session_id === b.session_id);
+  }
+  _syncRingingCall() {
+    if (!this.isConnected || !this.shadowRoot?.querySelector("ha-card")) return;
+    const calls = this._ringingSensors().filter(({ state }) => state.state === "on").map(({ state, camera, name }) => ({
+      sensor_id: state.entity_id,
+      started: state.last_changed,
+      camera_entity_id: camera,
+      module_name: name,
+      // Historical session_id/snapshot_url attributes describe the last
+      // recorded call, so only read the current ring's separate metadata.
+      ...state.attributes.ringing
+    }));
+    for (const [sensor, ignored] of this._ignoredRings) {
+      if (!calls.some((call) => this._sameRing(call, ignored))) this._ignoredRings.delete(sensor);
+    }
+    const pending = calls.filter((call) => !this._sameRing(call, this._ignoredRings.get(call.sensor_id)));
+    const data = pending.find((call) => call.camera_entity_id === this._activeIntercom?.camera) || pending[0];
+    if (!data) {
+      if (this._ringData?.sensor_id) {
+        this._clearRingState();
+        this._collapseIfIdle();
+      }
+      return;
+    }
+    const index = this._config.intercoms.findIndex((ic) => ic.camera === data.camera_entity_id);
+    if (!this._playing && index !== this._activeIndex) {
+      this._clearRingState();
+      this._activeIndex = index;
+      this._render();
+      return;
+    }
+    const sameCall = this._sameRing(data, this._ringData);
+    if (sameCall && JSON.stringify(data) === JSON.stringify(this._ringData) && this.shadowRoot.querySelector("ha-card.ringing"))
+      return;
+    this._ringSessionId = data.session_id;
+    this._showRingOverlay(data, !sameCall);
+  }
+  _ignoreCurrentRing() {
+    if (this._ringData?.sensor_id) this._ignoredRings.set(this._ringData.sensor_id, this._ringData);
   }
   _handleCallEvent(event) {
     const data = event.data;
     if (data.type === "ring") {
       const cameras = this._config?.intercoms?.map((ic) => ic.camera) || [];
-      if (data.camera_entity_id && !cameras.includes(data.camera_entity_id)) return;
+      if (!cameras.includes(data.camera_entity_id)) return;
+      if (this._ringingSensors().some(({ camera }) => camera === data.camera_entity_id)) return;
       this._ringSessionId = data.session_id;
       this._showRingOverlay(data);
     } else if (data.type === "end") {
-      if (data.session_id !== this._ringSessionId) return;
-      this._ringSessionId = null;
-      const wasRinging = this.shadowRoot?.querySelector("ha-card")?.classList.contains("ringing");
-      this._clearRingState();
-      if (wasRinging) {
-        this._showMissedCall();
-      }
-      if (this._state === STATE.LIVE) {
+      if (data.session_id && data.session_id === this._answeredRingSessionId && this._state === STATE.LIVE) {
         this._hangUp();
       }
-      this._collapseIfIdle();
+      if (data.session_id === this._ringSessionId && !this._ringData?.sensor_id) {
+        const wasRinging = this.shadowRoot?.querySelector("ha-card")?.classList.contains("ringing");
+        this._ringSessionId = null;
+        this._clearRingState();
+        if (wasRinging) this._showMissedCall();
+        this._collapseIfIdle();
+      }
     }
   }
   // ========== URL auto-answer ==========
@@ -1927,6 +2003,15 @@ var BticinoIntercomCard = class extends HTMLElement {
     }
   }
   _answerIncomingCall() {
+    const data = this._ringData;
+    this._ignoreCurrentRing();
+    const index = this._config.intercoms.findIndex((ic) => ic.camera === data?.camera_entity_id);
+    if (this._playing && this._session?.entityId !== data?.camera_entity_id) this._hangUp();
+    if (index >= 0 && index !== this._activeIndex) {
+      this._activeIndex = index;
+      this._render();
+    }
+    this._answeredRingSessionId = data?.session_id;
     this.shadowRoot?.querySelector("ha-card")?.classList.remove("ringing");
     this._stopRingtone();
     this._restoreActionBar();
@@ -1935,20 +2020,23 @@ var BticinoIntercomCard = class extends HTMLElement {
     this._startCall();
   }
   _rejectIncomingCall() {
+    const camera = this._ringData?.camera_entity_id;
+    this._ignoreCurrentRing();
     this._clearRingState();
     this._collapseIfIdle();
-    const entryId = this._getConfigEntryId();
+    const entryId = this._getConfigEntryId(camera);
     if (entryId && this._hass) {
       this._hass.callService("bticino_intercom", "reject_call", { entry_id: entryId });
     }
   }
   _dismissIncomingCall() {
+    this._ignoreCurrentRing();
     this._clearRingState();
     this._collapseIfIdle();
   }
-  _showRingOverlay(eventData) {
+  _showRingOverlay(eventData, playRingtone = true) {
     const camIdx = this._config.intercoms.findIndex((ic) => ic.camera === eventData.camera_entity_id);
-    if (camIdx >= 0 && camIdx !== this._activeIndex) {
+    if (!this._playing && camIdx >= 0 && camIdx !== this._activeIndex) {
       this._activeIndex = camIdx;
     }
     this._ringData = eventData;
@@ -1985,12 +2073,12 @@ var BticinoIntercomCard = class extends HTMLElement {
       });
     }
     this._showRingActions();
-    this._playRingtone();
+    if (playRingtone) this._playRingtone();
   }
   _showRingActions() {
     const bar = this.shadowRoot?.getElementById("action-bar");
     if (!bar) return;
-    this._savedActionBarHTML = bar.innerHTML;
+    if (this._savedActionBarHTML === null) this._savedActionBarHTML = bar.innerHTML;
     bar.innerHTML = `
       <button class="action-btn ring-action answer" id="ring-answer">
         <ha-icon icon="mdi:phone"></ha-icon>
@@ -2011,7 +2099,7 @@ var BticinoIntercomCard = class extends HTMLElement {
   }
   _restoreActionBar() {
     const bar = this.shadowRoot?.getElementById("action-bar");
-    if (!bar || !this._savedActionBarHTML) return;
+    if (!bar || this._savedActionBarHTML === null) return;
     bar.innerHTML = this._savedActionBarHTML;
     this._savedActionBarHTML = null;
     bar.querySelectorAll(".action-btn[data-action-idx]").forEach((btn) => {
@@ -2023,7 +2111,8 @@ var BticinoIntercomCard = class extends HTMLElement {
     this._updateActionStates();
   }
   _openDoorDuringRing() {
-    const lockAction = this._activeIntercom.actions.find((a) => a.entity?.startsWith("lock."));
+    const ic = this._config.intercoms.find((ic2) => ic2.camera === this._ringData?.camera_entity_id) || this._activeIntercom;
+    const lockAction = ic.actions.find((a) => a.entity?.startsWith("lock."));
     if (lockAction && this._hass) {
       const [domain, service] = (lockAction.service || "lock.unlock").split(".");
       this._hass.callService(domain, service, lockAction.service_data || {}, { entity_id: lockAction.entity });
