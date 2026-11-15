@@ -1,0 +1,92 @@
+blueprint:
+  name: BTicino Intercom on View Assist
+  description: >
+    When an entrance rings, View Assist screens open the intercom view, where
+    the BTicino Classe 100X card answers the call, opens the door or rejects
+    it. The view gives the screen back a few seconds after the call is over.
+    Add the intercom view to the View Assist dashboard first, as
+    https://github.com/k-the-hidden-hero/bticino_ha_extras/blob/main/docs/view-assist.md
+    explains.
+  domain: automation
+  author: k-the-hidden-hero
+  source_url: https://github.com/k-the-hidden-hero/bticino_ha_extras/blob/main/blueprints/automation/bticino_intercom/view_assist_intercom.yaml
+  homeassistant:
+    min_version: '2026.7.0'
+  input:
+    doorbells:
+      name: Doorbells
+      description: The doorbell event entities of the entrances that open the view when they ring.
+      selector:
+        entity:
+          domain: event
+          integration: bticino_intercom
+          multiple: true
+    view_assist_devices:
+      name: View Assist devices
+      description: The View Assist devices that show the call.
+      selector:
+        entity:
+          domain: sensor
+          integration: view_assist
+          multiple: true
+    view_path:
+      name: Intercom view
+      description: Path of the intercom view in the View Assist dashboard.
+      default: /view-assist/intercom
+      selector:
+        text:
+    timeout:
+      name: Timeout
+      description: >
+        How long the view keeps the screen when no call shows on it, for
+        example when the ring is over before the screen opens. A call that
+        shows keeps the screen until 5 seconds after it is over.
+      default: 90
+      selector:
+        number:
+          min: 15
+          max: 600
+          unit_of_measurement: seconds
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: event.received
+    target:
+      entity_id: !input doorbells
+    options:
+      event_type:
+        - ring
+
+variables:
+  view_assist_devices: !input view_assist_devices
+  view_path: !input view_path
+  timeout: !input timeout
+
+actions:
+  - repeat:
+      for_each: '{{ view_assist_devices }}'
+      sequence:
+        - variables:
+            current_path: "{{ state_attr(repeat.item, 'current_path') or '' }}"
+            held: "{{ state_attr(repeat.item, 'mode') == 'hold' }}"
+        # A screen already on the view needs nothing: the card shows the
+        # entrance that rings by itself.
+        - if: "{{ current_path.split('?')[0] != view_path }}"
+          then:
+            # In hold mode View Assist keeps its screen, so lift hold first
+            # and tell the view what to give back once the call is over.
+            - if: '{{ held }}'
+              then:
+                - action: view_assist.set_state
+                  data:
+                    entity_id: '{{ repeat.item }}'
+                    mode: normal
+                - delay:
+                    milliseconds: 1500
+            - action: view_assist.navigate
+              data:
+                device: '{{ repeat.item }}'
+                path: >-
+                  {{ view_path }}?timeout={{ timeout | int }}{% if held %}&restore_mode=hold&restore_path={{ current_path | urlencode }}{% endif %}

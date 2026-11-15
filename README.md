@@ -15,6 +15,7 @@ Custom Lovelace card and companion resources for the [BTicino Intercom](https://
 | Blueprint | Description |
 |-----------|-------------|
 | **Intercom Notification** | Urgent push notification when the doorbell rings, with live snapshot preview and actionable buttons: *Answer*, *Open Door*, *Reject* |
+| **Intercom on View Assist** | Opens a full-screen intercom view on [View Assist](https://dinki.github.io/View-Assist/) screens when an entrance rings, and gives the screen back once the call is over. See [the guide](docs/view-assist.md) |
 
 ### Lovelace Cards
 
@@ -183,6 +184,9 @@ the wall wants; in a sections view it asks for a full-width slot six rows tall a
 like any other card. Hiding the header and the sidebar - `kiosk-mode`, Fully Kiosk Browser, View
 Assist - is a separate decision about the page around the card, and the layout does not depend on
 it. Every control stays where it is in the other layouts, free `actions` included.
+
+For a View Assist screen there is a ready view, and a blueprint that opens it when an entrance
+rings: see [The intercom on View Assist](docs/view-assist.md).
 
 Buttons for things the integration does not own - a gate on another system, a scene, a script -
 go in `actions`, and appear after the built-in ones:
