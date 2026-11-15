@@ -27,7 +27,7 @@ cards:
       - body_template
     variables:
       var_view_path: intercom
-      var_url_params: |
+      var_url_params: |-
         [[[
           let queryString = '';
           const vaEntity = hass.states[variables.var_assistsat_entity];
@@ -42,17 +42,17 @@ cards:
         ]]]
       # Without a camera in the URL the card shows every entrance, one tab
       # each, and the one that rings selects itself.
-      var_camera: |
+      var_camera: |-
         [[[
           const fromUrl = variables.var_url_params.get('camera');
           return fromUrl && hass.states[fromUrl] ? fromUrl : '';
         ]]]
-      var_timeout_seconds: |
+      var_timeout_seconds: |-
         [[[
           const timeout = parseInt(variables.var_url_params.get('timeout'), 10);
           return Number.isFinite(timeout) && timeout > 0 ? timeout : 90;
         ]]]
-      var_setup_intercom_hold_mode: |
+      var_setup_intercom_hold_mode: |-
         [[[
           const entityId = variables.var_assistsat_entity;
           const viewPath = variables.var_view_path;
@@ -136,6 +136,12 @@ cards:
             let quietSince = null;
             const watch = () => {
               if (window.vaIntercomPageKey !== pageKey) return;
+              // Left another way (the close button, View Assist): forget this
+              // visit, so the next ring takes the screen again.
+              if (!window.location.pathname.endsWith(`/${viewPath}`)) {
+                cleanup();
+                return;
+              }
               const now = Date.now();
               if (callState() !== 'idle') {
                 seenCall = true;
@@ -160,6 +166,7 @@ cards:
             const h = liveHass();
             if (recordedHere(h)) begin(h);
             else if (++tries < 20) setTimeout(waitForPath, 250);
+            else cleanup();
           };
           waitForPath();
           return '';
