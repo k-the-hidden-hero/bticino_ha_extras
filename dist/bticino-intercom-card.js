@@ -4275,6 +4275,7 @@ var Bticino100xCard = class extends HTMLElement {
     if (!status.reachable) classes.push("offline");
     nodes.card.className = classes.join(" ");
     nodes.card.dataset.layout = config.layout;
+    this.dataset.call = status.ringing ? "ringing" : status.talking ? "talking" : "idle";
     const width = Number(config.device_size) || DEVICE_WIDTH[config.layout] || 140;
     nodes.card.style.setProperty("--bt-device-width", `${width}px`);
     nodes.card.style.setProperty(
