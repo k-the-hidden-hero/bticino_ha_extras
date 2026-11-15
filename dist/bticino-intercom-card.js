@@ -1115,6 +1115,8 @@ var BticinoIntercomCard = class extends HTMLElement {
     this._ringSessionId = null;
     this._ringtoneAudio = null;
     this._ringData = null;
+    this._lastSensorRing = null;
+    this._ringingSensorCache = null;
     this._ignoredRings = /* @__PURE__ */ new Map();
     this._answeredRingSessionId = null;
     this._savedActionBarHTML = null;
@@ -1154,6 +1156,7 @@ var BticinoIntercomCard = class extends HTMLElement {
     }
     this._clearRingState();
     this._ignoredRings.clear();
+    this._lastSensorRing = null;
     this._config = {
       intercoms: config.intercoms.map((ic) => ({
         name: ic.name,
@@ -1193,6 +1196,7 @@ var BticinoIntercomCard = class extends HTMLElement {
   disconnectedCallback() {
     this._hangUp();
     this._ignoredRings.clear();
+    this._lastSensorRing = null;
     this._unsubscribeCallEvents();
     document.removeEventListener("click", this._boundDocClick);
   }
@@ -1879,15 +1883,25 @@ var BticinoIntercomCard = class extends HTMLElement {
   }
   _ringingSensors() {
     const hass = this._hass;
-    if (!hass?.states || !this._config) return [];
+    if (!hass?.states || !hass.entities || !this._config) return [];
+    if (this._ringingSensorCache?.entities !== hass.entities) {
+      const byDevice = /* @__PURE__ */ new Map();
+      for (const [entityId, entity] of Object.entries(hass.entities)) {
+        if (!entityId.startsWith("binary_sensor.") || entity.platform !== "bticino_intercom" || !entity.device_id)
+          continue;
+        if (!byDevice.has(entity.device_id)) byDevice.set(entity.device_id, []);
+        byDevice.get(entity.device_id).push(entityId);
+      }
+      this._ringingSensorCache = { entities: hass.entities, byDevice };
+    }
     const sensors = [];
     for (const ic of this._config.intercoms) {
       const camera = hass.entities?.[ic.camera];
       const moduleId = hass.states[ic.camera]?.attributes?.module_id;
       if (camera?.platform !== "bticino_intercom" || !camera.device_id || !moduleId) continue;
-      for (const [entityId, entity] of Object.entries(hass.entities)) {
+      for (const entityId of this._ringingSensorCache.byDevice.get(camera.device_id) || []) {
         const state = hass.states[entityId];
-        if (entityId.startsWith("binary_sensor.") && entity.platform === "bticino_intercom" && entity.device_id === camera.device_id && state?.attributes?.module_id === moduleId) {
+        if (state?.attributes?.module_id === moduleId) {
           sensors.push({ state, camera: ic.camera, name: ic.name });
         }
       }
@@ -1934,7 +1948,10 @@ var BticinoIntercomCard = class extends HTMLElement {
     this._showRingOverlay(data, !sameCall);
   }
   _ignoreCurrentRing() {
-    if (this._ringData?.sensor_id) this._ignoredRings.set(this._ringData.sensor_id, this._ringData);
+    if (this._ringData?.sensor_id) {
+      this._ignoredRings.set(this._ringData.sensor_id, this._ringData);
+      this._lastSensorRing = null;
+    }
   }
   _handleCallEvent(event) {
     const data = event.data;
@@ -1948,7 +1965,15 @@ var BticinoIntercomCard = class extends HTMLElement {
       if (data.session_id && data.session_id === this._answeredRingSessionId && this._state === STATE.LIVE) {
         this._hangUp();
       }
-      if (data.session_id === this._ringSessionId && !this._ringData?.sensor_id) {
+      const sensorRing = this._lastSensorRing;
+      if (data.session_id && data.session_id === sensorRing?.session_id) {
+        this._lastSensorRing = null;
+        this._ignoredRings.set(sensorRing.sensor_id, sensorRing);
+        this._ringSessionId = null;
+        this._clearRingState();
+        if (data.reason !== "rescind") this._showMissedCall();
+        this._collapseIfIdle();
+      } else if (data.session_id === this._ringSessionId && !this._ringData?.sensor_id) {
         const wasRinging = this.shadowRoot?.querySelector("ha-card")?.classList.contains("ringing");
         this._ringSessionId = null;
         this._clearRingState();
@@ -2040,6 +2065,7 @@ var BticinoIntercomCard = class extends HTMLElement {
       this._activeIndex = camIdx;
     }
     this._ringData = eventData;
+    this._lastSensorRing = eventData.sensor_id ? eventData : null;
     const card = this.shadowRoot?.querySelector("ha-card");
     card?.classList.add("expanded", "ringing");
     this._updateTabStates();

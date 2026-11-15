@@ -174,6 +174,112 @@ test('metadata enrichment preserves the ringtone and restores normal controls wh
   assert.ok(stops >= 1);
 });
 
+for (const sensorFirst of [true, false]) {
+  test(`an unanswered sensor ring shows the missed-call label (${sensorFirst ? 'sensor' : 'event'} first)`, async () => {
+    const hass = makeHass({ admin: true });
+    ring(hass);
+    const card = makeCard(hass);
+    await settle();
+    const end = { data: { type: 'end', session_id: 'call-1', reason: 'timeout' } };
+    if (sensorFirst) {
+      quiet(hass);
+      card.hass = { ...hass };
+      assert.equal(incoming(card), false);
+      assert.equal(card.shadowRoot.querySelector('.content-name').textContent, 'Front');
+    }
+    hass.callbacks[0](end);
+    assert.equal(incoming(card), false);
+    assert.match(card.shadowRoot.querySelector('.content-name').textContent, /Missed call/);
+    // An unrelated update while the sensor is still on must not reopen it.
+    card.hass = { ...hass };
+    assert.equal(incoming(card), false);
+    quiet(hass);
+    card.hass = { ...hass };
+    const timer = card._missedCallTimer;
+    hass.callbacks[0](end);
+    assert.equal(card._missedCallTimer, timer);
+    assert.match(card.shadowRoot.querySelector('.content-name').textContent, /Missed call/);
+  });
+}
+
+test('sensor-off alone does not report a missed call for admins or non-admins', async () => {
+  for (const admin of [true, false]) {
+    const hass = makeHass({ admin });
+    ring(hass);
+    const card = makeCard(hass);
+    quiet(hass);
+    card.hass = { ...hass };
+    await settle();
+    assert.equal(incoming(card), false);
+    assert.equal(card.shadowRoot.querySelector('.content-name').textContent, 'Front');
+    assert.equal(hass.callbacks.length, admin ? 1 : 0);
+    card.remove();
+  }
+});
+
+test('answered, rejected and dismissed sensor rings do not become missed calls', async () => {
+  for (const action of ['_answerIncomingCall', '_rejectIncomingCall', '_dismissIncomingCall']) {
+    const hass = makeHass({ admin: true });
+    ring(hass);
+    const card = makeCard(hass);
+    card._connect = () => {};
+    await settle();
+    card[action]();
+    quiet(hass);
+    card.hass = { ...hass };
+    hass.callbacks[0]({ data: { type: 'end', session_id: 'call-1', reason: 'timeout' } });
+    assert.doesNotMatch(card.shadowRoot.querySelector('.content-name').textContent, /Missed call/);
+    card.remove();
+  }
+});
+
+test('a rescinded sensor ring was answered elsewhere and does not show a missed call', async () => {
+  const hass = makeHass({ admin: true });
+  ring(hass);
+  const card = makeCard(hass);
+  await settle();
+  quiet(hass);
+  card.hass = { ...hass };
+  hass.callbacks[0]({ data: { type: 'end', session_id: 'call-1', reason: 'rescind' } });
+  assert.equal(card.shadowRoot.querySelector('.content-name').textContent, 'Front');
+  hass.callbacks[0]({ data: { type: 'end', session_id: 'call-1', reason: 'timeout' } });
+  assert.equal(card.shadowRoot.querySelector('.content-name').textContent, 'Front');
+});
+
+test('a delayed end for an older ring cannot clear a newer ring or report it as missed', async () => {
+  const hass = makeHass({ admin: true });
+  ring(hass);
+  const card = makeCard(hass);
+  await settle();
+  ring(hass, 'front', { session_id: 'call-2' }, '2026-11-15T10:02:00Z');
+  card.hass = { ...hass };
+  for (const session_id of ['unrelated', 'call-1', undefined]) {
+    hass.callbacks[0]({ data: { type: 'end', session_id, reason: 'timeout' } });
+    assert.ok(incoming(card));
+    assert.equal(card.shadowRoot.querySelector('.content-name').textContent, 'Front');
+  }
+});
+
+test('missed-call tracking is reset on reconfiguration and removal', async () => {
+  for (const reconfigure of [true, false]) {
+    const hass = makeHass({ admin: true });
+    ring(hass);
+    const card = makeCard(hass);
+    await settle();
+    quiet(hass);
+    card.hass = { ...hass };
+    if (reconfigure) card.setConfig(structuredClone(CONFIG));
+    else {
+      card.remove();
+      document.body.appendChild(card);
+      await settle();
+    }
+    hass.callbacks.at(-1)({ data: { type: 'end', session_id: 'call-1', reason: 'timeout' } });
+    assert.equal(card.shadowRoot.querySelector('.content-name').textContent, 'Front');
+    card.remove();
+  }
+});
+
 test('duplicate state updates and re-rendering preserve the same ring without restarting audio', () => {
   const hass = makeHass();
   ring(hass);
@@ -246,9 +352,11 @@ test('pairing requires both the same bridge device and module, and the integrati
   assert.equal(incoming(card), false);
   hass.entities['binary_sensor.front'].device_id = 'home';
   hass.entities['binary_sensor.front'].platform = 'unrelated';
+  hass.entities = { ...hass.entities };
   card.hass = { ...hass };
   assert.equal(incoming(card), false);
   hass.entities['binary_sensor.front'].platform = 'bticino_intercom';
+  hass.entities = { ...hass.entities };
   hass.states['binary_sensor.front'].attributes.module_id = 'wrong-unit';
   card.hass = { ...hass };
   assert.equal(incoming(card), false);
@@ -262,11 +370,82 @@ test('pairing waits for the camera registry and module metadata to arrive', () =
   assert.equal(incoming(card), false);
   hass.states['camera.front'].attributes.module_id = 'front';
   delete hass.entities['camera.front'];
+  hass.entities = { ...hass.entities };
   card.hass = { ...hass };
   assert.equal(incoming(card), false);
   hass.entities['camera.front'] = { device_id: 'home', platform: 'bticino_intercom' };
+  hass.entities = { ...hass.entities };
   card.hass = { ...hass };
   assert.ok(incoming(card));
+});
+
+test('registry scans are cached while ringing still follows current sensor states', () => {
+  const hass = makeHass();
+  for (let index = 0; index < 4900; index++) hass.entities[`sensor.unrelated_${index}`] = { platform: 'other' };
+  let scans = 0;
+  hass.entities = new Proxy(hass.entities, {
+    ownKeys(target) {
+      scans++;
+      return Reflect.ownKeys(target);
+    },
+  });
+  const card = makeCard(hass);
+  assert.equal(scans, 1);
+  for (let update = 0; update < 10; update++) card.hass = { ...hass };
+  ring(hass);
+  card.hass = { ...hass };
+  assert.ok(incoming(card));
+  quiet(hass);
+  card.hass = { ...hass };
+  assert.equal(incoming(card), false);
+  assert.equal(scans, 1);
+});
+
+test('a changed registry rebuilds sensor matches, including additions, removals and bridge changes', () => {
+  const hass = makeHass();
+  ring(hass);
+  const card = makeCard(hass);
+  assert.ok(incoming(card));
+  const sensor = hass.entities['binary_sensor.front'];
+  hass.entities = { ...hass.entities, 'binary_sensor.front': { ...sensor, device_id: 'another-home' } };
+  card.hass = { ...hass };
+  assert.equal(incoming(card), false);
+  hass.entities = { ...hass.entities, 'binary_sensor.front': sensor };
+  card.hass = { ...hass };
+  assert.ok(incoming(card));
+  const { 'binary_sensor.front': removed, ...remaining } = hass.entities;
+  hass.entities = remaining;
+  card.hass = { ...hass };
+  assert.equal(incoming(card), false);
+  hass.entities = { ...hass.entities, 'binary_sensor.front_replaced': removed };
+  hass.states['binary_sensor.front_replaced'] = {
+    ...hass.states['binary_sensor.front'],
+    entity_id: 'binary_sensor.front_replaced',
+  };
+  card.hass = { ...hass };
+  assert.ok(incoming(card));
+});
+
+test('cached registry ids still handle late module metadata and card configuration changes', () => {
+  const hass = makeHass();
+  ring(hass, 'gate');
+  delete hass.states['camera.gate'].attributes.module_id;
+  delete hass.states['binary_sensor.gate'].attributes.module_id;
+  const card = makeCard(hass, { intercoms: [CONFIG.intercoms[0]], ignore_ssl_warning: true });
+  assert.equal(incoming(card), false);
+  card.setConfig(structuredClone(CONFIG));
+  assert.equal(incoming(card), false);
+  hass.states['camera.gate'].attributes.module_id = 'gate';
+  card.hass = { ...hass };
+  assert.equal(incoming(card), false);
+  hass.states['binary_sensor.gate'].attributes.module_id = 'gate';
+  card.hass = { ...hass };
+  assert.ok(incoming(card));
+  card.setConfig({ intercoms: [CONFIG.intercoms[0]], ignore_ssl_warning: true });
+  assert.equal(incoming(card), false);
+  card.setConfig({ intercoms: [{ ...CONFIG.intercoms[1], name: 'Back gate' }], ignore_ssl_warning: true });
+  assert.ok(incoming(card));
+  assert.equal(card._ringData.module_name, 'Back gate');
 });
 
 test('dismissing or rejecting suppresses only the current ring until it ends', () => {
