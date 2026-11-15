@@ -586,7 +586,12 @@ var ICON_HANGUP = '<svg viewBox="0 0 24 24" style="transform:rotate(135deg)"><pa
 var CARD_STYLES = `
   :host {
     display: block;
-    --bti-bg: var(--card-background-color, var(--ha-card-background, #1c1c1e));
+    /* The card itself reads the theme the way Home Assistant's cards do, so a
+       translucent --ha-card-background shows through (#3). The panels drawn
+       over the card keep a solid surface, or the video and the buttons under
+       them would show through as well. */
+    --bti-bg: var(--ha-card-background, var(--card-background-color, #1c1c1e));
+    --bti-surface: var(--card-background-color, var(--ha-card-background, #1c1c1e));
     --bti-radius: var(--ha-card-border-radius, 12px);
     --bti-text: var(--primary-text-color, #e1e1e1);
     --bti-text-secondary: var(--secondary-text-color, #9e9e9e);
@@ -916,7 +921,7 @@ var CARD_STYLES = `
 
   .overflow-popup {
     position: absolute; bottom: calc(100% + 4px); right: 12px;
-    background: var(--bti-bg); border: 1px solid var(--bti-divider);
+    background: var(--bti-surface); border: 1px solid var(--bti-divider);
     border-radius: 10px; padding: 4px; min-width: 150px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 10; display: none;
   }
@@ -954,7 +959,7 @@ var CARD_STYLES = `
 
   .history-overlay {
     position: absolute; inset: 0; z-index: 20;
-    background: var(--bti-bg); display: flex; flex-direction: column;
+    background: var(--bti-surface); display: flex; flex-direction: column;
     border-radius: var(--bti-radius); overflow: hidden;
     opacity: 0; pointer-events: none;
     transition: opacity 0.3s ease;
@@ -1007,7 +1012,7 @@ var CARD_STYLES = `
   .history-badge.terminated { background: rgba(244,67,54,0.2); color: #ef5350; }
   .history-detail {
     position: absolute; inset: 0; z-index: 21;
-    background: var(--bti-bg); display: flex; flex-direction: column;
+    background: var(--bti-surface); display: flex; flex-direction: column;
     border-radius: var(--bti-radius); overflow: hidden;
     opacity: 0; pointer-events: none;
     transition: opacity 0.3s ease;
