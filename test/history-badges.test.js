@@ -18,7 +18,7 @@ globalThis.window = window;
 class HaEntityPickerStub extends window.HTMLElement {}
 window.customElements.define('ha-entity-picker', HaEntityPickerStub);
 
-const cardFile = process.env.CARD_FILE || path.resolve('dist/bticino-intercom-card.js');
+const cardFile = process.env.CARD_FILE || path.resolve('src/bticino-intercom-card.js');
 await import(pathToFileURL(cardFile).href);
 
 function makeCard() {

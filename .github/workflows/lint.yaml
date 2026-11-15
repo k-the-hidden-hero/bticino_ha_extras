@@ -16,14 +16,25 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install ESLint
-        run: npm install --save-dev eslint
+      - name: Install dependencies
+        run: npm ci
 
       - name: Run ESLint
-        run: npx eslint dist/
+        run: npx eslint src/ test/ scripts/
 
       - name: Run Prettier check
-        run: npx prettier --check "dist/**/*.js" "*.json" "*.yaml" ".github/**/*.yaml"
+        run: npx prettier --check "src/**/*.js" "scripts/**/*.mjs" "test/**/*.js" "*.json" "*.yaml" ".github/**/*.yaml"
+
+      - name: Run tests
+        run: npm test
+
+      # dist/ is generated and committed, because HACS reads it for anyone
+      # tracking the branch instead of a release. A stale one ships old code.
+      - name: Build
+        run: npm run build
+
+      - name: Check dist is up to date
+        run: git diff --exit-code dist/
 
   hacs:
     runs-on: ubuntu-latest

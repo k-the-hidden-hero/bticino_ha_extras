@@ -21,13 +21,19 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        run: npm install --save-dev eslint
+        run: npm ci
 
       - name: Run ESLint
-        run: npx eslint dist/
+        run: npx eslint src/ test/ scripts/
 
       - name: Run Prettier check
-        run: npx prettier --check "dist/**/*.js" "*.json" "*.yaml" ".github/**/*.yaml"
+        run: npx prettier --check "src/**/*.js" "scripts/**/*.mjs" "test/**/*.js" "*.json" "*.yaml" ".github/**/*.yaml"
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build the card that ships
+        run: npm run build
 
       - name: HACS validation
         uses: hacs/action@main

@@ -1,0 +1,887 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BTicino 100X - simulator</title>
+<style>
+:root {
+  --primary-text-color: #212121; --secondary-text-color: #727272; --disabled-text-color: #bdbdbd;
+  --text-primary-color: #ffffff; --divider-color: rgba(0,0,0,.12); --disabled-color: #bdbdbd;
+  --card-background-color: #ffffff; --ha-card-background: #ffffff;
+  --primary-background-color: #fafafa; --secondary-background-color: #e5e5e5;
+  --primary-color: #03a9f4; --accent-color: #ff9800;
+  --blue-color: #2196f3; --red-color: #f44336; --green-color: #4caf50; --amber-color: #ffc107;
+  --orange-color: #ff9800; --purple-color: #9c27b0; --teal-color: #009688; --grey-color: #9e9e9e;
+  --indigo-color: #3f51b5; --pink-color: #e91e63; --deep-orange-color: #ff5722;
+  --info-color: #039be5; --warning-color: #ffa600; --error-color: #db4437; --success-color: #43a047;
+  --state-icon-color: #44739e; --state-inactive-color: #9e9e9e; --state-unavailable-color: #bdbdbd;
+  --ha-card-border-radius: 12px; --ha-card-border-width: 1px; --ha-card-border-color: var(--divider-color);
+  --ha-font-family-body: Roboto, Noto, sans-serif;
+  --ha-font-size-xs: 10px; --ha-font-size-s: 12px; --ha-font-size-m: 14px; --ha-font-size-l: 16px;
+  --ha-font-size-xl: 20px; --ha-font-size-2xl: 24px; --ha-font-size-3xl: 28px;
+  --ha-font-weight-normal: 400; --ha-font-weight-medium: 500; --ha-font-weight-bold: 700;
+  --ha-space-1: 4px; --ha-space-2: 8px; --ha-space-3: 12px; --ha-space-4: 16px;
+  --ha-border-radius-sm: 4px; --ha-border-radius-md: 8px; --ha-border-radius-lg: 12px;
+  --ha-border-radius-2xl: 20px; --ha-border-radius-3xl: 24px; --ha-border-radius-pill: 9999px;
+  --ha-border-radius-circle: 50%;
+  --mdc-icon-size: 24px;
+}
+html[data-theme="dark"] {
+  --primary-text-color: #e1e1e1; --secondary-text-color: #9b9b9b; --disabled-text-color: #6f6f6f;
+  --divider-color: rgba(225,225,225,.12); --disabled-color: #464646;
+  --card-background-color: #1c1c1c; --ha-card-background: #1c1c1c;
+  --primary-background-color: #111111; --secondary-background-color: #282828;
+  --state-unavailable-color: #6f6f6f;
+}
+body {
+  margin: 0; padding: 20px; background: var(--primary-background-color);
+  color: var(--primary-text-color); font-family: var(--ha-font-family-body);
+  display: grid; grid-template-columns: minmax(320px, 1fr) 300px; gap: 20px; align-items: start;
+}
+@media (max-width: 760px) {
+  body { grid-template-columns: 1fr; }
+  .cards, .panel, .kioskrow { grid-column: 1; grid-row: auto; }
+}
+h2 { font-size: 13px; font-weight: 500; color: var(--secondary-text-color); margin: 18px 0 8px; }
+h2:first-of-type { margin-top: 0; }
+.cards { grid-column: 1; grid-row: 1; min-width: 0; }
+.cards > div { max-width: 460px; }
+.panel {
+  grid-column: 2; grid-row: 1 / -1; position: sticky; top: 20px; align-self: start; background: var(--card-background-color);
+  border: 1px solid var(--divider-color); border-radius: 12px; padding: 14px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.panel h3 { margin: 0; font-size: 13px; font-weight: 500; }
+.panel h4 { margin: 4px 0 0; font-size: 12px; font-weight: 500; color: var(--secondary-text-color); }
+.state { font-size: 13px; padding: 8px 10px; border-radius: 8px; background: var(--secondary-background-color); }
+.state b { font-weight: 600; }
+.row { display: flex; flex-wrap: wrap; gap: 6px; }
+button.sim {
+  flex: 1 1 auto; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--divider-color);
+  background: var(--card-background-color); color: var(--primary-text-color);
+  cursor: pointer; font: inherit; font-size: 12px;
+}
+button.sim:hover { background: var(--secondary-background-color); }
+button.sim:disabled { opacity: .4; cursor: not-allowed; }
+button.sim.go { border-color: var(--primary-color); color: var(--primary-color); }
+.swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.swatch {
+  width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
+  border: 2px solid transparent; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15);
+  padding: 0;
+}
+.swatch.on { border-color: var(--primary-text-color); }
+/* ?shot= leaves one card on the page, at its own size, for a screenshot */
+body.shot { display: block; }
+body.shot .panel, body.shot h2, body.shot .toasts { display: none; }
+body.shot .cards > div, body.shot .kioskrow { display: none; }
+body.shot .cards > div.shot-on, body.shot .kioskrow.shot-on { display: block; }
+body.shot.shot-kiosk { padding: 0; background: transparent; }
+/* a wall tablet, drawn at its real pixel size and scaled to fit the page */
+.kioskrow { grid-column: 1; grid-row: 2; min-width: 0; }
+.kioskrow h2 { margin-top: 0; }
+.kiosk-wrap { overflow: hidden; }
+.kiosk-frame {
+  transform-origin: top left; overflow: hidden;
+  border: 1px solid var(--divider-color); border-radius: 10px;
+  background: var(--primary-background-color);
+}
+.log {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; line-height: 1.5;
+  background: var(--secondary-background-color); border-radius: 8px; padding: 8px;
+  height: 220px; overflow-y: auto; white-space: pre-wrap;
+}
+.log div { color: var(--secondary-text-color); }
+.log div span { color: var(--primary-text-color); }
+.toasts {
+  position: fixed; left: 16px; bottom: 16px; z-index: 100;
+  display: flex; flex-direction: column; gap: 8px; max-width: 360px;
+}
+.toast {
+  background: #323232; color: #fff; border-radius: 8px; padding: 10px 14px;
+  font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,.3);
+}
+</style>
+</head>
+<body>
+<div class="toasts" id="toasts"></div>
+<div class="cards">
+  <h2>panel</h2><div id="g1"></div>
+  <h2>panel - citofono grande (220px)</h2><div id="g2"></div>
+  <h2>device</h2><div id="g3"></div>
+  <h2>compact</h2><div id="g4"></div>
+  <h2>default, with a free action for a non-BTicino gate</h2><div id="g5"></div>
+  <h2>bticino-intercom-card - the other card in the same file, on the same call</h2><div id="g7"></div>
+</div>
+
+<div class="panel">
+  <h3>Intercom simulator</h3>
+  <div class="state" id="state"></div>
+  <div class="row">
+    <button class="sim go" id="btn-ring">Ring front door</button>
+    <button class="sim go" id="btn-ring-gate">Ring gate</button>
+  </div>
+  <div class="row">
+    <button class="sim" id="btn-answer">Answer at the monitor</button>
+    <button class="sim" id="btn-visitor">Visitor hangs up</button>
+  </div>
+  <div class="row">
+    <button class="sim" id="btn-notify">Notification: tap Answer</button>
+  </div>
+  <div class="row">
+    <button class="sim" id="btn-units">One entrance only</button>
+    <button class="sim" id="btn-legacy">Drop module_id</button>
+  </div>
+  <div class="row">
+    <button class="sim" id="btn-kiosk">Kiosk: upright</button>
+    <button class="sim" id="btn-kiosk-controls">Kiosk: hide controls</button>
+  </div>
+  <h4>The device and the integration</h4>
+  <div class="row">
+    <button class="sim" id="btn-busy">Device busy</button>
+    <button class="sim" id="btn-silent">Device silent</button>
+  </div>
+  <div class="row">
+    <button class="sim" id="btn-drop">Drop the call</button>
+    <button class="sim" id="btn-integration">Older integration</button>
+  </div>
+  <div class="row">
+    <button class="sim" id="btn-mic">Refuse microphone</button>
+    <button class="sim" id="btn-offline">Go offline</button>
+  </div>
+  <div class="row">
+    <button class="sim" id="btn-clear">Clear history</button>
+  </div>
+  <div class="swatches" id="swatches"></div>
+  <div class="row">
+    <button class="sim" onclick="setTheme('light')">Light</button>
+    <button class="sim" onclick="setTheme('dark')">Dark</button>
+    <button class="sim" onclick="setLang('it')">IT</button>
+    <button class="sim" onclick="setLang('en')">EN</button>
+  </div>
+  <h3>Log</h3>
+  <div class="log" id="log"></div>
+</div>
+
+<div class="kioskrow">
+  <h2 id="kiosk-title">kiosk - wall tablet, 960x480</h2>
+  <div class="kiosk-wrap"><div class="kiosk-frame" id="g6"></div></div>
+</div>
+
+<script type="module">
+import * as mdi from "https://cdn.jsdelivr.net/npm/@mdi/js@7.4.47/mdi.js";
+
+/* ---------------------------------------------- stand-ins for HA elements */
+
+const toCamel = (name) => "mdi" + name.replace("mdi:", "-").replace(/-([a-z0-9])/g, (m, c) => c.toUpperCase());
+customElements.define("ha-icon", class extends HTMLElement {
+  static get observedAttributes() { return ["icon"]; }
+  connectedCallback() { this._draw(); }
+  attributeChangedCallback() { this._draw(); }
+  _draw() {
+    const path = mdi[toCamel(this.getAttribute("icon") || "")] || "";
+    this.innerHTML = `<svg viewBox="0 0 24 24" style="width:var(--mdc-icon-size,24px);height:var(--mdc-icon-size,24px);display:block"><path fill="currentColor" d="${path}"/></svg>`;
+  }
+});
+customElements.define("ha-card", class extends HTMLElement {
+  connectedCallback() {
+    this.style.cssText = "display:block;background:var(--ha-card-background,var(--card-background-color));"
+      + "border-radius:var(--ha-card-border-radius,12px);border:var(--ha-card-border-width,1px) solid var(--ha-card-border-color,var(--divider-color));";
+  }
+});
+customElements.define("home-assistant", class extends HTMLElement {});
+
+/* ------------------------------------------------------ the fake intercom */
+
+const DEVICE = "dev1";
+const ENTRY = "e1";
+const MODULE = "Front door";
+const GATE = "Gate";
+// the attribute the integration publishes so a card can pair the entities
+const MODULE_FRONT = "d9a63b-a06f-front";
+const MODULE_GATE = "d9a63b-a16f-gate";
+
+const shot = (hue) => "data:image/svg+xml;utf8," + encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">`
+  + `<stop offset="0" stop-color="hsl(${hue},30%,38%)"/><stop offset="1" stop-color="hsl(${hue},25%,16%)"/></linearGradient></defs>`
+  + `<rect width="320" height="240" fill="url(#g)"/><rect x="96" y="40" width="128" height="200" rx="6" fill="hsl(${hue},20%,24%)"/>`
+  + `<circle cx="160" cy="112" r="30" fill="hsl(${hue},18%,52%)"/><rect x="128" y="150" width="64" height="90" rx="26" fill="hsl(${hue},18%,46%)"/></svg>`);
+
+const minutesAgo = (m) => Math.floor((Date.now() - m * 60000) / 1000);
+
+const sim = {
+  ringing: false,
+  ringingModule: null,
+  talking: false,
+  offline: false,
+  micRefused: false,
+  // an integration older than the module_id attribute
+  legacy: false,
+  lockOpen: false,
+  extraGate: false,
+  // most homes have one external unit; the tabs only appear beyond that
+  twoUnits: true,
+  light: false,
+  lastCallTs: minutesAgo(38),
+  snapshot: shot(205),
+  frontShot: shot(205),
+  gateShot: shot(120),
+  // a log long enough to need scrolling in the dialog
+  calls: Array.from({ length: 16 }, (_, i) => ({
+    event_id: `h${i}`,
+    module_name: i % 3 === 2 ? "Gate" : MODULE,
+    timestamp: minutesAgo(38 + i * 340),
+    answered: i % 3 !== 1,
+    event_type: i % 3 !== 1 ? "answered_elsewhere" : "terminated",
+    snapshot: shot((i * 47) % 360),
+    vignette: shot((i * 47) % 360),
+  })),
+  open: null,      // the call being handled right now
+  timers: {},
+};
+
+// a headless screenshot has no log on screen to read, so it goes to the console
+const mirrorLog = new URLSearchParams(location.search).has("shot");
+function log(message) {
+  if (mirrorLog) console.info(`[sim] ${message}`);
+  const line = document.createElement("div");
+  const now = new Date().toLocaleTimeString("en-GB");
+  line.innerHTML = `${now}  <span>${message}</span>`;
+  const box = document.getElementById("log");
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+function clearTimer(name) {
+  if (sim.timers[name]) { clearTimeout(sim.timers[name]); delete sim.timers[name]; }
+}
+
+function ring(which = MODULE_FRONT) {
+  if (sim.ringing || sim.talking) return;
+  const hue = Math.floor(Math.random() * 360);
+  sim.ringing = true;
+  sim.ringingModule = which;
+  sim.snapshot = shot(hue);
+  if (which === MODULE_GATE) sim.gateShot = sim.snapshot;
+  else sim.frontShot = sim.snapshot;
+  sim.lastCallTs = Math.floor(Date.now() / 1000);
+  sim.open = {
+    event_id: `c${Date.now()}`, module_name: which === MODULE_GATE ? GATE : MODULE, timestamp: sim.lastCallTs,
+    answered: null, event_type: "incoming_call", snapshot: sim.snapshot, vignette: sim.snapshot,
+  };
+  sim.calls.unshift(sim.open);
+  log("doorbell: incoming call from " + (which === MODULE_GATE ? GATE : MODULE));
+  fireCallEvent({
+    type: "ring", session_id: sim.open.event_id, module_name: sim.open.module_name, snapshot_url: sim.snapshot,
+    camera_entity_id: which === MODULE_GATE ? "camera.bticino_cancello" : "camera.bticino_ingresso",
+  });
+  clearTimer("ring");
+  sim.timers.ring = setTimeout(() => endCall(false, "nobody answered"), 30000);
+  publish();
+}
+
+function answerAtMonitor() {
+  if (!sim.ringing) return;
+  clearTimer("ring");
+  sim.ringing = false;
+  sim.ringingModule = null;
+  sim.talking = true;
+  log("answered at the indoor monitor");
+  publish();
+}
+
+function endCall(answered, why) {
+  clearTimer("ring");
+  if (!sim.ringing && !sim.talking) return;
+  sim.ringing = false;
+  sim.ringingModule = null;
+  sim.talking = false;
+  if (sim.open) {
+    sim.open.answered = answered;
+    sim.open.event_type = answered ? "answered_elsewhere" : "terminated";
+    fireCallEvent({ type: "end", session_id: sim.open.event_id });
+    sim.open = null;
+  }
+  log(`call closed: ${answered ? "answered" : "missed"} (${why})`);
+  publish();
+}
+
+function openDoor() {
+  sim.lockOpen = true;
+  log("lock: released");
+  publish();
+  clearTimer("lock");
+  sim.timers.lock = setTimeout(() => {
+    sim.lockOpen = false;
+    log("lock: closed again");
+    publish();
+  }, 3000);
+}
+
+function toggleLight() {
+  sim.light = !sim.light;
+  log(`stair light: ${sim.light ? "on" : "off"}`);
+  publish();
+  clearTimer("light");
+  if (sim.light) {
+    sim.timers.light = setTimeout(() => {
+      sim.light = false;
+      log("stair light: switched off automatically");
+      publish();
+    }, 10000);
+  }
+}
+
+/* ------------------------------------------------------------ hass object */
+
+let theme = "light";
+let language = "en";
+
+function buildStates() {
+  const off = sim.offline;
+  const put = (entity_id, state, attributes = {}) =>
+    [entity_id, { entity_id, state: off ? "unavailable" : state, attributes, last_changed: new Date().toISOString() }];
+  // an older integration publishes no module_id, and the card falls back
+  const mod = (moduleId) => (sim.legacy ? {} : { module_id: moduleId });
+  const answered = sim.calls.filter((c) => c.answered === true).length;
+  const missed = sim.calls.filter((c) => c.answered === false).length;
+  return Object.fromEntries([
+    put("lock.bticino_porta_esterna", sim.lockOpen ? "open" : "locked",
+      { friendly_name: "Street door", supported_features: 1, device_class: "lock" }),
+    put("light.bticino_luce_scale", sim.light ? "on" : "off", { friendly_name: "Stair light", supported_features: 0 }),
+    // not a BTicino entity: it stands in for a gate on another system
+    ["lock.driveway_gate", { entity_id: "lock.driveway_gate", state: sim.extraGate ? "unlocked" : "locked",
+      attributes: { friendly_name: "Driveway gate", device_class: "lock", supported_features: 0 }, last_changed: new Date().toISOString() }],
+    put("binary_sensor.bticino_chiamata", sim.ringingModule === MODULE_FRONT ? "on" : "off",
+      { friendly_name: MODULE, device_class: "sound", ...mod(MODULE_FRONT) }),
+    ...(sim.twoUnits
+      ? [put("binary_sensor.bticino_chiamata_cancello", sim.ringingModule === MODULE_GATE ? "on" : "off",
+          { friendly_name: GATE, device_class: "sound", ...mod(MODULE_GATE) })]
+      : []),
+    put("binary_sensor.bticino_bridge_busy", sim.talking ? "on" : "off", { friendly_name: "Bridge Busy", device_class: "occupancy" }),
+    put("camera.bticino_last_event_snapshot", "idle",
+      { friendly_name: "Last Event Snapshot", supported_features: 0, entity_picture: sim.snapshot,
+        event_time_iso: new Date(sim.lastCallTs * 1000).toISOString() }),
+    put("camera.bticino_ingresso", "idle",
+      { friendly_name: MODULE, supported_features: 2, entity_picture: sim.frontShot, ...mod(MODULE_FRONT) }),
+    ...(sim.twoUnits
+      ? [put("camera.bticino_cancello", "idle",
+          { friendly_name: GATE, supported_features: 2, entity_picture: sim.gateShot, ...mod(MODULE_GATE) })]
+      : []),
+    put("camera.bticino_call_home", "idle", { friendly_name: "Call Home", supported_features: 2, icon: "mdi:phone-classic" }),
+    put("sensor.bticino_last_call_timestamp", new Date(sim.lastCallTs * 1000).toISOString(),
+      { friendly_name: "Last Call Timestamp", device_class: "timestamp" }),
+    put("sensor.bticino_calls", String(answered + missed), { friendly_name: "Calls", answered, missed, state_class: "measurement" }),
+    put("sensor.bticino_last_event_type", sim.ringing ? "incoming_call" : "missed_call", { friendly_name: "Last Event Type" }),
+    put("sensor.bticino_bridge_wifi_strength", "-62",
+      { friendly_name: "Bridge WiFi Strength", device_class: "signal_strength", unit_of_measurement: "dBm" }),
+    put("sensor.bticino_bridge_websocket_status", "connected",
+      { friendly_name: "Bridge WebSocket Status", device_class: "enum", options: ["connected", "disconnected"] }),
+    put("event.bticino_doorbell", new Date(sim.lastCallTs * 1000).toISOString(),
+      { friendly_name: "Doorbell", device_class: "doorbell", event_types: ["ring"] }),
+  ]);
+}
+
+const entities = Object.fromEntries(
+  Object.keys(buildStates()).filter((id) => id.includes("bticino")).map((id) => [id, {
+    entity_id: id, device_id: DEVICE, platform: "bticino_intercom",
+    entity_category: /bridge_(busy|wifi|websocket)/.test(id) ? "diagnostic" : null,
+  }]),
+);
+
+function makeHass() {
+  return {
+    states: buildStates(),
+    entities,
+    devices: { [DEVICE]: { id: DEVICE, name: "BTicino Intercom - Home", name_by_user: "Intercom",
+      model: "BNC1", manufacturer: "BTicino", config_entries: [ENTRY] } },
+    areas: {},
+    language,
+    locale: { language, number_format: "language", time_format: "language", time_zone: "local" },
+    themes: { darkMode: theme === "dark" },
+    config: { time_zone: "Europe/Rome", version: "2026.10.1" },
+    user: { name: "Demo", is_admin: true },
+    formatEntityState: (st) => `${st.state}${st.attributes.unit_of_measurement ? " " + st.attributes.unit_of_measurement : ""}`,
+    callService: async (domain, service, data) => {
+      if (domain === "lock" && data?.entity_id === "lock.driveway_gate") {
+        sim.extraGate = true;
+        log("driveway gate: released");
+        publish();
+        setTimeout(() => { sim.extraGate = false; log("driveway gate: closed again"); publish(); }, 3000);
+      } else if (domain === "lock") openDoor();
+      else if (domain === "light") toggleLight();
+      else if (domain === "bticino_intercom" && service === "reject_call") endCall(false, "rejected from the card");
+      else log(`service ${domain}.${service} ${JSON.stringify(data || {})}`);
+    },
+    connection,
+    callWS,
+  };
+}
+
+/* ------------------------------------------------- the picture it sends */
+
+/** A moving picture, so the live view has a real video track to show. */
+function fakeCameraStream() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 640;
+  canvas.height = 480;
+  const ctx = canvas.getContext("2d");
+  let frame = 0;
+  const draw = () => {
+    frame += 1;
+    ctx.fillStyle = "#101820";
+    ctx.fillRect(0, 0, 640, 480);
+    ctx.fillStyle = "#1d2a36";
+    ctx.fillRect(220, 60, 200, 420);
+    const bob = Math.sin(frame / 12) * 6;
+    ctx.fillStyle = "#4a6b84";
+    ctx.beginPath();
+    ctx.arc(320, 200 + bob, 48, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(266, 266 + bob, 108, 214);
+    ctx.fillStyle = "#8fa6b8";
+    ctx.font = "16px sans-serif";
+    // kept at the top, clear of the card's own overlay at the bottom
+    ctx.fillText("SIMULATION 640x480", 16, 30);
+    ctx.fillText(new Date().toLocaleTimeString("en-GB"), 540, 30);
+  };
+  const timer = setInterval(draw, 100);
+  draw();
+  const stream = canvas.captureStream(10);
+  return { stream, stop: () => clearInterval(timer) };
+}
+
+/* ------------------------------------------- the other end of the call */
+
+// The cards run their real call, src/shared/webrtc.js, exactly as they do in
+// Home Assistant. What is simulated is everything on the far side of it: the
+// connection the offer travels on, the integration that answers it, and a
+// bridge with few peer slots, played by a second RTCPeerConnection in this
+// page that sends the moving picture back.
+const device = {
+  slots: 2,            // the BNC1 has few; two is enough to run out of them
+  sessions: new Map(), // HA WebRTC session id -> what the bridge holds for it
+  heldElsewhere: 0,    // slots taken by someone else: "Device busy"
+  silent: false,       // takes the slot and never answers: "Device silent"
+  knowsConnected: true, // the integration has bticino_intercom/webrtc_connected
+};
+let sessionCount = 0;
+const slotsInUse = () => device.sessions.size + device.heldElsewhere;
+const slotLine = () => `${slotsInUse()}/${device.slots} peer slots`;
+
+/** What camera/webrtc/offer does: a session, then an answer and candidates. */
+async function deviceOffer(callback, message) {
+  const entityId = message.entity_id;
+  if (slotsInUse() >= device.slots) {
+    log(`device: refused ${entityId}, Max number of peers reached (${slotLine()})`);
+    callback({ type: "error", code: "webrtc_offer_failed", message: "Max number of peers reached" });
+    return null;
+  }
+  const sessionId = `s${++sessionCount}`;
+  const pc = new RTCPeerConnection();
+  const held = { pc, entityId, camera: null, audio: null };
+  device.sessions.set(sessionId, held);
+  log(`device: ${entityId} took a peer slot, session ${sessionId} (${slotLine()})`);
+  callback({ type: "session", session_id: sessionId });
+  renderState();
+  if (device.silent) {
+    log("device: ...and never answers");
+    return sessionId;
+  }
+
+  pc.onicecandidate = (event) => {
+    if (!event.candidate || !device.sessions.has(sessionId)) return;
+    callback({ type: "candidate",
+      candidate: { candidate: event.candidate.candidate, sdp_m_line_index: event.candidate.sdpMLineIndex } });
+  };
+  pc.onconnectionstatechange = () => {
+    if (pc.connectionState === "connected") log(`device: media up on ${sessionId}`);
+  };
+  await pc.setRemoteDescription({ type: "offer", sdp: message.offer });
+  // a picture from an entrance, none from the indoor monitor; a silent voice
+  // either way, since it is the card's own audio path that is being tried
+  held.audio = new AudioContext();
+  const voice = held.audio.createMediaStreamDestination().stream.getAudioTracks()[0];
+  for (const transceiver of pc.getTransceivers()) {
+    if (transceiver.receiver.track.kind === "video") {
+      held.camera = fakeCameraStream();
+      await transceiver.sender.replaceTrack(held.camera.stream.getVideoTracks()[0]);
+      transceiver.direction = "sendonly";
+    } else {
+      await transceiver.sender.replaceTrack(voice);
+      transceiver.direction = "sendrecv";
+    }
+  }
+  const answer = await pc.createAnswer();
+  await pc.setLocalDescription(answer);
+  if (device.sessions.has(sessionId)) callback({ type: "answer", answer: answer.sdp });
+  return sessionId;
+}
+
+/** Ending a subscription is what hands the bridge its slot back. */
+function deviceRelease(sessionId, why) {
+  const held = device.sessions.get(sessionId);
+  if (!held) return;
+  device.sessions.delete(sessionId);
+  held.pc.close();
+  held.camera?.stop();
+  held.audio?.close();
+  log(`device: session ${sessionId} released (${why}), ${slotLine()}`);
+  renderState();
+}
+
+// One connection for the whole page, the way Home Assistant has one.
+const callListeners = new Set();
+const connection = {
+  subscribeMessage(callback, message, options = {}) {
+    if (message.type !== "camera/webrtc/offer") return Promise.reject(new Error(`not simulated: ${message.type}`));
+    log(`offer from ${message.entity_id} on the page's own connection, resubscribe: ${options.resubscribe !== false}`);
+    let sessionId = null;
+    let released = false;
+    const done = deviceOffer(callback, message).then((id) => {
+      sessionId = id;
+      if (released && id) deviceRelease(id, "the card let go while it was being set up");
+    });
+    return Promise.resolve(() => {
+      released = true;
+      if (sessionId) deviceRelease(sessionId, "the card unsubscribed");
+      return done;
+    });
+  },
+  // what the other card listens to for its ring overlay
+  subscribeEvents(callback, eventType) {
+    if (eventType !== "bticino_intercom_call") return Promise.resolve(() => {});
+    callListeners.add(callback);
+    return Promise.resolve(() => callListeners.delete(callback));
+  },
+};
+const fireCallEvent = (data) => {
+  for (const listener of callListeners) listener({ data });
+};
+
+async function callWS(message) {
+  if (message.type === "bticino_intercom/history") return { events: sim.calls.slice(0, message.limit || 50) };
+  if (message.type === "camera/webrtc/get_client_config") return { configuration: { iceServers: [] } };
+  if (message.type === "camera/webrtc/candidate") {
+    const held = device.sessions.get(message.session_id);
+    if (held) await held.pc.addIceCandidate(message.candidate).catch(() => {});
+    return null;
+  }
+  if (message.type === "bticino_intercom/webrtc_connected") {
+    if (!device.knowsConnected) {
+      log(`integration: unknown command ${message.type} - an older integration, and the card carries on`);
+      throw { code: "unknown_command", message: "Unknown command." };
+    }
+    log(`integration: webrtc_connected for ${message.entity_id}, session ${message.session_id}`);
+    return null;
+  }
+  // the other card signs its snapshot URLs; here they are already data URLs
+  if (message.type === "auth/sign_path") {
+    const camera = /camera_proxy\/(.+)$/.exec(message.path)?.[1];
+    return { path: camera ? buildStates()[camera]?.attributes.entity_picture || message.path : message.path };
+  }
+  if (message.type === "media_source/browse_media") return { children: [] };
+  throw new Error(`command not simulated: ${message.type}`);
+}
+
+// The browser's microphone, without a prompt: a quiet tone, or a refusal.
+if (navigator.mediaDevices) {
+  navigator.mediaDevices.getUserMedia = async () => {
+    if (sim.micRefused) {
+      log("browser: microphone refused");
+      throw new DOMException("Permission denied", "NotAllowedError");
+    }
+    const audio = new AudioContext();
+    const tone = audio.createOscillator();
+    const out = audio.createMediaStreamDestination();
+    tone.connect(out);
+    tone.start();
+    log("browser: microphone granted");
+    return out.stream;
+  };
+}
+
+/* ------------------------------------------------------------------ boot */
+
+const cards = [];
+// cards that take their own config, so the colour swatches leave them alone
+const others = [];
+const CARD_COLOURS = ["blue", "indigo", "purple", "pink", "red", "deep-orange", "amber", "green", "teal"];
+let colour = "blue";
+let kioskLandscape = true;
+
+/** Draw the tablet at its real size, then scale it down to the column. */
+function fitKiosk() {
+  const frame = document.getElementById("g6");
+  if (!frame) return;
+  const w = kioskLandscape ? 960 : 480;
+  const h = kioskLandscape ? 480 : 800;
+  frame.style.width = `${w}px`;
+  frame.style.height = `${h}px`;
+  const available = frame.parentElement.clientWidth;
+  const scale = Math.min(1, available / w);
+  frame.style.transform = `scale(${scale})`;
+  frame.parentElement.style.height = `${h * scale}px`;
+}
+
+/** What the phone does: open the dashboard with ?answer=<camera>. */
+const NOTIFICATION_KEY = "bt-sim-notification";
+function openFromNotification(camera) {
+  sessionStorage.setItem(NOTIFICATION_KEY, JSON.stringify({ camera, at: Date.now() }));
+  const params = new URLSearchParams(location.search);
+  params.set("answer", camera);
+  location.href = `${location.pathname}?${params}`;
+}
+
+function publish() {
+  const hass = makeHass();
+  for (const card of [...cards, ...others]) card.hass = hass;
+  renderState();
+}
+
+function renderState() {
+  const where = sim.ringing ? "Incoming call" : sim.talking ? "In a call" : "Idle";
+  document.getElementById("state").innerHTML =
+    `<b>${where}</b><br>lock ${sim.lockOpen ? "released" : "closed"} - light ${sim.light ? "on" : "off"}`
+    + ` - ${sim.offline ? "offline" : "online"}`
+    + `<br>${sim.twoUnits ? "two" : "one"} entrance${sim.twoUnits ? "s" : ""} - ${sim.calls.length} calls in the log`
+    + `<br>${slotLine()}${device.silent ? " - device silent" : ""}`
+    + ` - ${device.knowsConnected ? "integration knows webrtc_connected" : "older integration"}`;
+  const busy = sim.ringing || sim.talking || sim.offline;
+  document.getElementById("btn-ring").disabled = busy;
+  document.getElementById("btn-ring-gate").disabled = busy || !sim.twoUnits;
+  document.getElementById("btn-units").textContent = sim.twoUnits ? "One entrance only" : "Two entrances";
+  document.getElementById("btn-answer").disabled = !sim.ringing;
+  document.getElementById("btn-visitor").disabled = !sim.ringing && !sim.talking;
+  document.getElementById("btn-offline").textContent = sim.offline ? "Back online" : "Go offline";
+  document.getElementById("btn-mic").textContent = sim.micRefused ? "Allow microphone" : "Refuse microphone";
+  document.getElementById("btn-legacy").textContent = sim.legacy ? "Restore module_id" : "Drop module_id";
+  document.getElementById("btn-busy").textContent = device.heldElsewhere ? "Free the device" : "Device busy";
+  document.getElementById("btn-silent").textContent = device.silent ? "Device answers" : "Device silent";
+  document.getElementById("btn-drop").disabled = !device.sessions.size;
+  document.getElementById("btn-integration").textContent = device.knowsConnected ? "Older integration" : "Newer integration";
+}
+
+async function boot() {
+  // both cards from their source, so an edit shows on reload; they share the
+  // call in src/shared/webrtc.js, and it runs here exactly as it does in HA
+  await import("../../src/bticino-100x-card.js?v=" + Date.now());
+  await import("../../src/bticino-intercom-card.js?v=" + Date.now());
+  await customElements.whenDefined("bticino-100x-card");
+
+  const add = (target, config) => {
+    const card = document.createElement("bticino-100x-card");
+    card.__config = config;
+    card.setConfig({ ...config, color: colour });
+    document.getElementById(target).appendChild(card);
+    cards.push(card);
+  };
+
+  window.setColour = (name) => {
+    colour = name;
+    for (const card of cards) card.setConfig({ ...card.__config, color: name });
+    for (const button of document.querySelectorAll(".swatch")) {
+      button.classList.toggle("on", button.dataset.colour === name);
+    }
+    log(`accent colour: ${name}`);
+    publish();
+  };
+
+  const swatches = document.getElementById("swatches");
+  for (const name of CARD_COLOURS) {
+    const button = document.createElement("button");
+    button.className = `swatch${name === colour ? " on" : ""}`;
+    button.dataset.colour = name;
+    button.title = name;
+    button.setAttribute("aria-label", name);
+    button.style.background = `var(--${name}-color)`;
+    button.onclick = () => window.setColour(name);
+    swatches.appendChild(button);
+  }
+  add("g1", { device_id: DEVICE, layout: "panel" });
+  add("g2", { device_id: DEVICE, layout: "panel", device_size: 220 });
+  add("g3", { device_id: DEVICE, layout: "device" });
+  add("g4", { device_id: DEVICE, layout: "compact" });
+  add("g6", { device_id: DEVICE, layout: "kiosk" });
+  fitKiosk();
+  window.addEventListener("resize", fitKiosk);
+  document.getElementById("btn-kiosk").onclick = () => {
+    kioskLandscape = !kioskLandscape;
+    document.getElementById("btn-kiosk").textContent = kioskLandscape ? "Kiosk: upright" : "Kiosk: landscape";
+    document.getElementById("kiosk-title").textContent = kioskLandscape
+      ? "kiosk - wall tablet, 960x480"
+      : "kiosk - wall tablet, 480x800";
+    fitKiosk();
+    log(`kiosk ${kioskLandscape ? "landscape" : "upright"}`);
+  };
+
+  add("g5", {
+    device_id: DEVICE,
+    actions: [{ entity: "lock.driveway_gate", name: "Driveway", icon: "mdi:gate" }],
+  });
+
+  // the card this repository started with: its own look, the same call
+  const intercom = document.createElement("bticino-intercom-card");
+  intercom.setConfig({
+    intercoms: [
+      { name: MODULE, camera: "camera.bticino_ingresso", call_home: "camera.bticino_call_home",
+        actions: [{ entity: "lock.bticino_porta_esterna" }, { entity: "light.bticino_luce_scale" }] },
+      { name: GATE, camera: "camera.bticino_cancello" },
+    ],
+  });
+  document.getElementById("g7").appendChild(intercom);
+  others.push(intercom);
+
+  document.getElementById("btn-ring").onclick = () => ring(MODULE_FRONT);
+  document.getElementById("btn-ring-gate").onclick = () => ring(MODULE_GATE);
+  document.getElementById("btn-answer").onclick = answerAtMonitor;
+  document.getElementById("btn-visitor").onclick = () => endCall(sim.talking, "the visitor hung up");
+  document.getElementById("btn-offline").onclick = () => {
+    sim.offline = !sim.offline;
+    log(sim.offline ? "bridge offline" : "bridge back online");
+    publish();
+  };
+  document.getElementById("btn-clear").onclick = () => {
+    sim.calls = [];
+    log("history cleared");
+    publish();
+  };
+
+  document.addEventListener("hass-notification", (event) => {
+    const message = event.detail?.message ?? "";
+    log(`notification: ${message}`);
+    const toast = document.createElement("div");
+    toast.className = "toast";
+    toast.textContent = message;
+    document.getElementById("toasts").appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
+  });
+
+  document.getElementById("btn-units").onclick = () => {
+    sim.twoUnits = !sim.twoUnits;
+    // a gate that no longer exists cannot go on ringing
+    if (!sim.twoUnits && sim.ringingModule === MODULE_GATE) endCall(false, "the gate was removed");
+    log(sim.twoUnits ? "two external units" : "one external unit");
+    publish();
+  };
+  document.getElementById("btn-mic").onclick = () => {
+    sim.micRefused = !sim.micRefused;
+    log(`browser microphone ${sim.micRefused ? "refused" : "allowed"}`);
+    publish();
+  };
+  document.getElementById("btn-legacy").onclick = () => {
+    sim.legacy = !sim.legacy;
+    log(sim.legacy ? "integration without module_id" : "integration with module_id");
+    publish();
+  };
+
+  document.getElementById("btn-notify").onclick = () =>
+    openFromNotification("camera.bticino_ingresso");
+
+  // a call screen that leaves the controls off keeps the mic and the sound
+  let kioskControls = true;
+  document.getElementById("btn-kiosk-controls").onclick = () => {
+    kioskControls = !kioskControls;
+    const kiosk = cards.find((card) => card.__config.layout === "kiosk");
+    kiosk.__config = { ...kiosk.__config, show_controls: kioskControls };
+    kiosk.setConfig({ ...kiosk.__config, color: colour });
+    document.getElementById("btn-kiosk-controls").textContent = kioskControls ? "Kiosk: hide controls" : "Kiosk: show controls";
+    log(`kiosk: show_controls ${kioskControls}`);
+    publish();
+  };
+
+  // someone else - the app on a phone, another tablet - holds every slot
+  document.getElementById("btn-busy").onclick = () => {
+    device.heldElsewhere = device.heldElsewhere ? 0 : device.slots;
+    log(device.heldElsewhere ? `device: every peer slot taken elsewhere (${slotLine()})` : `device: the other viewers let go (${slotLine()})`);
+    renderState();
+  };
+  // the bridge takes a slot and never answers: the card's 15 second timeout
+  document.getElementById("btn-silent").onclick = () => {
+    device.silent = !device.silent;
+    log(device.silent ? "device: will take the next slot and never answer" : "device: answers again");
+    renderState();
+  };
+  // the network or the bridge drops every call it holds; the cards reconnect
+  document.getElementById("btn-drop").onclick = () => {
+    if (!device.sessions.size) {
+      log("device: no call to drop");
+      return;
+    }
+    for (const [sessionId, held] of device.sessions) {
+      held.pc.close();
+      held.camera?.stop();
+      held.audio?.close();
+      device.sessions.delete(sessionId);
+      log(`device: dropped session ${sessionId}, ${slotLine()} - the card notices in a few seconds`);
+    }
+    renderState();
+  };
+  document.getElementById("btn-integration").onclick = () => {
+    device.knowsConnected = !device.knowsConnected;
+    log(device.knowsConnected ? "integration: knows webrtc_connected" : "integration: older, no webrtc_connected");
+    renderState();
+  };
+
+  log("simulator ready");
+
+  // A screenshot rig as much as a simulator: ?shot=<card> leaves that card
+  // alone on the page, and the other parameters put it in the state wanted.
+  // ?shot=kiosk&ring=gate is the wall tablet taking a call from the gate.
+  const query = new URLSearchParams(location.search);
+  const wanted = query.get("shot");
+  if (wanted) {
+    // A headless Chrome never gets a WebRTC call up between two peer
+    // connections in one page - offer, answer and candidates all cross, the
+    // media does not - and a screenshot needs the picture, not the network.
+    // So in this mode, and only in this mode, the call goes live at once on
+    // the simulated camera, with no device behind it.
+    const { BticinoCallSession } = await import("../../src/shared/webrtc.js");
+    BticinoCallSession.prototype.start = async function () {
+      if (this.wantsVideo) this.stream = fakeCameraStream().stream;
+      this.micActive = true;
+      this._set("live");
+    };
+    const kiosk = wanted === "kiosk";
+    const host = document.getElementById(kiosk ? "g6" : wanted);
+    document.body.classList.add("shot");
+    if (kiosk) document.body.classList.add("shot-kiosk");
+    (kiosk ? document.querySelector(".kioskrow") : host)?.classList.add("shot-on");
+    if (query.get("upright") !== null) document.getElementById("btn-kiosk").click();
+    fitKiosk();
+    if (query.get("dark") !== null) setTheme("dark");
+    const ringAt = query.get("ring");
+    if (ringAt) ring(ringAt === "gate" ? MODULE_GATE : MODULE_FRONT);
+    if (query.get("answer") !== null) {
+      const card = host.querySelector("bticino-100x-card");
+      const answer = [...card.shadowRoot.querySelectorAll(".button")].find((b) =>
+        ["Answer", "Live"].includes(b.querySelector(".text")?.textContent),
+      );
+      if (answer) answer.click();
+    }
+  }
+
+  // Arriving from the notification: the bell is ringing and the card, finding
+  // ?answer= in the address, picks the call up without anyone pressing a thing.
+  let arrival = null;
+  try {
+    arrival = JSON.parse(sessionStorage.getItem(NOTIFICATION_KEY) || "null");
+  } catch (err) {
+    arrival = null;
+  }
+  sessionStorage.removeItem(NOTIFICATION_KEY);
+  if (arrival && Date.now() - arrival.at < 60000) {
+    log(`opened from the notification with ?answer=${arrival.camera}`);
+    ring();
+  }
+
+  publish();
+}
+
+window.setTheme = (value) => { theme = value; document.documentElement.dataset.theme = value; publish(); };
+window.setLang = (value) => { language = value; publish(); };
+boot();
+</script>
+</body>
+</html>

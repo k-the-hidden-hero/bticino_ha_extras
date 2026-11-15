@@ -29,7 +29,7 @@ window.customElements.define('ha-entity-picker', HaEntityPickerStub);
 
 // Load the card (side-effect: registers the custom elements). CARD_FILE lets us
 // point the same suite at the pre-fix file to confirm the test is a real regression.
-const cardFile = process.env.CARD_FILE || path.resolve('dist/bticino-intercom-card.js');
+const cardFile = process.env.CARD_FILE || path.resolve('src/bticino-intercom-card.js');
 await import(pathToFileURL(cardFile).href);
 
 // ---- helpers -------------------------------------------------------------------

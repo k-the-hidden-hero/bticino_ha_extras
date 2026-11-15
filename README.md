@@ -21,6 +21,7 @@ Custom Lovelace card and companion resources for the [BTicino Intercom](https://
 | Card | Description |
 |------|-------------|
 | **BTicino Intercom Card** | Compact intercom card with live WebRTC video, two-way audio, multi-intercom tabs, call history, and incoming call notifications with ringtone. |
+| **BTicino Classe 100X Card** | The same intercom in Home Assistant's own design language, to sit on a normal dashboard: a drawing of the monitor, the call log with outcomes, and the call with video and two-way audio. |
 
 ![Idle State](docs/images/card-idle.png)
 ![Live State](docs/images/card-live.png)
@@ -56,7 +57,8 @@ versions are offered straight from HACS: just **Update** and hard-refresh the br
 
 > Only needed if you don't use HACS. HACS is the recommended path and handles updates for you.
 
-Copy `dist/bticino-intercom-card.js` to your `config/www/` directory, then add it as a dashboard resource:
+Copy `dist/bticino-intercom-card.js` to your `config/www/` directory, then add it as a dashboard
+resource. One file carries both cards, so this is done once:
 
 1. Go to **Settings > Dashboards > Resources**
 2. Click **Add Resource**
@@ -117,6 +119,109 @@ intercoms:
 - **Incoming call** -- ringtone, snapshot preview, Answer/Open/Reject actions
 - **Quick actions** -- open doors, toggle lights while on a call
 
+### BTicino Classe 100X Card
+
+A second card, `custom:bticino-100x-card`. It is not a replacement for the one above: that card is
+built around the call, full bleed. This one is built to sit on a normal dashboard among native
+cards, so every colour, radius, font and spacing comes from Home Assistant's own tokens and it
+follows light, dark and custom themes, the user's language and the sections grid without
+configuration - and `layout: kiosk` gives it a full-screen call screen of its own for a wall
+tablet.
+
+<img src="docs/images/card-100x-idle.png" width="420" alt="The card at rest"> <img src="docs/images/card-100x-ringing.png" width="420" alt="The card while the intercom rings">
+
+The default layout carries no drawing, so it suits a 300X or an EOS as well; `panel` and `device`
+add the Classe 100X for whoever has one.
+
+<img src="docs/images/card-100x-panel.png" width="420" alt="The panel layout, with a small drawing"> <img src="docs/images/card-100x-device.png" width="420" alt="The device layout">
+
+```yaml
+type: custom:bticino-100x-card
+device_id: 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d
+```
+
+Entities are found from the device by domain and device class, so renaming them in the UI keeps
+the card working. Everything else is optional:
+
+| Option | Default | Description |
+|---|---|---|
+| `device_id` | - | The BTicino device, picked in the visual editor |
+| `layout` | `compact` | `compact` (no drawing), `panel` (a small Classe 100X above the card), `device` (the drawing leads and its own keys are the controls) or `kiosk` (a full-screen call screen for a wall tablet). The drawing is a 100X, and the device registry reports the bridge for the 100X and the 300X alike, so it is opt-in |
+| `device_size` | 140 / 260 | Width of the drawing in pixels, 80 to 320 |
+| `name`, `icon` | from the device | Title and header icon |
+| `color` | `blue` | Accent while ringing or in a call |
+| `show_badges`, `show_controls`, `show_history` | `true` | Sections of the card |
+| `show_tabs` | `true` | One tab per entrance, shown only when the home has more than one |
+| `actions` | - | Extra buttons for anything the integration does not own: a list of `{ entity, name?, icon?, service? }` |
+| `auto_answer` | `true` | Pick the call up when a notification links to the dashboard with `?answer=` |
+
+With more than one external unit, the card pairs each doorbell with the camera of the same module
+and shows a tab per entrance. A call takes over the view while it lasts - the tab of the entrance
+that is ringing is marked with a dot and selected on its own - and the choice made by hand comes
+back once the call is over. **Answer** always opens the one that rang, and the header says which
+entrance it is.
+
+**On a wall tablet.** `layout: kiosk` turns the card into the screen a phone shows while it rings:
+the entrance fills it, the name and what it is doing sit over the top, and the actions are round
+buttons along the bottom - green to answer, red to hang up, and once the call is up the microphone
+and the sound join them there, turning solid while muted the way a phone shows it. It takes the height it is given, so in
+a panel view or on a View Assist screen it fills the display, landscape or upright; the picture
+becomes live video as soon as the call is answered, the whole screen is ringed in the accent
+colour while it rings, and the tabs float over the top so the entrance that rings selects itself.
+
+<img src="docs/images/card-100x-kiosk.png" width="860" alt="The kiosk layout: a full-screen call from the gate on a wall tablet">
+
+The name is the use, not a mode Home Assistant has to be in: what the layout needs is a view that
+hands it a height. A **Panel (1 card)** view gives it the whole display, which is what a tablet on
+the wall wants; in a sections view it asks for a full-width slot six rows tall and can be resized
+like any other card. Hiding the header and the sidebar - `kiosk-mode`, Fully Kiosk Browser, View
+Assist - is a separate decision about the page around the card, and the layout does not depend on
+it. Every control stays where it is in the other layouts, free `actions` included.
+
+Buttons for things the integration does not own - a gate on another system, a scene, a script -
+go in `actions`, and appear after the built-in ones:
+
+```yaml
+actions:
+  - entity: lock.driveway_gate
+    name: Driveway
+    icon: mdi:gate
+```
+
+<img src="docs/images/card-100x-actions.png" width="420" alt="The card with an extra button for a gate outside the integration">
+
+Without a `service` the card picks the obvious one for the domain - `lock.open` where the lock has
+a latch, `toggle` for a light or a switch, `press` for a button - and `service` overrides it. While it rings the
+snapshot takes the drawing's place at full width, because that is the moment it is worth reading.
+| `camera_entity`, `lock_entity`, `light_entity` | automatic | Override which entity each control uses |
+
+**The call.** **Live** opens a WebRTC call to the entrance panel in place of the drawing: video,
+the visitor's voice unmuted, and a microphone button to answer back. While the intercom is ringing
+that button becomes **Answer** and takes the lead, green next to the red **Reject**. **Call home**
+rings the indoor monitor, which has no camera, so the session is negotiated without a video track
+and the panel reads *audio only*.
+
+<img src="docs/images/card-100x-live.png" width="420" alt="A call in progress"> <img src="docs/images/card-100x-history.png" width="420" alt="The call log">
+
+The exchange follows the one this repository already proves against the BNC1 firmware: the audio
+transceiver always sends real RTP, silence while the microphone is off, because the device opens
+its own microphone only once packets arrive; video is offered only to units that have a camera;
+and signalling runs over its own WebSocket, because `camera/webrtc/offer` answers with a stream of
+events. Same Chromium-only limitation, and the microphone needs a secure context.
+
+**The call log** sits behind a row that expands the card: answered or missed, with the time and
+the snapshot, and **Show all** opens the complete list in a dialog. It reads
+`bticino_intercom/history`, proposed in
+[bticino_intercom#108](https://github.com/k-the-hidden-hero/bticino_intercom/pull/108); without it
+the card works in full except that list, which stays empty.
+
+**Answering from a notification.** A notification action can link to the dashboard with
+`?answer=<camera entity>` - the actionable doorbell blueprint builds exactly that link - and the
+card picks the call up on its own, then removes the parameter. Only the first card on the page
+acts, and only on a camera of its own device, so the card above can still take a link meant for it.
+
+<img src="docs/images/card-100x-dark.png" width="420" alt="The card in the dark theme">
+
 ### Intercom Notification Blueprint
 
 1. Go to **Settings → Automations & Scenes → Blueprints**
@@ -167,12 +272,22 @@ Please open issues on the [bticino_intercom](https://github.com/k-the-hidden-her
 
 ## Development
 
-The card is a single self-contained file (`dist/bticino-intercom-card.js`) — there is no
-build step. A small regression suite drives the real editor element in a headless DOM
-(happy-dom) to guard against config-editor regressions:
+The cards live in `src/`, one file each, with the WebRTC call they share in `src/shared/webrtc.js`.
+HACS installs a single file per plugin, so `npm run build` bundles both into
+`dist/bticino-intercom-card.js` with esbuild, and that file is committed: it is what HACS reads for
+users who track the default branch rather than a release. CI builds it again and fails if it
+differs, so it can never drift from the source.
+
+`tools/card-demo/` runs both cards straight from `src/` against a fake intercom, so the doorbell,
+the door, the light, the notification link and a call can be driven without a device - and without
+a build, since the browser follows the imports itself. The call is the real one: only the far end
+is simulated, a bridge with two peer slots played by a second peer connection in the page, so a busy
+or silent device, a dropped call and an older integration can all be tried. A small regression suite drives the real
+editor element in a headless DOM (happy-dom) to guard against config-editor regressions:
 
 ```bash
 npm install
+npm run build
 npm test
 ```
 

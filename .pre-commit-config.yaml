@@ -15,6 +15,7 @@ repos:
     hooks:
       - id: eslint
         files: \.js$
+        exclude: ^dist/
         additional_dependencies:
           - eslint@9.27.0
 
@@ -23,3 +24,4 @@ repos:
     hooks:
       - id: prettier
         types_or: [javascript, json, yaml]
+        exclude: ^dist/

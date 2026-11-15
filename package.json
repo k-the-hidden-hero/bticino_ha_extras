@@ -4,9 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "node scripts/build.mjs",
+    "lint": "eslint src test tools && prettier --check \"src/**/*.js\" \"*.json\" \"*.yaml\" \".github/**/*.yaml\"",
     "test": "node --test"
   },
   "devDependencies": {
+    "esbuild": "^0.25.0",
     "happy-dom": "^20.0.0"
   }
 }
