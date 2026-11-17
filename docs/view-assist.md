@@ -69,15 +69,17 @@ From the blueprint, pick:
   back to it and puts hold back. While the call is on screen, the view holds the screen itself, so
   View Assist does not return to its home screen after its own timeout.
 - **The end of the call.** The view gives the screen back 5 seconds after the call is over:
-  answered and hung up, rejected, or rung out. When no call shows on it, for example when the ring
-  was over before the screen opened, it waits for the timeout. It never keeps the screen longer
-  than 15 minutes. The close button gives the screen back at once.
+  answered and hung up, rejected, or rung out. It follows the ring through the integration's call
+  sensors as well as through the card, so a short ring that is over before the card has drawn
+  itself on a slow screen still counts. When the ring was over before the view opened, or the view
+  was opened by hand, it waits for the timeout. It never keeps the screen longer than 15 minutes.
+  The close button gives the screen back at once.
 
-If the screen goes back only after the timeout even though the call showed and ended, the page
-is running an older copy of the card. Open **Settings > Dashboards > Resources** and remove any
-resource other than the one the Marketplace (HACS before Home Assistant 2026.11) added, such as
-an old `bticino-100x-card.js`. The copy that loads first registers the card, and the others are
-ignored. Then reload the screen.
+If the screen goes back a few seconds after you answer on it, the page is running an older copy
+of the card, which does not say that a call is up. Open **Settings > Dashboards > Resources**
+and remove any resource other than the one the Marketplace (HACS before Home Assistant 2026.11)
+added, such as an old `bticino-100x-card.js`. The copy that loads first registers the card, and
+the others are ignored. Then reload the screen.
 
 The view takes these URL parameters, all optional, so a dashboard button or a script can open it
 too:

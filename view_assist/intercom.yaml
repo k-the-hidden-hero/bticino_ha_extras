@@ -96,6 +96,22 @@ cards:
             if (!card?.isConnected) card = findCard(document);
             return card?.dataset.call || 'idle';
           };
+          // The integration's call sensors ring with the card, and the view
+          // can read them before the card has rendered: on a slow screen a
+          // short ring can be over by then.
+          const callSensors = (h) => {
+            const camera = variables.var_camera;
+            const moduleId = camera ? h.states[camera]?.attributes?.module_id : null;
+            return Object.keys(h.entities || {}).filter((id) => {
+              const attrs = h.states[id]?.attributes || {};
+              return (
+                id.startsWith('binary_sensor.') &&
+                h.entities[id].platform === 'bticino_intercom' &&
+                attrs.device_class === 'sound' &&
+                (!moduleId || attrs.module_id === moduleId)
+              );
+            });
+          };
 
           const begin = (h) => {
             const attrs = h.states[entityId]?.attributes || {};
@@ -132,6 +148,7 @@ cards:
             // Give the screen back 5 seconds after the call is over, or after
             // the timeout when no call shows up here. 15 minutes at most.
             const opened = Date.now();
+            const sensorsAtStart = Object.fromEntries(callSensors(h).map((id) => [id, h.states[id].last_changed]));
             let seenCall = false;
             let quietSince = null;
             const watch = () => {
@@ -143,10 +160,16 @@ cards:
                 return;
               }
               const now = Date.now();
-              if (callState() !== 'idle') {
+              const live = liveHass();
+              const sensors = callSensors(live);
+              const ringing = sensors.some((id) => live.states[id].state === 'on');
+              // A sensor that has changed since the view opened rang and is over.
+              const rang = sensors.some((id) => live.states[id].last_changed !== sensorsAtStart[id]);
+              if (callState() !== 'idle' || ringing) {
                 seenCall = true;
                 quietSince = null;
-              } else if (seenCall && quietSince === null) {
+              } else if ((seenCall || rang) && quietSince === null) {
+                seenCall = true;
                 quietSince = now;
               }
               const over = seenCall ? quietSince !== null && now - quietSince >= 5000 : now - opened >= timeoutMs;
