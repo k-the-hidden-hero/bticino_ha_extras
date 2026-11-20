@@ -78,7 +78,8 @@ var BticinoCallSession = class {
     this._closeConnection();
     this._micStream = keepMic;
     try {
-      if (this._audioCtx?.state === "suspended") await this._audioCtx.resume();
+      if (this._audioCtx?.state === "suspended") this._audioCtx.resume().catch(() => {
+      });
       if (!this._current(attempt)) return;
       const oscillator = this._audioCtx.createOscillator();
       oscillator.frequency.value = 0;
@@ -192,6 +193,7 @@ var BticinoCallSession = class {
       this._sessionId = event.session_id;
       for (const candidate of this._pendingCandidates) this._sendCandidate(candidate);
       this._pendingCandidates = [];
+      if (this._pc?.connectionState === "connected") this._reportConnected();
     } else if (event.type === "answer") {
       try {
         await this._pc.setRemoteDescription({ type: "answer", sdp: event.answer });
@@ -262,6 +264,10 @@ var BticinoCallSession = class {
       this.onState(this);
       return;
     }
+    await this.reacquireMic();
+  }
+  /** Release any stale/background capture and acquire a fresh foreground mic track. */
+  async reacquireMic() {
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       this.onNotice("mic_insecure");
       return;
@@ -269,9 +275,15 @@ var BticinoCallSession = class {
     const attempt = this._attempt;
     let microphone = null;
     try {
-      if (this._audioCtx?.state === "suspended") await this._audioCtx.resume();
+      if (this._audioCtx?.state === "suspended") this._audioCtx.resume().catch(() => {
+      });
+      if (this._micSender && this._silenceTrack) {
+        await this._micSender.replaceTrack(this._silenceTrack).catch(() => {
+        });
+      }
+      this._stopMicStream();
       microphone = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const sender = this._current(attempt) ? this._pc?.getSenders()?.find((item) => item.track?.kind === "audio") : null;
+      const sender = this._current(attempt) ? this._micSender || this._pc?.getTransceivers?.()?.find((tx) => tx.receiver?.track?.kind === "audio")?.sender || this._pc?.getSenders()?.find((item) => item.track?.kind === "audio") : null;
       if (!sender) {
         stopTracks(microphone);
         return;
@@ -2681,6 +2693,7 @@ var STRINGS = {
     sound_off: "Sound off",
     mic: "Microphone",
     sound: "Audio",
+    tap_for_audio: "Tap for audio and mic",
     browser_warning: "Chrome or another Chromium browser is needed for audio and video."
   },
   it: {
@@ -2724,6 +2737,7 @@ var STRINGS = {
     sound_off: "Audio spento",
     mic: "Microfono",
     sound: "Audio",
+    tap_for_audio: "Tocca per audio e microfono",
     browser_warning: "Per audio e video serve Chrome o un browser Chromium."
   },
   fr: {
@@ -2767,6 +2781,7 @@ var STRINGS = {
     sound_off: "Son coupé",
     mic: "Micro",
     sound: "Son",
+    tap_for_audio: "Appuyer pour audio et micro",
     browser_warning: "Chrome ou un navigateur Chromium est necessaire pour l audio et la video."
   },
   de: {
@@ -2810,6 +2825,7 @@ var STRINGS = {
     sound_off: "Ton aus",
     mic: "Mikrofon",
     sound: "Ton",
+    tap_for_audio: "Tippen fur Ton und Mikrofon",
     browser_warning: "Für Ton und Bild wird Chrome oder ein Chromium-Browser benötigt."
   },
   es: {
@@ -2853,6 +2869,7 @@ var STRINGS = {
     sound_off: "Sonido apagado",
     mic: "Micrófono",
     sound: "Sonido",
+    tap_for_audio: "Toca para audio y microfono",
     browser_warning: "Para audio y video hace falta Chrome u otro navegador Chromium."
   }
 };
@@ -3383,6 +3400,15 @@ button:disabled { cursor: not-allowed; }
   font-size: var(--ha-font-size-s, 12px); font-weight: var(--ha-font-weight-medium, 500);
   --mdc-icon-size: 16px;
 }
+.stream-unlock {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 3;
+  display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border: 0;
+  border-radius: var(--ha-border-radius-pill, 9999px); cursor: pointer;
+  background: rgba(0, 0, 0, 0.78); color: var(--text-primary-color, #fff);
+  font: inherit; font-size: var(--ha-font-size-m, 14px); font-weight: var(--ha-font-weight-medium, 500);
+  --mdc-icon-size: 20px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+.stream-unlock[hidden] { display: none; }
 /* a Call Home session carries no picture, so the panel stands on its own */
 .stream.audio {
   min-height: 132px;
@@ -3871,7 +3897,7 @@ dialog[open]::backdrop { opacity: 1; }
 `;
 var DEVICE_WIDTH = { panel: 140, device: 260 };
 var AUTO_ANSWER_PARAM = "answer";
-var autoAnswerTaken = false;
+var lastAutoAnswerUrl = null;
 var ACTION_SERVICES = {
   light: "light.toggle",
   switch: "switch.toggle",
@@ -4085,6 +4111,12 @@ var Bticino100xCard = class extends HTMLElement {
     nodes.overlayIcon = icon("mdi:phone-in-talk");
     nodes.overlayText = el("span");
     nodes.overlay = el("div", { class: "stream-overlay" }, [nodes.overlayIcon, nodes.overlayText]);
+    nodes.unlockText = el("span");
+    nodes.unlockBtn = el("button", { class: "stream-unlock", type: "button", onclick: () => this._unlockMedia() }, [
+      icon("mdi:volume-high"),
+      nodes.unlockText
+    ]);
+    nodes.unlockBtn.hidden = true;
     nodes.streamIcon = icon("mdi:video");
     nodes.streamText = el("span");
     nodes.streamLabel = el("div", { class: "stream-label" }, [nodes.streamIcon, nodes.streamText]);
@@ -4098,6 +4130,7 @@ var Bticino100xCard = class extends HTMLElement {
     nodes.stream = el("div", { class: "stream" }, [
       nodes.video,
       nodes.overlay,
+      nodes.unlockBtn,
       nodes.streamLabel,
       nodes.streamControls
     ]);
@@ -4648,27 +4681,35 @@ var Bticino100xCard = class extends HTMLElement {
   }
   /* ---------------------------------------------------------- live stream */
   _maybeAutoAnswer() {
-    if (this._autoAnswerChecked || !this._config.auto_answer) return;
-    this._autoAnswerChecked = true;
-    if (autoAnswerTaken) return;
+    if (!this._config.auto_answer) return;
+    let href;
     let params;
     try {
+      href = window.location.href;
       params = new URLSearchParams(window.location.search);
     } catch {
       return;
     }
     const wanted = params.get(AUTO_ANSWER_PARAM);
-    if (!wanted) return;
+    if (!wanted) {
+      lastAutoAnswerUrl = null;
+      return;
+    }
+    if (lastAutoAnswerUrl === href) return;
     const found = this._found;
     const mode = found.liveCameras.includes(wanted) ? "video" : found.callHome === wanted ? "audio" : null;
     if (!mode) return;
-    autoAnswerTaken = true;
+    lastAutoAnswerUrl = href;
     params.delete(AUTO_ANSWER_PARAM);
     const query = params.toString();
+    const next = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
     try {
-      history.replaceState(null, "", query ? `${location.pathname}?${query}` : location.pathname);
+      window.history.replaceState(null, "", next);
+      if (window.location.href !== href) lastAutoAnswerUrl = null;
     } catch {
     }
+    this._answeredRing = true;
+    this._autoAnswered = true;
     setTimeout(() => {
       if (this._root && !this._stream) this._startStream(wanted, mode);
     }, 300);
@@ -4683,10 +4724,12 @@ var Bticino100xCard = class extends HTMLElement {
     if (status.ringing && (!status.ringingUnit?.camera || status.ringingUnit.camera === entityId)) {
       this._answeredRing = true;
     }
+    this._autoAnswered = false;
     this._startStream(entityId, mode);
   }
   _startStream(entityId, mode) {
     this._stopSession();
+    this._autoplayBlocked = false;
     const session = new BticinoCallSession(this._hass, {
       entityId,
       // the indoor monitor has no camera, so Call Home stays voice only
@@ -4708,6 +4751,8 @@ var Bticino100xCard = class extends HTMLElement {
     this._stopSession();
     this._stream = null;
     this._answeredRing = false;
+    this._autoAnswered = false;
+    this._autoplayBlocked = false;
     if (this._root) this._sync();
   }
   _stopSession() {
@@ -4728,11 +4773,39 @@ var Bticino100xCard = class extends HTMLElement {
     if (!video?.videoWidth || !video?.videoHeight) return;
     this._root.stream.style.setProperty("--bt-video-aspect", `${video.videoWidth} / ${video.videoHeight}`);
   }
+  _unlockMedia() {
+    this._autoplayBlocked = false;
+    this._autoAnswered = false;
+    this._soundOn = true;
+    const video = this._root?.video;
+    if (video) {
+      video.muted = false;
+      video.play?.()?.catch(() => {
+      });
+    }
+    this._session?._audioCtx?.resume?.()?.catch(() => {
+    });
+    if (this._session) {
+      this._session.reacquireMic();
+    }
+    this._syncStream();
+  }
   _toggleMic() {
+    this._autoAnswered = false;
     this._session?.setMic(!this._session.micActive);
   }
   _toggleSound() {
+    this._autoplayBlocked = false;
+    this._autoAnswered = false;
     this._soundOn = !this._soundOn;
+    const video = this._root?.video;
+    if (video) {
+      video.muted = !this._soundOn;
+      video.play?.()?.catch(() => {
+      });
+    }
+    this._session?._audioCtx?.resume?.()?.catch(() => {
+    });
     this._syncStream();
   }
   _syncStream() {
@@ -4748,11 +4821,30 @@ var Bticino100xCard = class extends HTMLElement {
     nodes.stream.className = audioOnly ? "stream audio" : "stream";
     if (nodes.video.srcObject !== session.stream) nodes.video.srcObject = session.stream;
     const hasVideo = !audioOnly && session.stream.getVideoTracks().length > 0;
+    const hasTracks = session.stream.getTracks().length > 0;
     nodes.video.hidden = audioOnly;
     nodes.video.muted = !this._soundOn;
-    if (hasVideo) nodes.video.play?.()?.catch(() => {
-    });
+    if (hasTracks && nodes.video.paused) {
+      const playPromise = nodes.video.play?.();
+      if (playPromise && typeof playPromise.catch === "function") {
+        playPromise.catch(() => {
+          if (this._session !== session || !this._root) return;
+          if (!nodes.video.muted) {
+            this._soundOn = false;
+            this._autoplayBlocked = true;
+            nodes.video.muted = true;
+            nodes.video.play?.()?.catch(() => {
+            });
+            this._syncStream();
+          }
+        });
+      }
+    }
     const live = session.state === CALL_STATE.LIVE;
+    if (nodes.unlockBtn) {
+      nodes.unlockText.textContent = t(hass, "tap_for_audio");
+      nodes.unlockBtn.hidden = !(live && (this._autoplayBlocked || this._autoAnswered && (!this._soundOn || !session.micActive)));
+    }
     let overlayIcon = "mdi:phone-in-talk";
     let overlayText = "";
     let pulsing = false;
