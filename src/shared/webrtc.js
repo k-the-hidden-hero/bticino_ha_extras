@@ -112,7 +112,7 @@ export class BticinoCallSession {
     this._micStream = keepMic;
 
     try {
-      if (this._audioCtx?.state === 'suspended') await this._audioCtx.resume();
+      if (this._audioCtx?.state === 'suspended') this._audioCtx.resume().catch(() => {});
       if (!this._current(attempt)) return;
       const oscillator = this._audioCtx.createOscillator();
       oscillator.frequency.value = 0;
@@ -125,17 +125,11 @@ export class BticinoCallSession {
 
       const iceServers = await this._iceServers();
       if (!this._current(attempt)) return;
+      const incomingOffer = await this._getIncomingOffer();
+      if (!this._current(attempt)) return;
       this._pc = new RTCPeerConnection({ iceServers, rtcpMuxPolicy: 'require' });
 
       const micTrack = this._micStream?.getAudioTracks()?.[0];
-      this._pc.addTransceiver(micTrack || this._silenceTrack, {
-        direction: 'sendrecv',
-        streams: [this._silenceStream],
-      });
-      if (this.wantsVideo) this._pc.addTransceiver('video', { direction: 'recvonly' });
-      this._micSender = micTrack ? this._pc.getSenders().find((sender) => sender.track?.kind === 'audio') : null;
-      this.micActive = !!micTrack;
-
       this.stream = new MediaStream();
       this._pc.ontrack = (event) => {
         this.stream.addTrack(event.track);
@@ -162,13 +156,116 @@ export class BticinoCallSession {
         else this._pendingCandidates.push(candidate);
       };
 
-      const offer = await this._pc.createOffer();
-      if (!this._current(attempt)) return;
-      await this._pc.setLocalDescription(offer);
-      if (!this._current(attempt)) return;
-      await this._signal(this._pc.localDescription.sdp, attempt);
+      if (incomingOffer) {
+        // Native WebRTC answer mode for incoming calls whose bridge sends a
+        // GStreamer webrtcbin offer (video0 first, H264/96) over FCM.
+        this._nativeAnswer = true;
+        await this._pc.setRemoteDescription({ type: 'offer', sdp: incomingOffer.sdp });
+        if (!this._current(attempt)) return;
+        const audioTx = this._pc.getTransceivers().find((tx) => tx.receiver?.track?.kind === 'audio');
+        if (audioTx) {
+          audioTx.direction = 'sendrecv';
+          await audioTx.sender.replaceTrack(micTrack || this._silenceTrack);
+          audioTx.sender.setStreams?.(micTrack ? this._micStream : this._silenceStream);
+          this._micSender = audioTx.sender;
+        } else {
+          this._micSender = null;
+        }
+        const videoTx = this._pc.getTransceivers().find((tx) => tx.receiver?.track?.kind === 'video');
+        if (videoTx) videoTx.direction = this.wantsVideo ? 'recvonly' : 'inactive';
+        this.micActive = !!(micTrack && this._micSender);
+
+        const answer = await this._pc.createAnswer();
+        if (!this._current(attempt)) return;
+        await this._pc.setLocalDescription(answer);
+        if (!this._current(attempt)) return;
+        await this._signalNativeAnswer(incomingOffer.session_id, this._pc.localDescription.sdp, attempt);
+      } else {
+        this._nativeAnswer = false;
+        this._pc.addTransceiver(micTrack || this._silenceTrack, {
+          direction: 'sendrecv',
+          streams: [this._silenceStream],
+        });
+        if (this.wantsVideo) this._pc.addTransceiver('video', { direction: 'recvonly' });
+        this._micSender = micTrack ? this._pc.getSenders().find((sender) => sender.track?.kind === 'audio') : null;
+        this.micActive = !!micTrack;
+
+        const offer = await this._pc.createOffer();
+        if (!this._current(attempt)) return;
+        await this._pc.setLocalDescription(offer);
+        if (!this._current(attempt)) return;
+        await this._signal(this._pc.localDescription.sdp, attempt);
+      }
     } catch (err) {
       if (this._current(attempt)) this._fail(err?.message || String(err));
+    }
+  }
+
+  async _getIncomingOffer() {
+    try {
+      const res = await this.hass.callWS({
+        type: `${DOMAIN}/call/offer`,
+        entity_id: this.entityId,
+      });
+      if (res?.has_offer && res.sdp && res.session_id) return res;
+    } catch {
+      /* older integration without native call/offer falls back to offer mode */
+    }
+    return null;
+  }
+
+  _signalNativeAnswer(callSessionId, answerSdp, attempt) {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(this._signalTimer);
+        this._signalTimer = null;
+        if (err) reject(err);
+        else resolve();
+      };
+      this._signalTimer = setTimeout(() => finish(new Error('signaling timeout')), SIGNALING_TIMEOUT);
+
+      this.hass.connection
+        .subscribeMessage(
+          (event) => {
+            if (this._current(attempt)) this._onNativeSignal(event, finish);
+          },
+          {
+            type: `${DOMAIN}/call/answer`,
+            entity_id: this.entityId,
+            session_id: callSessionId,
+            answer: answerSdp,
+          },
+          { resubscribe: false },
+        )
+        .then((unsubscribe) => {
+          if (this._current(attempt)) this._unsubscribe = unsubscribe;
+          else this._release(unsubscribe);
+        })
+        .catch((err) => finish(new Error(err?.message || err?.code || 'answer rejected')));
+    });
+  }
+
+  async _onNativeSignal(event, finish) {
+    if (event.type === 'session') {
+      this._sessionId = event.session_id;
+      for (const candidate of this._pendingCandidates) this._sendCandidate(candidate);
+      this._pendingCandidates = [];
+      if (this._pc?.connectionState === 'connected') this._reportConnected();
+      finish();
+    } else if (event.type === 'candidate' && event.candidate) {
+      try {
+        await this._pc.addIceCandidate({
+          candidate: event.candidate.candidate,
+          sdpMLineIndex: event.candidate.sdp_m_line_index ?? event.candidate.sdpMLineIndex ?? 0,
+        });
+      } catch {
+        /* a candidate we cannot use is not fatal */
+      }
+    } else if (event.type === 'error') {
+      finish(new Error(event.message || event.code || 'signaling error'));
     }
   }
 
@@ -241,6 +338,7 @@ export class BticinoCallSession {
       this._sessionId = event.session_id;
       for (const candidate of this._pendingCandidates) this._sendCandidate(candidate);
       this._pendingCandidates = [];
+      if (this._pc?.connectionState === 'connected') this._reportConnected();
     } else if (event.type === 'answer') {
       try {
         await this._pc.setRemoteDescription({ type: 'answer', sdp: event.answer });
@@ -265,7 +363,7 @@ export class BticinoCallSession {
   _sendCandidate(candidate) {
     this.hass
       .callWS({
-        type: 'camera/webrtc/candidate',
+        type: this._nativeAnswer ? `${DOMAIN}/call/candidate` : 'camera/webrtc/candidate',
         entity_id: this.entityId,
         session_id: this._sessionId,
         candidate,
@@ -321,6 +419,11 @@ export class BticinoCallSession {
       this.onState(this);
       return;
     }
+    await this.reacquireMic();
+  }
+
+  /** Release any stale/background capture and acquire a fresh foreground mic track. */
+  async reacquireMic() {
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       this.onNotice('mic_insecure');
       return;
@@ -328,12 +431,18 @@ export class BticinoCallSession {
     const attempt = this._attempt;
     let microphone = null;
     try {
-      if (this._audioCtx?.state === 'suspended') await this._audioCtx.resume();
+      if (this._audioCtx?.state === 'suspended') this._audioCtx.resume().catch(() => {});
+      if (this._micSender && this._silenceTrack) {
+        await this._micSender.replaceTrack(this._silenceTrack).catch(() => {});
+      }
+      this._stopMicStream();
       microphone = await navigator.mediaDevices.getUserMedia({ audio: true });
       // hung up, or reconnected, while the browser was asking: this call has
       // no sender left to give the microphone to
       const sender = this._current(attempt)
-        ? this._pc?.getSenders()?.find((item) => item.track?.kind === 'audio')
+        ? this._micSender ||
+          this._pc?.getTransceivers?.()?.find((tx) => tx.receiver?.track?.kind === 'audio')?.sender ||
+          this._pc?.getSenders()?.find((item) => item.track?.kind === 'audio')
         : null;
       if (!sender) {
         stopTracks(microphone);
@@ -400,6 +509,7 @@ export class BticinoCallSession {
     this._silenceTrack = null;
     this._silenceStream = null;
     this._sessionId = null;
+    this._nativeAnswer = false;
     this._pendingCandidates = [];
   }
 

@@ -40,6 +40,7 @@ class FakePeerConnection {
   constructor(config) {
     this.config = config;
     this.senders = [];
+    this.transceivers = [];
     this.connectionState = 'new';
     this.closed = false;
     peers.push(this);
@@ -57,14 +58,37 @@ class FakePeerConnection {
   getSenders() {
     return this.senders;
   }
+  getTransceivers() {
+    return this.transceivers;
+  }
   async createOffer() {
     return { type: 'offer', sdp: 'v=0 offer' };
+  }
+  async createAnswer() {
+    return { type: 'answer', sdp: 'v=0 native-answer' };
   }
   async setLocalDescription(description) {
     this.localDescription = description;
   }
   async setRemoteDescription(description) {
     this.remoteDescription = description;
+    if (description?.type === 'offer') {
+      const audioSender = {
+        track: null,
+        streams: [],
+        replaceTrack: async (track) => {
+          audioSender.track = track;
+        },
+        setStreams: (...streams) => {
+          audioSender.streams = streams;
+        },
+      };
+      this.senders.push(audioSender);
+      this.transceivers = [
+        { direction: 'recvonly', receiver: { track: { kind: 'video' } }, sender: {} },
+        { direction: 'sendrecv', receiver: { track: { kind: 'audio' } }, sender: audioSender },
+      ];
+    }
   }
   async addIceCandidate() {}
   close() {
@@ -115,7 +139,10 @@ Object.defineProperty(globalThis, 'navigator', {
 
 const { BticinoCallSession, CALL_STATE } = await import('../src/shared/webrtc.js');
 
-function fakeHass({ connected = () => Promise.reject({ code: 'unknown_command', message: 'Unknown command.' }) } = {}) {
+function fakeHass({
+  connected = () => Promise.reject({ code: 'unknown_command', message: 'Unknown command.' }),
+  incomingOffer = () => Promise.resolve({ has_offer: false }),
+} = {}) {
   const hass = {
     subscriptions: [],
     sent: [],
@@ -139,6 +166,7 @@ function fakeHass({ connected = () => Promise.reject({ code: 'unknown_command', 
     callWS(message) {
       hass.sent.push(message);
       if (message.type === 'camera/webrtc/get_client_config') return Promise.resolve({ configuration: {} });
+      if (message.type === 'bticino_intercom/call/offer') return incomingOffer(message);
       if (message.type === 'bticino_intercom/webrtc_connected') return connected(message);
       return Promise.resolve(null);
     },
@@ -324,4 +352,70 @@ test('an offer still on its way when the call ends is released when it lands', a
   await settle();
 
   assert.equal(hass.subscriptions[0].unsubscribed, true);
+});
+
+test('incoming device offer is answered natively with createAnswer and call/answer', async () => {
+  const hass = fakeHass({
+    connected: () => Promise.resolve({ unmuted: true }),
+    incomingOffer: () =>
+      Promise.resolve({
+        has_offer: true,
+        session_id: 'call-session-1',
+        sdp: 'v=0 device-offer',
+      }),
+  });
+  const call = newCall(hass);
+  call.start();
+
+  await until(() => hass.subscriptions.length === 1);
+  const [subscription] = hass.subscriptions;
+  assert.deepEqual(subscription.message, {
+    type: 'bticino_intercom/call/answer',
+    entity_id: 'camera.front_door',
+    session_id: 'call-session-1',
+    answer: 'v=0 native-answer',
+  });
+
+  const peer = peers.at(-1);
+  assert.deepEqual(peer.remoteDescription, { type: 'offer', sdp: 'v=0 device-offer' });
+
+  peer.onicecandidate({ candidate: { candidate: 'cand-1', sdpMLineIndex: 0, sdpMid: 'video0' } });
+  subscription.callback({ type: 'session', session_id: 'call-session-1' });
+  await settle();
+
+  const candCalls = hass.sent.filter((m) => m.type === 'bticino_intercom/call/candidate');
+  assert.equal(candCalls.length, 1);
+  assert.equal(candCalls[0].session_id, 'call-session-1');
+
+  peer.becomes('connected');
+  await settle();
+  assert.equal(call.state, CALL_STATE.LIVE);
+  assert.equal(reports(hass).length, 1);
+  assert.equal(reports(hass)[0].session_id, 'call-session-1');
+  call.stop();
+});
+
+test('reacquireMic stops the previous track and binds a fresh microphone track', async () => {
+  const firstTrack = new FakeTrack('audio');
+  const secondTrack = new FakeTrack('audio');
+  let callCount = 0;
+  microphone = () => {
+    callCount += 1;
+    return Promise.resolve(new FakeStream([callCount === 1 ? firstTrack : secondTrack]));
+  };
+
+  const hass = fakeHass();
+  const call = newCall(hass);
+  call.start();
+  await answer(hass, 'session-1');
+  peers.at(-1).becomes('connected');
+
+  await call.reacquireMic();
+
+  assert.equal(firstTrack.stopped, true);
+  assert.equal(secondTrack.stopped, false);
+  assert.equal(call.micActive, true);
+  assert.equal(peers.at(-1).getSenders()[0].track, secondTrack);
+  call.stop();
+  microphone = () => Promise.resolve(new FakeStream([new FakeTrack('audio')]));
 });
