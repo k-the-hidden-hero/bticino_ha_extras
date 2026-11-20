@@ -78,7 +78,8 @@ var BticinoCallSession = class {
     this._closeConnection();
     this._micStream = keepMic;
     try {
-      if (this._audioCtx?.state === "suspended") await this._audioCtx.resume();
+      if (this._audioCtx?.state === "suspended") this._audioCtx.resume().catch(() => {
+      });
       if (!this._current(attempt)) return;
       const oscillator = this._audioCtx.createOscillator();
       oscillator.frequency.value = 0;
@@ -90,15 +91,10 @@ var BticinoCallSession = class {
       this._silenceTrack = this._silenceStream.getAudioTracks()[0];
       const iceServers = await this._iceServers();
       if (!this._current(attempt)) return;
+      const incomingOffer = await this._getIncomingOffer();
+      if (!this._current(attempt)) return;
       this._pc = new RTCPeerConnection({ iceServers, rtcpMuxPolicy: "require" });
       const micTrack = this._micStream?.getAudioTracks()?.[0];
-      this._pc.addTransceiver(micTrack || this._silenceTrack, {
-        direction: "sendrecv",
-        streams: [this._silenceStream]
-      });
-      if (this.wantsVideo) this._pc.addTransceiver("video", { direction: "recvonly" });
-      this._micSender = micTrack ? this._pc.getSenders().find((sender) => sender.track?.kind === "audio") : null;
-      this.micActive = !!micTrack;
       this.stream = new MediaStream();
       this._pc.ontrack = (event) => {
         this.stream.addTrack(event.track);
@@ -124,13 +120,103 @@ var BticinoCallSession = class {
         if (this._sessionId) this._sendCandidate(candidate);
         else this._pendingCandidates.push(candidate);
       };
-      const offer = await this._pc.createOffer();
-      if (!this._current(attempt)) return;
-      await this._pc.setLocalDescription(offer);
-      if (!this._current(attempt)) return;
-      await this._signal(this._pc.localDescription.sdp, attempt);
+      if (incomingOffer) {
+        this._nativeAnswer = true;
+        await this._pc.setRemoteDescription({ type: "offer", sdp: incomingOffer.sdp });
+        if (!this._current(attempt)) return;
+        const audioTx = this._pc.getTransceivers().find((tx) => tx.receiver?.track?.kind === "audio");
+        if (audioTx) {
+          audioTx.direction = "sendrecv";
+          await audioTx.sender.replaceTrack(micTrack || this._silenceTrack);
+          audioTx.sender.setStreams?.(micTrack ? this._micStream : this._silenceStream);
+          this._micSender = audioTx.sender;
+        } else {
+          this._micSender = null;
+        }
+        const videoTx = this._pc.getTransceivers().find((tx) => tx.receiver?.track?.kind === "video");
+        if (videoTx) videoTx.direction = this.wantsVideo ? "recvonly" : "inactive";
+        this.micActive = !!(micTrack && this._micSender);
+        const answer = await this._pc.createAnswer();
+        if (!this._current(attempt)) return;
+        await this._pc.setLocalDescription(answer);
+        if (!this._current(attempt)) return;
+        await this._signalNativeAnswer(incomingOffer.session_id, this._pc.localDescription.sdp, attempt);
+      } else {
+        this._nativeAnswer = false;
+        this._pc.addTransceiver(micTrack || this._silenceTrack, {
+          direction: "sendrecv",
+          streams: [this._silenceStream]
+        });
+        if (this.wantsVideo) this._pc.addTransceiver("video", { direction: "recvonly" });
+        this._micSender = micTrack ? this._pc.getSenders().find((sender) => sender.track?.kind === "audio") : null;
+        this.micActive = !!micTrack;
+        const offer = await this._pc.createOffer();
+        if (!this._current(attempt)) return;
+        await this._pc.setLocalDescription(offer);
+        if (!this._current(attempt)) return;
+        await this._signal(this._pc.localDescription.sdp, attempt);
+      }
     } catch (err) {
       if (this._current(attempt)) this._fail(err?.message || String(err));
+    }
+  }
+  async _getIncomingOffer() {
+    try {
+      const res = await this.hass.callWS({
+        type: `${DOMAIN}/call/offer`,
+        entity_id: this.entityId
+      });
+      if (res?.has_offer && res.sdp && res.session_id) return res;
+    } catch {
+    }
+    return null;
+  }
+  _signalNativeAnswer(callSessionId, answerSdp, attempt) {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(this._signalTimer);
+        this._signalTimer = null;
+        if (err) reject(err);
+        else resolve();
+      };
+      this._signalTimer = setTimeout(() => finish(new Error("signaling timeout")), SIGNALING_TIMEOUT);
+      this.hass.connection.subscribeMessage(
+        (event) => {
+          if (this._current(attempt)) this._onNativeSignal(event, finish);
+        },
+        {
+          type: `${DOMAIN}/call/answer`,
+          entity_id: this.entityId,
+          session_id: callSessionId,
+          answer: answerSdp
+        },
+        { resubscribe: false }
+      ).then((unsubscribe) => {
+        if (this._current(attempt)) this._unsubscribe = unsubscribe;
+        else this._release(unsubscribe);
+      }).catch((err) => finish(new Error(err?.message || err?.code || "answer rejected")));
+    });
+  }
+  async _onNativeSignal(event, finish) {
+    if (event.type === "session") {
+      this._sessionId = event.session_id;
+      for (const candidate of this._pendingCandidates) this._sendCandidate(candidate);
+      this._pendingCandidates = [];
+      if (this._pc?.connectionState === "connected") this._reportConnected();
+      finish();
+    } else if (event.type === "candidate" && event.candidate) {
+      try {
+        await this._pc.addIceCandidate({
+          candidate: event.candidate.candidate,
+          sdpMLineIndex: event.candidate.sdp_m_line_index ?? event.candidate.sdpMLineIndex ?? 0
+        });
+      } catch {
+      }
+    } else if (event.type === "error") {
+      finish(new Error(event.message || event.code || "signaling error"));
     }
   }
   async _iceServers() {
@@ -192,6 +278,7 @@ var BticinoCallSession = class {
       this._sessionId = event.session_id;
       for (const candidate of this._pendingCandidates) this._sendCandidate(candidate);
       this._pendingCandidates = [];
+      if (this._pc?.connectionState === "connected") this._reportConnected();
     } else if (event.type === "answer") {
       try {
         await this._pc.setRemoteDescription({ type: "answer", sdp: event.answer });
@@ -213,7 +300,7 @@ var BticinoCallSession = class {
   }
   _sendCandidate(candidate) {
     this.hass.callWS({
-      type: "camera/webrtc/candidate",
+      type: this._nativeAnswer ? `${DOMAIN}/call/candidate` : "camera/webrtc/candidate",
       entity_id: this.entityId,
       session_id: this._sessionId,
       candidate
@@ -262,6 +349,10 @@ var BticinoCallSession = class {
       this.onState(this);
       return;
     }
+    await this.reacquireMic();
+  }
+  /** Release any stale/background capture and acquire a fresh foreground mic track. */
+  async reacquireMic() {
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       this.onNotice("mic_insecure");
       return;
@@ -269,9 +360,15 @@ var BticinoCallSession = class {
     const attempt = this._attempt;
     let microphone = null;
     try {
-      if (this._audioCtx?.state === "suspended") await this._audioCtx.resume();
+      if (this._audioCtx?.state === "suspended") this._audioCtx.resume().catch(() => {
+      });
+      if (this._micSender && this._silenceTrack) {
+        await this._micSender.replaceTrack(this._silenceTrack).catch(() => {
+        });
+      }
+      this._stopMicStream();
       microphone = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const sender = this._current(attempt) ? this._pc?.getSenders()?.find((item) => item.track?.kind === "audio") : null;
+      const sender = this._current(attempt) ? this._micSender || this._pc?.getTransceivers?.()?.find((tx) => tx.receiver?.track?.kind === "audio")?.sender || this._pc?.getSenders()?.find((item) => item.track?.kind === "audio") : null;
       if (!sender) {
         stopTracks(microphone);
         return;
@@ -331,6 +428,7 @@ var BticinoCallSession = class {
     this._silenceTrack = null;
     this._silenceStream = null;
     this._sessionId = null;
+    this._nativeAnswer = false;
     this._pendingCandidates = [];
   }
   /** Lets go of everything the call holds: device slot, microphone, audio. */
@@ -2681,6 +2779,7 @@ var STRINGS = {
     sound_off: "Sound off",
     mic: "Microphone",
     sound: "Audio",
+    tap_for_audio: "Tap for audio and mic",
     browser_warning: "Chrome or another Chromium browser is needed for audio and video."
   },
   it: {
@@ -2724,6 +2823,7 @@ var STRINGS = {
     sound_off: "Audio spento",
     mic: "Microfono",
     sound: "Audio",
+    tap_for_audio: "Tocca per audio e microfono",
     browser_warning: "Per audio e video serve Chrome o un browser Chromium."
   },
   fr: {
@@ -2767,6 +2867,7 @@ var STRINGS = {
     sound_off: "Son coupé",
     mic: "Micro",
     sound: "Son",
+    tap_for_audio: "Appuyer pour audio et micro",
     browser_warning: "Chrome ou un navigateur Chromium est necessaire pour l audio et la video."
   },
   de: {
@@ -2810,6 +2911,7 @@ var STRINGS = {
     sound_off: "Ton aus",
     mic: "Mikrofon",
     sound: "Ton",
+    tap_for_audio: "Tippen fur Ton und Mikrofon",
     browser_warning: "Für Ton und Bild wird Chrome oder ein Chromium-Browser benötigt."
   },
   es: {
@@ -2853,6 +2955,7 @@ var STRINGS = {
     sound_off: "Sonido apagado",
     mic: "Micrófono",
     sound: "Sonido",
+    tap_for_audio: "Toca para audio y microfono",
     browser_warning: "Para audio y video hace falta Chrome u otro navegador Chromium."
   }
 };
@@ -3383,6 +3486,15 @@ button:disabled { cursor: not-allowed; }
   font-size: var(--ha-font-size-s, 12px); font-weight: var(--ha-font-weight-medium, 500);
   --mdc-icon-size: 16px;
 }
+.stream-unlock {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 3;
+  display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border: 0;
+  border-radius: var(--ha-border-radius-pill, 9999px); cursor: pointer;
+  background: rgba(0, 0, 0, 0.78); color: var(--text-primary-color, #fff);
+  font: inherit; font-size: var(--ha-font-size-m, 14px); font-weight: var(--ha-font-weight-medium, 500);
+  --mdc-icon-size: 20px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+.stream-unlock[hidden] { display: none; }
 /* a Call Home session carries no picture, so the panel stands on its own */
 .stream.audio {
   min-height: 132px;
@@ -3871,7 +3983,6 @@ dialog[open]::backdrop { opacity: 1; }
 `;
 var DEVICE_WIDTH = { panel: 140, device: 260 };
 var AUTO_ANSWER_PARAM = "answer";
-var autoAnswerTaken = false;
 var ACTION_SERVICES = {
   light: "light.toggle",
   switch: "switch.toggle",
@@ -4085,6 +4196,12 @@ var Bticino100xCard = class extends HTMLElement {
     nodes.overlayIcon = icon("mdi:phone-in-talk");
     nodes.overlayText = el("span");
     nodes.overlay = el("div", { class: "stream-overlay" }, [nodes.overlayIcon, nodes.overlayText]);
+    nodes.unlockText = el("span");
+    nodes.unlockBtn = el("button", { class: "stream-unlock", type: "button", onclick: () => this._unlockMedia() }, [
+      icon("mdi:volume-high"),
+      nodes.unlockText
+    ]);
+    nodes.unlockBtn.hidden = true;
     nodes.streamIcon = icon("mdi:video");
     nodes.streamText = el("span");
     nodes.streamLabel = el("div", { class: "stream-label" }, [nodes.streamIcon, nodes.streamText]);
@@ -4098,6 +4215,7 @@ var Bticino100xCard = class extends HTMLElement {
     nodes.stream = el("div", { class: "stream" }, [
       nodes.video,
       nodes.overlay,
+      nodes.unlockBtn,
       nodes.streamLabel,
       nodes.streamControls
     ]);
@@ -4648,9 +4766,7 @@ var Bticino100xCard = class extends HTMLElement {
   }
   /* ---------------------------------------------------------- live stream */
   _maybeAutoAnswer() {
-    if (this._autoAnswerChecked || !this._config.auto_answer) return;
-    this._autoAnswerChecked = true;
-    if (autoAnswerTaken) return;
+    if (!this._config.auto_answer) return;
     let params;
     try {
       params = new URLSearchParams(window.location.search);
@@ -4662,13 +4778,14 @@ var Bticino100xCard = class extends HTMLElement {
     const found = this._found;
     const mode = found.liveCameras.includes(wanted) ? "video" : found.callHome === wanted ? "audio" : null;
     if (!mode) return;
-    autoAnswerTaken = true;
     params.delete(AUTO_ANSWER_PARAM);
     const query = params.toString();
     try {
       history.replaceState(null, "", query ? `${location.pathname}?${query}` : location.pathname);
     } catch {
     }
+    this._answeredRing = true;
+    this._autoAnswered = true;
     setTimeout(() => {
       if (this._root && !this._stream) this._startStream(wanted, mode);
     }, 300);
@@ -4683,10 +4800,12 @@ var Bticino100xCard = class extends HTMLElement {
     if (status.ringing && (!status.ringingUnit?.camera || status.ringingUnit.camera === entityId)) {
       this._answeredRing = true;
     }
+    this._autoAnswered = false;
     this._startStream(entityId, mode);
   }
   _startStream(entityId, mode) {
     this._stopSession();
+    this._autoplayBlocked = false;
     const session = new BticinoCallSession(this._hass, {
       entityId,
       // the indoor monitor has no camera, so Call Home stays voice only
@@ -4708,6 +4827,8 @@ var Bticino100xCard = class extends HTMLElement {
     this._stopSession();
     this._stream = null;
     this._answeredRing = false;
+    this._autoAnswered = false;
+    this._autoplayBlocked = false;
     if (this._root) this._sync();
   }
   _stopSession() {
@@ -4728,11 +4849,39 @@ var Bticino100xCard = class extends HTMLElement {
     if (!video?.videoWidth || !video?.videoHeight) return;
     this._root.stream.style.setProperty("--bt-video-aspect", `${video.videoWidth} / ${video.videoHeight}`);
   }
+  _unlockMedia() {
+    this._autoplayBlocked = false;
+    this._autoAnswered = false;
+    this._soundOn = true;
+    const video = this._root?.video;
+    if (video) {
+      video.muted = false;
+      video.play?.()?.catch(() => {
+      });
+    }
+    this._session?._audioCtx?.resume?.()?.catch(() => {
+    });
+    if (this._session) {
+      this._session.reacquireMic();
+    }
+    this._syncStream();
+  }
   _toggleMic() {
+    this._autoAnswered = false;
     this._session?.setMic(!this._session.micActive);
   }
   _toggleSound() {
+    this._autoplayBlocked = false;
+    this._autoAnswered = false;
     this._soundOn = !this._soundOn;
+    const video = this._root?.video;
+    if (video) {
+      video.muted = !this._soundOn;
+      video.play?.()?.catch(() => {
+      });
+    }
+    this._session?._audioCtx?.resume?.()?.catch(() => {
+    });
     this._syncStream();
   }
   _syncStream() {
@@ -4748,11 +4897,30 @@ var Bticino100xCard = class extends HTMLElement {
     nodes.stream.className = audioOnly ? "stream audio" : "stream";
     if (nodes.video.srcObject !== session.stream) nodes.video.srcObject = session.stream;
     const hasVideo = !audioOnly && session.stream.getVideoTracks().length > 0;
+    const hasTracks = session.stream.getTracks().length > 0;
     nodes.video.hidden = audioOnly;
     nodes.video.muted = !this._soundOn;
-    if (hasVideo) nodes.video.play?.()?.catch(() => {
-    });
+    if (hasTracks && nodes.video.paused) {
+      const playPromise = nodes.video.play?.();
+      if (playPromise && typeof playPromise.catch === "function") {
+        playPromise.catch(() => {
+          if (this._session !== session || !this._root) return;
+          if (!nodes.video.muted) {
+            this._soundOn = false;
+            this._autoplayBlocked = true;
+            nodes.video.muted = true;
+            nodes.video.play?.()?.catch(() => {
+            });
+            this._syncStream();
+          }
+        });
+      }
+    }
     const live = session.state === CALL_STATE.LIVE;
+    if (nodes.unlockBtn) {
+      nodes.unlockText.textContent = t(hass, "tap_for_audio");
+      nodes.unlockBtn.hidden = !(live && (this._autoplayBlocked || this._autoAnswered && (!this._soundOn || !session.micActive)));
+    }
     let overlayIcon = "mdi:phone-in-talk";
     let overlayText = "";
     let pulsing = false;
