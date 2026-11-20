@@ -325,3 +325,28 @@ test('an offer still on its way when the call ends is released when it lands', a
 
   assert.equal(hass.subscriptions[0].unsubscribed, true);
 });
+
+test('reacquireMic stops the previous track and binds a fresh microphone track', async () => {
+  const firstTrack = new FakeTrack('audio');
+  const secondTrack = new FakeTrack('audio');
+  let callCount = 0;
+  microphone = () => {
+    callCount += 1;
+    return Promise.resolve(new FakeStream([callCount === 1 ? firstTrack : secondTrack]));
+  };
+
+  const hass = fakeHass();
+  const call = newCall(hass);
+  call.start();
+  await answer(hass, 'session-1');
+  peers.at(-1).becomes('connected');
+
+  await call.reacquireMic();
+
+  assert.equal(firstTrack.stopped, true);
+  assert.equal(secondTrack.stopped, false);
+  assert.equal(call.micActive, true);
+  assert.equal(peers.at(-1).getSenders()[0].track, secondTrack);
+  call.stop();
+  microphone = () => Promise.resolve(new FakeStream([new FakeTrack('audio')]));
+});

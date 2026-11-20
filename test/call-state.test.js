@@ -77,3 +77,60 @@ test('the host element says whether a call rings, is up or is over', (t) => {
   card.hass = hassWith('off');
   assert.equal(card.dataset.call, 'idle');
 });
+
+test('auto-answer handles one card per link, survives a throwing replaceState, and repeats on later links', async (t) => {
+  const started = [];
+  const makeAutoCard = () => {
+    const card = document.createElement('bticino-100x-card');
+    card._startStream = (entityId, mode) => {
+      started.push({ card, entityId, mode });
+      card._stream = { entityId, mode };
+    };
+    document.body.appendChild(card);
+    card.setConfig({ type: 'custom:bticino-100x-card', device_id: DEVICE, auto_answer: true });
+    t.after(() => card.remove());
+    return card;
+  };
+
+  // First notification: two cards on the page, replaceState works -> only one answers.
+  window.history.replaceState(null, '', '/?answer=camera.gate');
+  const card1 = makeAutoCard();
+  const card2 = makeAutoCard();
+  card1.hass = hassWith('on');
+  card2.hass = hassWith('on');
+  await new Promise((r) => setTimeout(r, 350));
+
+  assert.equal(started.length, 1);
+  assert.equal(started[0].card, card1);
+  assert.equal(card1._answeredRing, true);
+  assert.equal(window.location.search, '');
+
+  // Hang up and receive a second notification in the same session -> answers again.
+  card1._stopStream();
+  window.history.replaceState(null, '', '/?answer=camera.gate');
+  card1.hass = hassWith('on');
+  await new Promise((r) => setTimeout(r, 350));
+  assert.equal(started.length, 2);
+
+  // If replaceState throws, the URL-keyed guard prevents both card2 and post-hangup re-renders from looping.
+  card1._stopStream();
+  window.history.replaceState(null, '', '/?answer=camera.gate');
+  const origReplace = window.history.replaceState.bind(window.history);
+  window.history.replaceState = () => {
+    throw new Error('blocked');
+  };
+  t.after(() => {
+    window.history.replaceState = origReplace;
+    origReplace(null, '', '/');
+  });
+
+  card1.hass = hassWith('on');
+  card2.hass = hassWith('on');
+  await new Promise((r) => setTimeout(r, 350));
+  assert.equal(started.length, 3);
+
+  card1._stopStream();
+  card1.hass = hassWith('off');
+  await new Promise((r) => setTimeout(r, 350));
+  assert.equal(started.length, 3);
+});

@@ -112,7 +112,7 @@ export class BticinoCallSession {
     this._micStream = keepMic;
 
     try {
-      if (this._audioCtx?.state === 'suspended') await this._audioCtx.resume();
+      if (this._audioCtx?.state === 'suspended') this._audioCtx.resume().catch(() => {});
       if (!this._current(attempt)) return;
       const oscillator = this._audioCtx.createOscillator();
       oscillator.frequency.value = 0;
@@ -241,6 +241,7 @@ export class BticinoCallSession {
       this._sessionId = event.session_id;
       for (const candidate of this._pendingCandidates) this._sendCandidate(candidate);
       this._pendingCandidates = [];
+      if (this._pc?.connectionState === 'connected') this._reportConnected();
     } else if (event.type === 'answer') {
       try {
         await this._pc.setRemoteDescription({ type: 'answer', sdp: event.answer });
@@ -321,6 +322,11 @@ export class BticinoCallSession {
       this.onState(this);
       return;
     }
+    await this.reacquireMic();
+  }
+
+  /** Release any stale/background capture and acquire a fresh foreground mic track. */
+  async reacquireMic() {
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       this.onNotice('mic_insecure');
       return;
@@ -328,12 +334,18 @@ export class BticinoCallSession {
     const attempt = this._attempt;
     let microphone = null;
     try {
-      if (this._audioCtx?.state === 'suspended') await this._audioCtx.resume();
+      if (this._audioCtx?.state === 'suspended') this._audioCtx.resume().catch(() => {});
+      if (this._micSender && this._silenceTrack) {
+        await this._micSender.replaceTrack(this._silenceTrack).catch(() => {});
+      }
+      this._stopMicStream();
       microphone = await navigator.mediaDevices.getUserMedia({ audio: true });
       // hung up, or reconnected, while the browser was asking: this call has
       // no sender left to give the microphone to
       const sender = this._current(attempt)
-        ? this._pc?.getSenders()?.find((item) => item.track?.kind === 'audio')
+        ? this._micSender ||
+          this._pc?.getTransceivers?.()?.find((tx) => tx.receiver?.track?.kind === 'audio')?.sender ||
+          this._pc?.getSenders()?.find((item) => item.track?.kind === 'audio')
         : null;
       if (!sender) {
         stopTracks(microphone);
