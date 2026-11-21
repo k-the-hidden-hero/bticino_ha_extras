@@ -79,10 +79,12 @@ class FakePeerConnection {
 /** A promise the test resolves by hand, for replies that take their time. */
 function deferred() {
   let resolve;
-  const promise = new Promise((done) => {
+  let reject;
+  const promise = new Promise((done, fail) => {
     resolve = done;
+    reject = fail;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 let microphone = () => Promise.resolve(new FakeStream([new FakeTrack('audio')]));
@@ -260,6 +262,95 @@ test('a call that fails lets go of the slot and the microphone at once', async (
   assert.equal(track.stopped, true);
   assert.equal(call._reconnectTimer ?? null, null);
   microphone = () => Promise.resolve(new FakeStream([new FakeTrack('audio')]));
+});
+
+for (const connected of [false, true]) {
+  test(`a signaling error after SDP releases the ${connected ? 'live' : 'connecting'} call`, async () => {
+    const track = new FakeTrack('audio');
+    microphone = () => Promise.resolve(new FakeStream([track]));
+    const hass = fakeHass();
+    let failures = 0;
+    const call = newCall(hass, {
+      onState: (session) => {
+        if (session.state === CALL_STATE.ERROR) failures++;
+      },
+    });
+    try {
+      const started = call.start();
+      const subscription = await answer(hass, 'session-1');
+      await started;
+      const peer = peers.at(-1);
+      if (connected) peer.becomes('connected');
+      assert.equal(call._signalTimer, null, 'SDP signaling has already finished');
+      assert.equal(call.state, connected ? CALL_STATE.LIVE : CALL_STATE.CONNECTING);
+
+      subscription.callback({ type: 'error', code: 'terminate', message: 'terminate' });
+      await settle();
+
+      assert.equal(call.state, CALL_STATE.ERROR);
+      assert.equal(call.error, 'terminate');
+      assert.ok(peer.closed);
+      assert.ok(subscription.unsubscribed);
+      assert.ok(track.stopped);
+      assert.equal(call._reconnectTimer ?? null, null);
+      assert.equal(hass.subscriptions.length, 1, 'a terminated call must not redial');
+      subscription.callback({ type: 'error', message: 'duplicate' });
+      await settle();
+      assert.equal(failures, 1);
+      assert.equal(call.error, 'terminate');
+    } finally {
+      call.stop();
+      microphone = () => Promise.resolve(new FakeStream([new FakeTrack('audio')]));
+    }
+  });
+}
+
+test('a subscription rejected after the answer still fails the current call', async () => {
+  const pending = deferred();
+  const hass = fakeHass();
+  hass.nextSubscription = pending;
+  const call = newCall(hass);
+  try {
+    const started = call.start();
+    await answer(hass, 'session-1');
+    await started;
+    const peer = peers.at(-1);
+    pending.reject({ message: 'subscription lost' });
+    await settle();
+    assert.equal(call.state, CALL_STATE.ERROR);
+    assert.equal(call.error, 'subscription lost');
+    assert.ok(peer.closed);
+  } finally {
+    call.stop();
+  }
+});
+
+test('a late rejection from an older subscription cannot stop the replacement call', async () => {
+  const pending = deferred();
+  const hass = fakeHass();
+  hass.nextSubscription = pending;
+  const call = newCall(hass);
+  try {
+    const started = call.start();
+    await answer(hass, 'session-1');
+    await started;
+    const reconnecting = call._connect();
+    const replacement = await answer(hass, 'session-2');
+    await reconnecting;
+    const peer = peers.at(-1);
+    peer.becomes('connected');
+    // Repeated completion without an error remains harmless.
+    replacement.callback({ type: 'answer', answer: 'v=0 answer' });
+    await settle();
+    pending.reject({ message: 'old subscription lost' });
+    await settle();
+    assert.equal(call.state, CALL_STATE.LIVE);
+    assert.equal(call.error, null);
+    assert.equal(peer.closed, false);
+    assert.equal(replacement.unsubscribed, false);
+  } finally {
+    call.stop();
+  }
 });
 
 test('hanging up while the browser asks for the microphone leaves none open', async () => {

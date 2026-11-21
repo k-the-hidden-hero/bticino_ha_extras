@@ -164,7 +164,10 @@ var BticinoCallSession = class {
     return new Promise((resolve, reject) => {
       let settled = false;
       const finish = (err) => {
-        if (settled) return;
+        if (settled) {
+          if (err && this._current(attempt)) this._fail(err.message);
+          return;
+        }
         settled = true;
         clearTimeout(this._signalTimer);
         this._signalTimer = null;

@@ -207,7 +207,12 @@ export class BticinoCallSession {
     return new Promise((resolve, reject) => {
       let settled = false;
       const finish = (err) => {
-        if (settled) return;
+        if (settled) {
+          // Applying the answer finishes negotiation, but the subscription
+          // keeps delivering errors such as the device ending the call.
+          if (err && this._current(attempt)) this._fail(err.message);
+          return;
+        }
         settled = true;
         clearTimeout(this._signalTimer);
         this._signalTimer = null;
