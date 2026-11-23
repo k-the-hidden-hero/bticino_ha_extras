@@ -43,6 +43,7 @@
  */
 
 import { BticinoCallSession, CALL_STATE } from './shared/webrtc.js';
+import { syncCallAudio } from './shared/call-audio.js';
 import { VERSION } from './shared/version.js';
 
 const CARD_VERSION = VERSION;
@@ -929,7 +930,8 @@ class BticinoIntercomCard extends HTMLElement {
         </div>
         <div class="media-wrapper">
           <div class="video-area" id="video-area">
-          <video id="video" autoplay playsinline></video>
+          <video id="video" autoplay playsinline muted></video>
+          <audio id="call-audio" autoplay></audio>
           <div class="idle-overlay" id="idle-overlay"><ha-icon icon="mdi:doorbell-video" style="--mdc-icon-size:36px;opacity:0.25"></ha-icon><div class="idle-name">${this._esc(this._activeIntercom.name)}</div></div>
           <div class="call-overlay" id="call-overlay"><div class="call-btn">${ICON_PHONE}</div></div>
           <div class="connecting-overlay" id="connecting-overlay">
@@ -1343,8 +1345,8 @@ class BticinoIntercomCard extends HTMLElement {
   _toggleMute() {
     if (!this._playing) return;
     this._muted = !this._muted;
-    const video = this.shadowRoot?.getElementById('video');
-    if (video) video.muted = this._muted;
+    const audio = this.shadowRoot?.getElementById('call-audio');
+    syncCallAudio(audio, audio?.srcObject, this._muted, true);
     const btn = this.shadowRoot?.getElementById('vc-volume');
     if (btn) btn.innerHTML = `<ha-icon icon="mdi:${this._muted ? 'volume-off' : 'volume-high'}"></ha-icon>`;
   }
@@ -1398,8 +1400,11 @@ class BticinoIntercomCard extends HTMLElement {
 
   /** Everything the card draws about a call, taken from the call itself. */
   _onCallState(call) {
+    const audio = this.shadowRoot?.getElementById('call-audio');
+    syncCallAudio(audio, call.state === CALL_STATE.ERROR ? null : call.stream, this._muted);
     const video = this.shadowRoot?.getElementById('video');
     if (video) {
+      video.muted = true;
       if (video.srcObject !== call.stream) video.srcObject = call.stream;
       // a Call Home carries no picture, so the element stays out of the way
       video.style.display = call.stream.getVideoTracks().length ? 'block' : 'none';
@@ -1434,6 +1439,8 @@ class BticinoIntercomCard extends HTMLElement {
     const call = this._session;
     this._session = null;
     call?.stop();
+    const audio = this.shadowRoot?.getElementById('call-audio');
+    if (audio) audio.srcObject = null;
     this._micActive = false;
   }
 

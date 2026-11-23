@@ -366,6 +366,20 @@ var BticinoCallSession = class {
   }
 };
 
+// src/shared/call-audio.js
+function syncCallAudio(player, stream, muted, resume = false) {
+  if (!player) return;
+  const tracks = stream?.getAudioTracks() || [];
+  const previous = player.srcObject?.getAudioTracks() || [];
+  const changed = tracks.length !== previous.length || tracks.some((track, index) => track !== previous[index]);
+  player.muted = muted;
+  if (changed) player.srcObject = tracks.length ? new MediaStream(tracks) : null;
+  if (player.srcObject && (changed || resume && !muted && player.paused)) {
+    player.play()?.catch(() => {
+    });
+  }
+}
+
 // src/shared/version.js
 var VERSION = "2026.11.1";
 
@@ -1244,7 +1258,8 @@ var BticinoIntercomCard = class extends HTMLElement {
         </div>
         <div class="media-wrapper">
           <div class="video-area" id="video-area">
-          <video id="video" autoplay playsinline></video>
+          <video id="video" autoplay playsinline muted></video>
+          <audio id="call-audio" autoplay></audio>
           <div class="idle-overlay" id="idle-overlay"><ha-icon icon="mdi:doorbell-video" style="--mdc-icon-size:36px;opacity:0.25"></ha-icon><div class="idle-name">${this._esc(this._activeIntercom.name)}</div></div>
           <div class="call-overlay" id="call-overlay"><div class="call-btn">${ICON_PHONE}</div></div>
           <div class="connecting-overlay" id="connecting-overlay">
@@ -1611,8 +1626,8 @@ var BticinoIntercomCard = class extends HTMLElement {
   _toggleMute() {
     if (!this._playing) return;
     this._muted = !this._muted;
-    const video = this.shadowRoot?.getElementById("video");
-    if (video) video.muted = this._muted;
+    const audio = this.shadowRoot?.getElementById("call-audio");
+    syncCallAudio(audio, audio?.srcObject, this._muted, true);
     const btn = this.shadowRoot?.getElementById("vc-volume");
     if (btn) btn.innerHTML = `<ha-icon icon="mdi:${this._muted ? "volume-off" : "volume-high"}"></ha-icon>`;
   }
@@ -1660,8 +1675,11 @@ var BticinoIntercomCard = class extends HTMLElement {
   }
   /** Everything the card draws about a call, taken from the call itself. */
   _onCallState(call) {
+    const audio = this.shadowRoot?.getElementById("call-audio");
+    syncCallAudio(audio, call.state === CALL_STATE.ERROR ? null : call.stream, this._muted);
     const video = this.shadowRoot?.getElementById("video");
     if (video) {
+      video.muted = true;
       if (video.srcObject !== call.stream) video.srcObject = call.stream;
       video.style.display = call.stream.getVideoTracks().length ? "block" : "none";
     }
@@ -1691,6 +1709,8 @@ var BticinoIntercomCard = class extends HTMLElement {
     const call = this._session;
     this._session = null;
     call?.stop();
+    const audio = this.shadowRoot?.getElementById("call-audio");
+    if (audio) audio.srcObject = null;
     this._micActive = false;
   }
   _cleanup() {
@@ -4079,7 +4099,8 @@ var Bticino100xCard = class extends HTMLElement {
     nodes.tabs.hidden = true;
     nodes.content = el("div", { class: "content" }, [nodes.badges, nodes.features]);
     nodes.video = el("video", { class: "stream-video", autoplay: "", playsinline: "" });
-    nodes.video.muted = false;
+    nodes.video.muted = true;
+    nodes.audio = el("audio", { autoplay: "" });
     nodes.video.addEventListener("loadedmetadata", () => this._applyVideoAspect());
     nodes.video.addEventListener("resize", () => this._applyVideoAspect());
     nodes.overlayIcon = icon("mdi:phone-in-talk");
@@ -4097,6 +4118,7 @@ var Bticino100xCard = class extends HTMLElement {
     nodes.streamControls = el("div", { class: "stream-controls" }, [nodes.micButton, nodes.soundButton]);
     nodes.stream = el("div", { class: "stream" }, [
       nodes.video,
+      nodes.audio,
       nodes.overlay,
       nodes.streamLabel,
       nodes.streamControls
@@ -4719,6 +4741,7 @@ var Bticino100xCard = class extends HTMLElement {
     session.stop();
     if (this._root) {
       this._root.video.srcObject = null;
+      this._root.audio.srcObject = null;
       this._root.stream.style.removeProperty("--bt-video-aspect");
     }
   }
@@ -4733,9 +4756,9 @@ var Bticino100xCard = class extends HTMLElement {
   }
   _toggleSound() {
     this._soundOn = !this._soundOn;
-    this._syncStream();
+    this._syncStream(true);
   }
-  _syncStream() {
+  _syncStream(resumeAudio = false) {
     if (this._config.layout === "kiosk" && this._config.show_controls) this._syncButtons(this._status());
     const hass = this._hass;
     const nodes = this._root;
@@ -4749,9 +4772,9 @@ var Bticino100xCard = class extends HTMLElement {
     if (nodes.video.srcObject !== session.stream) nodes.video.srcObject = session.stream;
     const hasVideo = !audioOnly && session.stream.getVideoTracks().length > 0;
     nodes.video.hidden = audioOnly;
-    nodes.video.muted = !this._soundOn;
     if (hasVideo) nodes.video.play?.()?.catch(() => {
     });
+    syncCallAudio(nodes.audio, session.state === CALL_STATE.ERROR ? null : session.stream, !this._soundOn, resumeAudio);
     const live = session.state === CALL_STATE.LIVE;
     let overlayIcon = "mdi:phone-in-talk";
     let overlayText = "";

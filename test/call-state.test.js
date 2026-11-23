@@ -10,7 +10,7 @@ import { pathToFileURL } from 'node:url';
 import { Window } from 'happy-dom';
 
 const window = new Window({ url: 'http://localhost/' });
-for (const key of ['document', 'customElements', 'HTMLElement', 'CustomEvent', 'Event', 'Node']) {
+for (const key of ['document', 'customElements', 'HTMLElement', 'CustomEvent', 'Event', 'Node', 'MediaStream']) {
   globalThis[key] = window[key];
 }
 globalThis.window = window;
@@ -77,3 +77,43 @@ test('the host element says whether a call rings, is up or is over', (t) => {
   card.hass = hassWith('off');
   assert.equal(card.dataset.call, 'idle');
 });
+
+for (const mode of ['video', 'audio']) {
+  test(`the 100X card plays call audio in ${mode} mode without video frames`, (t) => {
+    const card = makeCard();
+    t.after(() => card.remove());
+    card.hass = hassWith('off');
+    const { audio, video, soundButton } = card._root;
+    const sound = { kind: 'audio' };
+    const picture = { kind: 'video', muted: true };
+    const stream = new MediaStream(mode === 'video' ? [picture, sound] : [sound]);
+    let playRequests = 0;
+    audio.play = async () => playRequests++;
+    card._toggleStream('camera.gate', mode);
+    card._session = { stream, state: 'live', stop() {} };
+    card._syncStream();
+
+    assert.equal(video.hidden, mode === 'audio');
+    assert.equal(video.readyState, 0);
+    assert.equal(video.muted, true);
+    assert.deepEqual(audio.srcObject.getAudioTracks(), [sound]);
+    assert.deepEqual(audio.srcObject.getVideoTracks(), []);
+    card._syncStream();
+    assert.equal(playRequests, 1, 'a state update must not restart audio');
+
+    soundButton.click();
+    assert.equal(audio.muted, true);
+    soundButton.click();
+    assert.equal(audio.muted, false);
+    assert.equal(playRequests, 2);
+
+    card._session.state = 'error';
+    card._syncStream();
+    assert.equal(audio.srcObject, null);
+    card._session.state = 'live';
+    card._syncStream();
+    card._stopStream();
+    assert.equal(audio.srcObject, null);
+    assert.equal(video.srcObject, null);
+  });
+}

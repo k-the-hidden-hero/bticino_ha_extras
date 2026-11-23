@@ -10,6 +10,7 @@
  */
 
 import { BticinoCallSession, CALL_STATE, isChromium } from './shared/webrtc.js';
+import { syncCallAudio } from './shared/call-audio.js';
 import { VERSION } from './shared/version.js';
 
 const CARD_TYPE = 'bticino-100x-card';
@@ -1597,7 +1598,8 @@ class Bticino100xCard extends HTMLElement {
     nodes.content = el('div', { class: 'content' }, [nodes.badges, nodes.features]);
 
     nodes.video = el('video', { class: 'stream-video', autoplay: '', playsinline: '' });
-    nodes.video.muted = false;
+    nodes.video.muted = true;
+    nodes.audio = el('audio', { autoplay: '' });
     // a track can change size mid-call, so listen to both events
     nodes.video.addEventListener('loadedmetadata', () => this._applyVideoAspect());
     nodes.video.addEventListener('resize', () => this._applyVideoAspect());
@@ -1616,6 +1618,7 @@ class Bticino100xCard extends HTMLElement {
     nodes.streamControls = el('div', { class: 'stream-controls' }, [nodes.micButton, nodes.soundButton]);
     nodes.stream = el('div', { class: 'stream' }, [
       nodes.video,
+      nodes.audio,
       nodes.overlay,
       nodes.streamLabel,
       nodes.streamControls,
@@ -2350,6 +2353,7 @@ class Bticino100xCard extends HTMLElement {
     session.stop();
     if (this._root) {
       this._root.video.srcObject = null;
+      this._root.audio.srcObject = null;
       this._root.stream.style.removeProperty('--bt-video-aspect');
     }
   }
@@ -2367,10 +2371,10 @@ class Bticino100xCard extends HTMLElement {
 
   _toggleSound() {
     this._soundOn = !this._soundOn;
-    this._syncStream();
+    this._syncStream(true);
   }
 
-  _syncStream() {
+  _syncStream(resumeAudio = false) {
     // on a call screen the call's controls are buttons in the row, so the row
     // follows every change of the call, not only the player
     if (this._config.layout === 'kiosk' && this._config.show_controls) this._syncButtons(this._status());
@@ -2391,8 +2395,8 @@ class Bticino100xCard extends HTMLElement {
     // keep the player in the layout while it connects, so the card does not
     // collapse and then jump back open when the first frame lands
     nodes.video.hidden = audioOnly;
-    nodes.video.muted = !this._soundOn;
     if (hasVideo) nodes.video.play?.()?.catch(() => {});
+    syncCallAudio(nodes.audio, session.state === CALL_STATE.ERROR ? null : session.stream, !this._soundOn, resumeAudio);
 
     const live = session.state === CALL_STATE.LIVE;
     let overlayIcon = 'mdi:phone-in-talk';
