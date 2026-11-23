@@ -5,10 +5,11 @@ import { pathToFileURL } from 'node:url';
 import { Window } from 'happy-dom';
 
 const window = new Window({ url: 'https://ha.example.test/' });
-for (const key of ['document', 'customElements', 'HTMLElement', 'CustomEvent', 'Event', 'Node']) {
+for (const key of ['document', 'customElements', 'HTMLElement', 'CustomEvent', 'Event', 'Node', 'MediaStream']) {
   globalThis[key] = window[key];
 }
 globalThis.window = window;
+window.customElements.define('home-assistant', class extends window.HTMLElement {});
 Object.defineProperty(globalThis, 'navigator', { value: window.navigator, configurable: true });
 globalThis.history = window.history;
 let tones = 0;
@@ -490,6 +491,43 @@ test('answering starts the selected call only once and ignores state updates unt
   quiet(hass, 'gate');
   card.hass = { ...hass };
   assert.equal(card._playing, true);
+});
+
+test('the regular card plays audio when the video has no frame', () => {
+  const card = makeCard(makeHass());
+  const sound = { kind: 'audio' };
+  const picture = { kind: 'video', muted: true };
+  const call = { state: 'live', stream: new MediaStream([picture, sound]), micActive: false };
+  const video = card.shadowRoot.getElementById('video');
+  const audio = card.shadowRoot.getElementById('call-audio');
+  let playRequests = 0;
+  audio.play = async () => playRequests++;
+  card._playing = true;
+  card._onCallState(call);
+
+  assert.deepEqual(video.srcObject.getVideoTracks(), [picture]);
+  assert.equal(video.readyState, 0);
+  assert.equal(video.muted, true);
+  assert.deepEqual(audio.srcObject.getAudioTracks(), [sound]);
+  assert.deepEqual(audio.srcObject.getVideoTracks(), []);
+  card._onCallState(call);
+  assert.equal(playRequests, 1, 'a state update must not restart audio');
+
+  const volume = card.shadowRoot.getElementById('vc-volume');
+  volume.click();
+  assert.equal(audio.muted, true);
+  volume.click();
+  assert.equal(audio.muted, false);
+  assert.equal(playRequests, 2, 'unmuting can retry playback from a user gesture');
+
+  call.state = 'error';
+  card._onCallState(call);
+  assert.equal(audio.srcObject, null);
+  call.state = 'live';
+  card._onCallState(call);
+  card._hangUp();
+  assert.equal(audio.srcObject, null);
+  assert.equal(video.srcObject, null);
 });
 
 test('ringing during live view keeps its media and shows the overlay and ringtone', () => {
